@@ -78,8 +78,8 @@
       opacity: 0.78;
     }
     .header-row {
-      display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 10px;
+      display: flex; align-items: center; justify-content: flex-start;
+      flex-wrap: wrap; gap: 16px;
       margin-bottom: 24px;
     }
     .section { margin-bottom: 28px; }
@@ -108,14 +108,20 @@
     .hand-btn.locked, text.locked { opacity: 0.35; cursor: not-allowed; }
     .hand-btn.locked:hover { background: var(--surface); color: var(--surface-text); }
     svg { display: block; }
-    #fretboard-wrap { overflow-x: auto; }
+    /* Fretboard/piano shrink to fit their container instead of scrolling —
+       each SVG's width/height attributes are its natural (max) size, and
+       the viewBox preserves aspect ratio, so this only ever scales down,
+       never up past native size. */
+    #fretboard, #piano, #abacus, #chord-matrix { max-width: 100%; height: auto; }
 
     .scale-name { line-height: 1.5; }
     .scale-name .name { font-size: 1.05rem; font-weight: 600; color: var(--accent-text); }
     .scale-name .name.fallback { font-weight: 400; font-style: italic; color: var(--text-muted); }
-    .scale-name .formula { display: block; font-size: 0.78rem; opacity: 0.82; letter-spacing: 0.02em; }
 
-    .hand-toggle { display: flex; gap: 5px; }
+    .note-count-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .note-count-label { font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.55; font-weight: 500; }
+
+    .hand-toggle { display: flex; flex-wrap: wrap; gap: 5px; }
     #piano { display: block; }
 
     .mode-controls { display: flex; align-items: center; gap: 8px; outline: none; margin: 8px 0; }
@@ -187,7 +193,12 @@
     }
 
     .setup-row { display: flex; flex-wrap: wrap; gap: 20px 32px; }
-    .setup-group { flex: 0 0 auto; }
+    /* max-width caps it to whatever the row actually has available, so its
+       own hand-toggle buttons wrap onto a second line instead of
+       overflowing — flex-wrap only activates once a container's width is
+       actually constrained, and flex: 0 0 auto alone leaves it free to
+       size to its unwrapped (max-content) width. */
+    .setup-group { flex: 0 0 auto; max-width: 100%; }
     .sub-toggle { margin-top: 6px; }
 
     .root-select-mobile { display: none; width: 100%; padding: 6px; background: var(--surface);

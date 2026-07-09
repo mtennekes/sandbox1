@@ -47,6 +47,10 @@
           <button id="mode-next" class="arm-btn" aria-label="Next mode">&#9654;</button>
         </div>
         <div id="scale-name" class="scale-name"></div>
+        <div class="note-count-row">
+          <span class="note-count-label">Notes</span>
+          <div class="hand-toggle" id="note-count-wrap"></div>
+        </div>
       </div>
 
       <div class="section">
@@ -139,8 +143,8 @@
           <button class="hand-btn" data-count="8">8</button>
         </div>
         <span class="sep">|</span>
-        <label><input type="radio" name="rowmode" value="families" checked> Families</label>
-        <label><input type="radio" name="rowmode" value="modes"> Modes</label>
+        <label><input type="radio" name="rowmode" value="families"> Families</label>
+        <label><input type="radio" name="rowmode" value="modes" checked> Modes</label>
         <span class="sep">|</span>
         <label><input type="checkbox" id="show-empty"> Show empty slots</label>
       </div>

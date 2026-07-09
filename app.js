@@ -19,6 +19,31 @@ function rotateToDegree(set, k) {
   return set.map(x => ((x - d) % 12 + 12) % 12).sort((a, b) => a - b);
 }
 
+// Reshape `set` to have exactly `n` notes. Rather than greedily add/remove
+// notes from the current shape (which, starting from something symmetric
+// like the chromatic set, tends to wander into obscure, lopsided results —
+// e.g. going 12 -> 7 landing on some barely-used altered scale instead of
+// anything recognizable), this picks the "maximally even" n-note necklace
+// for that count — the textbook evenly-spaced shape (this is what the
+// standard scale families actually are: this formula lands exactly on
+// major/Ionian at n=7, whole-tone at n=6, and a real octatonic mode at
+// n=8; the +0.75 phase offset is tuned so n=7's default rotation is
+// specifically Ionian rather than some other, less iconic diatonic mode)
+// — and, among that necklace's n possible rotations, keeps whichever one
+// shares the most notes with the current scale. Root (index 0) is always
+// included, since every rotation of a necklace containing 0 is tried.
+function resampleScaleToCount(set, n) {
+  if (set.length === n) return set.slice();
+  const base = intervalSet(Array.from({ length: n }, (_, i) => Math.floor(i * 12 / n + 0.75)));
+  let best = base, bestScore = -1;
+  for (let k = 0; k < base.length; k++) {
+    const candidate = rotateToDegree(base, k);
+    const score = candidate.filter(pc => set.includes(pc)).length;
+    if (score > bestScore) { bestScore = score; best = candidate; }
+  }
+  return best;
+}
+
 //const PAL = [
 //  "#FFFFFF","#BE0032","#377EB8","#BF5B17","#FF7F00","#4DAF4A",
 //  "#DC050C","#a0a0a0","#AC8763","#F781BF","#F0E442","#AB4EF3"
@@ -1002,9 +1027,26 @@ function renderName() {
   }
   const el = document.getElementById('scale-name');
   const label = name === 'no common name' ? name : `${NOTE_NAMES[rootPitchClass]} ${name}`;
-  el.innerHTML =
-    `<span class="name${r.exact ? '' : ' fallback'}">${label}</span>` +
-    `<span class="formula">${r.formula}</span>`;
+  // No note-name/degree formula line here — that's already shown live on
+  // the abacus beads themselves, so repeating it under the name was
+  // redundant.
+  el.innerHTML = `<span class="name${r.exact ? '' : ' fallback'}">${label}</span>`;
+}
+
+// Playful "how many notes" control, independent of the curated scale
+// catalog — picks whatever n-note shape is closest to the current one
+// (resampleScaleToCount), not a named scale. 4-12 covers everything from
+// sparse/exotic down-to tetratonic up through the full chromatic set.
+function renderNoteCountButtons() {
+  const wrap = document.getElementById('note-count-wrap');
+  wrap.innerHTML = '';
+  for (let n = 4; n <= 12; n++) {
+    const b = document.createElement('button');
+    b.className = 'hand-btn' + (scaleOffsets.length === n ? ' active' : '');
+    b.textContent = n;
+    b.onclick = () => { scaleOffsets = resampleScaleToCount(scaleOffsets, n); render(); };
+    wrap.appendChild(b);
+  }
 }
 
 // ── §1 root cycling — animated mode stepping on the abacus itself ───────────
@@ -1267,7 +1309,7 @@ let NUT_B = TUNINGS[instrument === 'piano' ? 'guitar' : instrument].nutB; // top
 const OPEN_GAP = 42;             // canonical x-gap for the open-string column, before per-string compression
 const PIVOT_FRET = 9;            // the one fret that renders perfectly vertical (all strings coincide there)
 
-let orientation = localStorage.getItem('n4a-orientation') || 'left';
+let orientation = localStorage.getItem('n4a-orientation') || 'right';
 
 // Geometry is always computed in canonical (right-handed) space; `mirror`
 // flips only the final x-coordinate so text glyphs are never CSS-flipped.
@@ -1494,6 +1536,23 @@ function renderFretboard() {
     hit.addEventListener('click', () => playPhysicalNote(midi));
     svg.appendChild(hit);
   });
+
+  // Trim the viewBox to what's actually drawn, instead of the fixed
+  // 1110×250 canvas. That fixed canvas has to be wide enough for the
+  // widest case (8-string bass with full tuning-knob margin), so anything
+  // narrower — e.g. 6-string guitar — left dead space on one side. For
+  // left-handed orientation that dead space mirrors to the *left*,
+  // reading as wasted margin rather than a bigger-looking neck. getBBox()
+  // measures the true drawn extent for this specific render (instrument,
+  // string count, and orientation are all already baked into every
+  // coordinate above), so every combination uses exactly the space it
+  // needs — paired with the CSS max-width:100%/height:auto rule, this is
+  // also what lets the whole thing shrink to fit instead of scrolling.
+  const bboxPad = 8;
+  const bbox = svg.getBBox();
+  svg.setAttribute('viewBox', `${bbox.x - bboxPad} ${bbox.y - bboxPad} ${bbox.width + bboxPad * 2} ${bbox.height + bboxPad * 2}`);
+  svg.setAttribute('width', Math.round(bbox.width + bboxPad * 2));
+  svg.setAttribute('height', Math.round(bbox.height + bboxPad * 2));
 }
 
 function renderHandToggle() {
@@ -1720,7 +1779,7 @@ function renderPiano() {
 
 // ── §2 scale reference table ─────────────────────────────────────────────────
 
-let refRowMode = 'families';   // 'families' | 'modes'
+let refRowMode = 'modes';   // 'families' | 'modes'
 let showEmptySlots = false;
 let refNoteCount = 7;          // 5 | 6 | 7 | 8 — which catalog rows are on offer (Increment 3 §8)
 
@@ -1902,11 +1961,11 @@ let chordColorMode  = localStorage.getItem('n4a-chord-color') || 'scale';    // 
 let chordExpanded   = localStorage.getItem('n4a-chord-expanded') === 'true'; // default: collapsed
 let selectedChordDegree = null; // 0..6, or null — click a column to select/deselect
 
-const CH_BR = 9;        // chord-tone bead radius
-const CH_GAP = 22;      // vertical distance between stacked tone centers
-const CH_TOP = 6;       // gap between the abacus track and the first bead
-const CH_LABEL_GAP = 22; // gap between the last bead's edge and the roman-numeral baseline (~half a text line-height more than the beads' own spacing, so the labels read as clearly separate from the bead stack)
-const CH_LABEL_LINE = 12; // baseline-to-baseline spacing from the roman numeral down to the absolute chord name below it
+const CH_BR = 13;       // chord-tone bead radius
+const CH_GAP = 30;      // vertical distance between stacked tone centers
+const CH_TOP = 8;       // gap between the abacus track and the first bead
+const CH_LABEL_GAP = 24; // gap between the last bead's edge and the roman-numeral baseline (~half a text line-height more than the beads' own spacing, so the labels read as clearly separate from the bead stack)
+const CH_LABEL_LINE = 14; // baseline-to-baseline spacing from the roman numeral down to the absolute chord name below it
 
 // tonePc is a pitch class relative to the scale root (same convention as
 // scaleOffsets/icolor). In chord-root mode, recolor relative to the chord's
@@ -1962,7 +2021,7 @@ function renderChordMatrix() {
         stroke: 'rgba(255,255,255,0.25)', 'stroke-width': 1
       }));
       col.appendChild(mk('text', {
-        x, y: cy + 3, 'text-anchor': 'middle', 'font-size': 8, 'font-weight': 'bold',
+        x, y: cy + 4, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 'bold',
         fill: chordToneTextColor(chord, pc), 'pointer-events': 'none'
       }, chordToneDisplayLabel(chord, pos, pc)));
     });
@@ -1970,7 +2029,7 @@ function renderChordMatrix() {
     const romanY = lastCy + CH_BR + CH_LABEL_GAP - 3;
     col.appendChild(mk('text', {
       x, y: romanY, 'text-anchor': 'middle',
-      'font-size': 11, 'font-weight': 'bold',
+      'font-size': 13, 'font-weight': 'bold',
       fill: chord.quality.fallback ? 'rgba(255,255,255,0.5)' : '#ffffff',
       'font-style': chord.quality.fallback ? 'italic' : 'normal'
     }, romanNumeralFor(chord)));
@@ -1980,7 +2039,7 @@ function renderChordMatrix() {
     // secondary reading.
     col.appendChild(mk('text', {
       x, y: romanY + CH_LABEL_LINE, 'text-anchor': 'middle',
-      'font-size': 9,
+      'font-size': 10,
       fill: chord.quality.fallback ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.75)',
       'font-style': chord.quality.fallback ? 'italic' : 'normal'
     }, chordAbsoluteSymbol(chord)));
@@ -2651,6 +2710,7 @@ function render() {
   renderRoot();
   renderAbacus();
   renderName();
+  renderNoteCountButtons();
   renderModeLabel();
   renderChordMatrix();
   renderInstrumentView();
