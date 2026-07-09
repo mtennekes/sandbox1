@@ -19,31 +19,6 @@ function rotateToDegree(set, k) {
   return set.map(x => ((x - d) % 12 + 12) % 12).sort((a, b) => a - b);
 }
 
-// Reshape `set` to have exactly `n` notes. Rather than greedily add/remove
-// notes from the current shape (which, starting from something symmetric
-// like the chromatic set, tends to wander into obscure, lopsided results —
-// e.g. going 12 -> 7 landing on some barely-used altered scale instead of
-// anything recognizable), this picks the "maximally even" n-note necklace
-// for that count — the textbook evenly-spaced shape (this is what the
-// standard scale families actually are: this formula lands exactly on
-// major/Ionian at n=7, whole-tone at n=6, and a real octatonic mode at
-// n=8; the +0.75 phase offset is tuned so n=7's default rotation is
-// specifically Ionian rather than some other, less iconic diatonic mode)
-// — and, among that necklace's n possible rotations, keeps whichever one
-// shares the most notes with the current scale. Root (index 0) is always
-// included, since every rotation of a necklace containing 0 is tried.
-function resampleScaleToCount(set, n) {
-  if (set.length === n) return set.slice();
-  const base = intervalSet(Array.from({ length: n }, (_, i) => Math.floor(i * 12 / n + 0.75)));
-  let best = base, bestScore = -1;
-  for (let k = 0; k < base.length; k++) {
-    const candidate = rotateToDegree(base, k);
-    const score = candidate.filter(pc => set.includes(pc)).length;
-    if (score > bestScore) { bestScore = score; best = candidate; }
-  }
-  return best;
-}
-
 //const PAL = [
 //  "#FFFFFF","#BE0032","#377EB8","#BF5B17","#FF7F00","#4DAF4A",
 //  "#DC050C","#a0a0a0","#AC8763","#F781BF","#F0E442","#AB4EF3"
@@ -186,7 +161,7 @@ let labelMode = localStorage.getItem('n4a-label-mode') || 'relative';
 // labels by default) or 'advanced' (today's full catalog) — a permanent,
 // visible toggle rather than a dev-only switch, since intermediate users
 // may want to flip between the two depending on mood.
-let viewMode = localStorage.getItem('n4a-view-mode') || 'advanced';
+let viewMode = localStorage.getItem('n4a-view-mode') || 'beginner';
 
 // 'free' or 'paid' — set via ?tier=free|paid in the URL, then persisted so
 // it sticks across visits without needing the param every time. No visible
@@ -854,9 +829,9 @@ function setViewMode(mode) {
   document.getElementById('mode-controls').style.display = mode === 'beginner' ? 'none' : '';
   document.querySelector('.ref-controls').style.display = mode === 'beginner' ? 'none' : '';
   document.getElementById('diatonic-chords-section').style.display = mode === 'beginner' ? 'none' : '';
-  document.getElementById('abacus-label').textContent = mode === 'beginner'
-    ? 'Scale intervals — drag beads to reshape scale'
-    : 'Scale intervals — drag beads to reshape scale, or step through modes';
+  // Beginner always shows absolute note names (forced below), so the
+  // toggle itself is just noise there — one less thing to explain.
+  document.getElementById('labels-group').style.display = mode === 'beginner' ? 'none' : '';
   if (mode === 'beginner') setLabelMode('absolute'); // also re-renders table/abacus/etc.
   else renderTable();
 }
@@ -1033,20 +1008,23 @@ function renderName() {
   el.innerHTML = `<span class="name${r.exact ? '' : ' fallback'}">${label}</span>`;
 }
 
-// Playful "how many notes" control, independent of the curated scale
-// catalog — picks whatever n-note shape is closest to the current one
-// (resampleScaleToCount), not a named scale. 4-12 covers everything from
-// sparse/exotic down-to tetratonic up through the full chromatic set.
-function renderNoteCountButtons() {
-  const wrap = document.getElementById('note-count-wrap');
-  wrap.innerHTML = '';
-  for (let n = 4; n <= 12; n++) {
-    const b = document.createElement('button');
-    b.className = 'hand-btn' + (scaleOffsets.length === n ? ' active' : '');
-    b.textContent = n;
-    b.onclick = () => { scaleOffsets = resampleScaleToCount(scaleOffsets, n); render(); };
-    wrap.appendChild(b);
+// "See all 12 notes" toggle — active exactly when the current scale
+// already *is* the full chromatic set (the only way to have all 12 pitch
+// classes present). Toggling off restores whatever scale was loaded right
+// before switching to chromatic, rather than some fixed default.
+let preChromaticScale = null;
+
+function toggleChromatic() {
+  if (scaleOffsets.length === 12) {
+    scaleOffsets = (preChromaticScale || [0, 2, 4, 5, 7, 9, 11]).slice();
+  } else {
+    preChromaticScale = scaleOffsets.slice();
+    scaleOffsets = Array.from({ length: 12 }, (_, i) => i);
   }
+  render();
+}
+function syncChromaticToggle() {
+  document.getElementById('chromatic-toggle').classList.toggle('active', scaleOffsets.length === 12);
 }
 
 // ── §1 root cycling — animated mode stepping on the abacus itself ───────────
@@ -1180,6 +1158,11 @@ const TUNINGS = {
   // tunings (ukulele's G string, banjo's 5th "drone" string) fall out
   // correctly here since these are real absolute notes, not derived from a
   // monotonic string-to-string interval.
+  // Baseline is standard 6-string tuning with the low E dropped (a real,
+  // sometimes-used simplification); "Jacob Collier" is a named preset
+  // below, not the baseline, since it's a specific alternate tuning, not
+  // "the" 5-string guitar tuning.
+  guitar5: { openPc: [4, 11, 7, 2, 9],            openMidi: [64, 59, 55, 50, 45],                 thickness: [0.8, 3.0], nutT: 58,   nutB: 190 },  // E4 B3 G3 D3 A2
   guitar:  { openPc: [4, 11, 7, 2, 9, 4],         openMidi: [64, 59, 55, 50, 45, 40],             thickness: [0.8, 3.0], nutT: 49,   nutB: 199 },  // E4 B3 G3 D3 A2 E2
   guitar7: { openPc: [4, 11, 7, 2, 9, 4, 11],     openMidi: [64, 59, 55, 50, 45, 40, 35],         thickness: [0.8, 3.0], nutT: 43,   nutB: 205 },  // adds low B1
   guitar8: { openPc: [4, 11, 7, 2, 9, 4, 11, 6],  openMidi: [64, 59, 55, 50, 45, 40, 35, 30],     thickness: [0.7, 3.0], nutT: 43.5, nutB: 204.5 }, // adds low B1, F#1
@@ -1196,7 +1179,7 @@ const INSTRUMENT_FAMILY = {
   ukulele: 'ukulele', mandolin: 'mandolin', banjo: 'banjo', piano: 'piano'
 };
 const INSTRUMENT_LABEL = {
-  guitar: 'Guitar', guitar7: 'Guitar (7-string)', guitar8: 'Guitar (8-string)',
+  guitar5: 'Guitar (5-string)', guitar: 'Guitar', guitar7: 'Guitar (7-string)', guitar8: 'Guitar (8-string)',
   bass: 'Bass', bass5: 'Bass (5-string)', bass6: 'Bass (6-string)',
   ukulele: 'Ukulele', mandolin: 'Mandolin', banjo: 'Banjo', piano: 'Piano'
 };
@@ -1252,6 +1235,11 @@ function adjustTuning(s, delta) {
 // worth double-checking against a source you trust before treating them as
 // gospel the way the guitar/bass ones can be.
 const TUNING_PRESETS = {
+  // 'Jacob Collier' is D2 A2 E3 A3 D4 low to high — a symmetric tuning
+  // spanning exactly 2 octaves (5th, 5th, 4th, 4th between strings), given
+  // directly by the user rather than sourced independently; offsets here
+  // are that tuning's distance from this baseline (E4 B3 G3 D3 A2).
+  guitar5:  { 'Jacob Collier': [-2, -2, -3, -5, -7], 'Standard': [0, 0, 0, 0, 0] },
   guitar:   { 'Standard': [0, 0, 0, 0, 0, 0], 'Drop D': [0, 0, 0, 0, 0, -2], 'Drop C': [-2, -2, -2, -2, -2, -4],
               'Open G': [-2, 0, 0, 0, -2, -2], 'Open D': [-2, -2, -1, 0, 0, -2], 'DADGAD': [-2, -2, 0, 0, 0, -2] },
   guitar7:  { 'Standard': [0, 0, 0, 0, 0, 0, 0], 'Drop A': [0, 0, 0, 0, 0, 0, -2] },
@@ -1358,6 +1346,8 @@ const BASE_MARKER_R = 9.6;
 function fbR(s) { return BASE_MARKER_R * stringSizeFactor(s); }
 
 const DIM_NOTE_COLOR = '#5c6270'; // uniform neutral for non-chord notes when a chord is selected
+
+let lastFretboardBBoxKey = null; // instrument+orientation the current viewBox was measured for
 
 function renderFretboard() {
   const svg = document.getElementById('fretboard');
@@ -1548,11 +1538,24 @@ function renderFretboard() {
   // coordinate above), so every combination uses exactly the space it
   // needs — paired with the CSS max-width:100%/height:auto rule, this is
   // also what lets the whole thing shrink to fit instead of scrolling.
-  const bboxPad = 8;
-  const bbox = svg.getBBox();
-  svg.setAttribute('viewBox', `${bbox.x - bboxPad} ${bbox.y - bboxPad} ${bbox.width + bboxPad * 2} ${bbox.height + bboxPad * 2}`);
-  svg.setAttribute('width', Math.round(bbox.width + bboxPad * 2));
-  svg.setAttribute('height', Math.round(bbox.height + bboxPad * 2));
+  //
+  // getBBox() forces a synchronous layout reflow — cheap once, but
+  // renderFretboard() itself re-runs on *every* render() (clicking a note,
+  // changing the root, anything), even when the neck's actual shape
+  // hasn't changed at all. Only instrument and orientation affect the
+  // drawn extent, so only recompute when one of those actually changed;
+  // otherwise reuse the viewBox already set (content still redraws fine —
+  // every coordinate above is in the same fixed canonical space regardless
+  // of which viewBox window is currently looking at it).
+  const bboxKey = instrument + '|' + orientation;
+  if (bboxKey !== lastFretboardBBoxKey) {
+    const bboxPad = 8;
+    const bbox = svg.getBBox();
+    svg.setAttribute('viewBox', `${bbox.x - bboxPad} ${bbox.y - bboxPad} ${bbox.width + bboxPad * 2} ${bbox.height + bboxPad * 2}`);
+    svg.setAttribute('width', Math.round(bbox.width + bboxPad * 2));
+    svg.setAttribute('height', Math.round(bbox.height + bboxPad * 2));
+    lastFretboardBBoxKey = bboxKey;
+  }
 }
 
 function renderHandToggle() {
@@ -1578,7 +1581,12 @@ function setInstrument(instr) {
     STRING_COUNT = OPEN_PC.length;
     NUT_T = TUNINGS[instr].nutT;
     NUT_B = TUNINGS[instr].nutB;
-    tuningOffset = new Array(STRING_COUNT).fill(0);
+    // Every other instrument defaults to plain Standard (all-zero offsets)
+    // — guitar5 is the one exception, defaulting to the Jacob Collier
+    // preset instead, since that's the actual reason it exists.
+    tuningOffset = instr === 'guitar5'
+      ? TUNING_PRESETS.guitar5['Jacob Collier'].slice()
+      : new Array(STRING_COUNT).fill(0);
   }
   updateInstrumentUI();
   renderInstrumentView();
@@ -1621,7 +1629,7 @@ function updateInstrumentUI() {
 
   document.getElementById('guitar-strings-wrap').style.display = family === 'guitar' ? 'flex' : 'none';
   document.getElementById('bass-strings-wrap').style.display = family === 'bass' ? 'flex' : 'none';
-  [6, 7, 8].forEach(n => {
+  [5, 6, 7, 8].forEach(n => {
     const btn = document.getElementById('guitar-strings-' + n);
     btn.classList.toggle('active', guitarStrings === n);
     const locked = tier === 'free' && n !== 6;
@@ -1958,14 +1966,13 @@ function renderTable() {
 
 let chordSevenths   = localStorage.getItem('n4a-chord-sevenths-2') === 'true'; // default: triad
 let chordColorMode  = localStorage.getItem('n4a-chord-color') || 'scale';    // 'scale' | 'chord'
-let chordExpanded   = localStorage.getItem('n4a-chord-expanded') === 'true'; // default: collapsed
 let selectedChordDegree = null; // 0..6, or null — click a column to select/deselect
 
-const CH_BR = 13;       // chord-tone bead radius
-const CH_GAP = 30;      // vertical distance between stacked tone centers
-const CH_TOP = 8;       // gap between the abacus track and the first bead
-const CH_LABEL_GAP = 24; // gap between the last bead's edge and the roman-numeral baseline (~half a text line-height more than the beads' own spacing, so the labels read as clearly separate from the bead stack)
-const CH_LABEL_LINE = 14; // baseline-to-baseline spacing from the roman numeral down to the absolute chord name below it
+const CH_BR = 13;         // chord-tone bead radius
+const CH_GAP = 30;        // vertical distance between stacked tone centers
+const CH_ROMAN_Y = 12;    // roman-numeral baseline, above the beads
+const CH_TOP = 14;        // gap between the roman numeral and the first (root) bead
+const CH_LABEL_GAP = 24;  // gap between the last bead's edge and the absolute-name baseline
 
 // tonePc is a pitch class relative to the scale root (same convention as
 // scaleOffsets/icolor). In chord-root mode, recolor relative to the chord's
@@ -1986,8 +1993,10 @@ function renderChordMatrix() {
 
   const chords = chordsInScale(scaleOffsets, chordSevenths, compositeAddedInfoFor(scaleOffsets));
   const toneCount = chordSevenths ? 4 : 3;
-  const lastCy = CH_TOP + CH_BR + (toneCount - 1) * CH_GAP;
-  const h = lastCy + CH_BR + CH_LABEL_GAP + CH_LABEL_LINE;
+  const firstCy = CH_ROMAN_Y + CH_TOP + CH_BR; // y-center of the root (first-stacked) bead
+  const lastCy = firstCy + (toneCount - 1) * CH_GAP;
+  const absoluteY = lastCy + CH_BR + CH_LABEL_GAP;
+  const h = absoluteY + 6; // bottom padding for the absolute-name text
   svg.setAttribute('viewBox', `0 0 760 ${h}`);
   svg.setAttribute('height', h);
 
@@ -2006,8 +2015,18 @@ function renderChordMatrix() {
       stroke: '#1d2b4a', 'stroke-width': 1
     }));
 
+    // Roman numeral first (which degree this is), then the actual notes,
+    // then the absolute spelling last — reading top to bottom follows how
+    // you'd actually think about it.
+    col.appendChild(mk('text', {
+      x, y: CH_ROMAN_Y, 'text-anchor': 'middle',
+      'font-size': 13, 'font-weight': 'bold',
+      fill: chord.quality.fallback ? 'rgba(255,255,255,0.5)' : '#ffffff',
+      'font-style': chord.quality.fallback ? 'italic' : 'normal'
+    }, romanNumeralFor(chord)));
+
     chord.tonesPc.forEach((pc, pos) => {
-      const cy = CH_TOP + CH_BR + pos * CH_GAP;
+      const cy = firstCy + pos * CH_GAP;
       if (pos === 0) {
         col.appendChild(mk('circle', {
           cx: x, cy, r: CH_BR + 3, fill: 'none',
@@ -2026,21 +2045,13 @@ function renderChordMatrix() {
       }, chordToneDisplayLabel(chord, pos, pc)));
     });
 
-    const romanY = lastCy + CH_BR + CH_LABEL_GAP - 3;
+    // Absolute chord name, below the beads — full size now rather than a
+    // secondary/smaller line, since chords are always visible rather than
+    // an optional expanded extra, both readings deserve equal weight.
     col.appendChild(mk('text', {
-      x, y: romanY, 'text-anchor': 'middle',
+      x, y: absoluteY, 'text-anchor': 'middle',
       'font-size': 13, 'font-weight': 'bold',
-      fill: chord.quality.fallback ? 'rgba(255,255,255,0.5)' : '#ffffff',
-      'font-style': chord.quality.fallback ? 'italic' : 'normal'
-    }, romanNumeralFor(chord)));
-
-    // Absolute chord name, under the relative (roman numeral) one — same
-    // fallback/approximate treatment, just one size down since it's the
-    // secondary reading.
-    col.appendChild(mk('text', {
-      x, y: romanY + CH_LABEL_LINE, 'text-anchor': 'middle',
-      'font-size': 10,
-      fill: chord.quality.fallback ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.75)',
+      fill: chord.quality.fallback ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.9)',
       'font-style': chord.quality.fallback ? 'italic' : 'normal'
     }, chordAbsoluteSymbol(chord)));
 
@@ -2054,11 +2065,6 @@ function renderChordMatrix() {
 
     svg.appendChild(col);
   });
-}
-
-function updateChordExpanded() {
-  document.getElementById('chord-matrix-wrap').style.display = chordExpanded ? 'block' : 'none';
-  document.getElementById('chord-chevron').innerHTML = chordExpanded ? '&#9660;' : '&#9654;';
 }
 
 function setChordSevenths(v) {
@@ -2710,7 +2716,7 @@ function render() {
   renderRoot();
   renderAbacus();
   renderName();
-  renderNoteCountButtons();
+  syncChromaticToggle();
   renderModeLabel();
   renderChordMatrix();
   renderInstrumentView();
@@ -2745,6 +2751,9 @@ document.getElementById('label-mode-absolute').onclick = () => setLabelMode('abs
 document.getElementById('view-mode-beginner').onclick = () => setViewMode('beginner');
 document.getElementById('view-mode-advanced').onclick = () => setViewMode('advanced');
 
+// wire up the chromatic toggle
+document.getElementById('chromatic-toggle').onclick = () => toggleChromatic();
+
 // wire up instrument toggle (family buttons + string-count sub-toggles)
 document.getElementById('instr-guitar').onclick   = () => setInstrumentFamily('guitar');
 document.getElementById('instr-bass').onclick     = () => setInstrumentFamily('bass');
@@ -2752,6 +2761,7 @@ document.getElementById('instr-ukulele').onclick  = () => setInstrumentFamily('u
 document.getElementById('instr-mandolin').onclick = () => setInstrumentFamily('mandolin');
 document.getElementById('instr-banjo').onclick    = () => setInstrumentFamily('banjo');
 document.getElementById('instr-piano').onclick    = () => setInstrumentFamily('piano');
+document.getElementById('guitar-strings-5').onclick = () => setGuitarStrings(5);
 document.getElementById('guitar-strings-6').onclick = () => setGuitarStrings(6);
 document.getElementById('guitar-strings-7').onclick = () => setGuitarStrings(7);
 document.getElementById('guitar-strings-8').onclick = () => setGuitarStrings(8);
@@ -2779,19 +2789,6 @@ document.getElementById('root-select-mobile').addEventListener('change', e => {
 });
 
 // wire up chord matrix controls
-document.getElementById('chord-header').addEventListener('click', () => {
-  chordExpanded = !chordExpanded;
-  localStorage.setItem('n4a-chord-expanded', chordExpanded);
-  updateChordExpanded();
-  // Collapsing hides the selected chord's highlight/dimming without
-  // clearing it — deselect so the fretboard/piano go back to normal and
-  // re-expanding doesn't come back with a stale selection.
-  if (!chordExpanded && selectedChordDegree !== null) {
-    selectedChordDegree = null;
-    renderChordMatrix();
-    renderInstrumentView();
-  }
-});
 document.getElementById('chord-triad-btn').onclick   = () => setChordSevenths(false);
 document.getElementById('chord-seventh-btn').onclick = () => setChordSevenths(true);
 document.getElementById('chord-color-scale-btn').onclick = () => setChordColorMode('scale');
@@ -2825,6 +2822,5 @@ document.getElementById('label-mode-relative').classList.toggle('active', labelM
 document.getElementById('label-mode-absolute').classList.toggle('active', labelMode === 'absolute');
 setViewMode(viewMode); // syncs beginner/advanced UI + renders the table once
 
-updateChordExpanded();
 updateChordToggleButtons();
 render();

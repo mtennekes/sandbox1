@@ -114,17 +114,17 @@
        never up past native size. */
     #fretboard, #piano, #abacus, #chord-matrix { max-width: 100%; height: auto; }
 
-    .scale-name { line-height: 1.5; }
+    .scale-name { line-height: 1.5; margin-bottom: 10px; }
     .scale-name .name { font-size: 1.05rem; font-weight: 600; color: var(--accent-text); }
     .scale-name .name.fallback { font-weight: 400; font-style: italic; color: var(--text-muted); }
 
-    .note-count-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-    .note-count-label { font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.55; font-weight: 500; }
+    #diatonic-chords-section { margin-top: 14px; }
+    .abacus-controls-row { margin-top: 14px; }
 
     .hand-toggle { display: flex; flex-wrap: wrap; gap: 5px; }
     #piano { display: block; }
 
-    .mode-controls { display: flex; align-items: center; gap: 8px; outline: none; margin: 8px 0; }
+    .mode-controls { display: flex; align-items: center; gap: 8px; outline: none; margin-top: 10px; }
     .arm-btn { min-width: 28px; padding: 4px 8px; font-size: 12px; }
     .mode-label { font-size: 0.7rem; opacity: 0.78; min-width: 60px; text-align: center; }
 
@@ -156,9 +156,7 @@
     }
     .ref-play-btn:hover { opacity: 1; }
 
-    .chord-header { cursor: pointer; user-select: none; }
     .chord-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
-    #chord-matrix-wrap { overflow-x: auto; margin-top: 6px; }
     .chord-col { cursor: pointer; }
     .chord-col:hover { filter: brightness(1.2); }
 
@@ -191,6 +189,11 @@
       padding: 18px 20px; border: 1px solid var(--panel-border); border-radius: 10px;
       background: var(--panel-bg);
     }
+    /* Every section inside a group reads as the same kind of thing — a
+       divider plus a small-caps label, whether its content is a button
+       row, a diagram, or (Diatonic chords) a collapsible one — rather than
+       just a bare stack of unrelated widgets with no visual rhythm. */
+    .group .section:not(:first-child) { border-top: 1px solid var(--panel-border); padding-top: 22px; }
 
     .setup-row { display: flex; flex-wrap: wrap; gap: 20px 32px; }
     /* max-width caps it to whatever the row actually has available, so its

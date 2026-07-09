@@ -11,8 +11,8 @@
 <div class="header-row">
   <h1>SpiceMap</h1>
   <div class="hand-toggle" id="view-mode-toggle">
-    <button id="view-mode-beginner" class="hand-btn">Beginner</button>
-    <button id="view-mode-advanced" class="hand-btn active">Advanced</button>
+    <button id="view-mode-beginner" class="hand-btn active">Beginner</button>
+    <button id="view-mode-advanced" class="hand-btn">Advanced</button>
   </div>
 </div>
 
@@ -28,43 +28,19 @@
           <div id="root-selector"></div>
           <select id="root-select-mobile" class="root-select-mobile" aria-label="Root"></select>
         </div>
-
-        <div class="setup-group">
-          <div class="label">Labels</div>
-          <div class="hand-toggle">
-            <button id="label-mode-relative" class="hand-btn active">Relative</button>
-            <button id="label-mode-absolute" class="hand-btn">Absolute</button>
-          </div>
-        </div>
       </div>
 
       <div class="section">
-        <div class="label" id="abacus-label">Scale intervals — drag beads to reshape scale, or step through modes</div>
+        <div id="scale-name" class="scale-name"></div>
         <svg id="abacus" viewBox="0 0 760 80" width="760" height="80"></svg>
         <div class="mode-controls" id="mode-controls" tabindex="0">
           <button id="mode-prev" class="arm-btn" aria-label="Previous mode">&#9664;</button>
           <span id="mode-label" class="mode-label"></span>
           <button id="mode-next" class="arm-btn" aria-label="Next mode">&#9654;</button>
         </div>
-        <div id="scale-name" class="scale-name"></div>
-        <div class="note-count-row">
-          <span class="note-count-label">Notes</span>
-          <div class="hand-toggle" id="note-count-wrap"></div>
-        </div>
-      </div>
 
-      <div class="section">
-        <div class="label">Sound</div>
-        <div class="hand-toggle">
-          <button id="drone-toggle" class="hand-btn">Root drone: off</button>
-          <button id="play-scale-btn" class="hand-btn">&#9654; Play scale</button>
-          <button id="synth-settings-btn" class="hand-btn">&#9881; Setup&hellip;</button>
-        </div>
-      </div>
-
-      <div class="section" id="diatonic-chords-section">
-        <div class="label chord-header" id="chord-header"><span id="chord-chevron">&#9654;</span>&nbsp;Diatonic chords</div>
-        <div id="chord-matrix-wrap" style="display:none;">
+        <div id="diatonic-chords-section">
+          <div class="label">Diatonic chords</div>
           <svg id="chord-matrix" width="760"></svg>
           <div class="chord-controls">
             <div class="hand-toggle">
@@ -77,9 +53,33 @@
               <button id="chord-color-chord-btn" class="hand-btn">Chord-root color</button>
             </div>
           </div>
-          <div class="hand-toggle">
-            <button id="play-chords-btn" class="hand-btn">&#9654; Play chords</button>
+        </div>
+
+        <div class="setup-row abacus-controls-row">
+          <div class="setup-group" id="labels-group">
+            <div class="label">Labels</div>
+            <div class="hand-toggle">
+              <button id="label-mode-relative" class="hand-btn active">Relative</button>
+              <button id="label-mode-absolute" class="hand-btn">Absolute</button>
+            </div>
           </div>
+
+          <div class="setup-group">
+            <div class="label">Notes</div>
+            <div class="hand-toggle">
+              <button id="chromatic-toggle" class="hand-btn">Chromatic</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="label">Sound</div>
+        <div class="hand-toggle">
+          <button id="drone-toggle" class="hand-btn">Root drone: off</button>
+          <button id="play-scale-btn" class="hand-btn">&#9654; Play scale</button>
+          <button id="play-chords-btn" class="hand-btn">&#9654; Play chords</button>
+          <button id="synth-settings-btn" class="hand-btn">&#9881; Setup&hellip;</button>
         </div>
       </div>
 
@@ -99,6 +99,7 @@
             <button id="instr-piano" class="hand-btn">Piano</button>
           </div>
           <div class="hand-toggle sub-toggle" id="guitar-strings-wrap">
+            <button id="guitar-strings-5" class="hand-btn">5-string</button>
             <button id="guitar-strings-6" class="hand-btn active">6-string</button>
             <button id="guitar-strings-7" class="hand-btn">7-string</button>
             <button id="guitar-strings-8" class="hand-btn">8-string</button>
