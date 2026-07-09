@@ -1,0 +1,216 @@
+    /* ── theme tokens ───────────────────────────────────────────────────
+       Chrome (page bg/text, panels, buttons, table, dialog) only — the
+       note-color system (abacus/fretboard/piano/chord-matrix, driven by
+       PAL/icolor in app.js) is a separate, deliberate palette and isn't
+       wired to these yet.
+       Default theme lives on :root; alternates override via
+       :root[data-theme="..."] — picked via the THEME constant near the top
+       of app.js (not exposed in the GUI). */
+    :root {
+      --bg: #16213e;
+      --text: #ffffff;
+      --text-muted: #dde3f7;
+      --panel-bg: rgba(255,255,255,0.02);
+      --panel-solid: #1b2542; /* --bg blended with --panel-bg, as an opaque color (for SVG strokes etc. that can't use the translucent panel-bg directly) */
+      --panel-border: #232f52;
+      --surface: #1d2b4a;
+      --surface-border: #2a3c60;
+      --surface-text: #cbd6f2;
+      --surface-hover-bg: #263566;
+      --surface-hover-text: #e6ecfc;
+      --accent-bg: #3050a0;
+      --accent-border: #5070c0;
+      --accent-text: #e8eeff;
+      --line: #243054;
+      --dialog-bg: #1a2540;
+      --backdrop: rgba(0,0,0,0.5);
+    }
+    :root[data-theme="slate"] {
+      --bg: #1e2126;
+      --text: #eef0f3;
+      --text-muted: #c7ccd6;
+      --panel-bg: rgba(255,255,255,0.03);
+      --panel-solid: #25282d; /* --bg blended with --panel-bg, as an opaque color (for SVG strokes etc. that can't use the translucent panel-bg directly) */
+      --panel-border: #35393f;
+      --surface: #2a2e35;
+      --surface-border: #40454d;
+      --surface-text: #c7ccd6;
+      --surface-hover-bg: #383d45;
+      --surface-hover-text: #f3f4f6;
+      --accent-bg: #5a6478;
+      --accent-border: #7c869a;
+      --accent-text: #f5f6f8;
+      --line: #33373e;
+      --dialog-bg: #26292f;
+      --backdrop: rgba(0,0,0,0.55);
+    }
+    :root[data-theme="paper"] {
+      --bg: #f3efe7;
+      --text: #2a241c;
+      --text-muted: #6b6152;
+      --panel-bg: rgba(0,0,0,0.03);
+      --panel-solid: #ece8e0; /* --bg blended with --panel-bg, as an opaque color (for SVG strokes etc. that can't use the translucent panel-bg directly) */
+      --panel-border: #d9d0bd;
+      --surface: #ffffff;
+      --surface-border: #d9d0bd;
+      --surface-text: #4a4335;
+      --surface-hover-bg: #ece4d3;
+      --surface-hover-text: #2a241c;
+      --accent-bg: #b08d3e;
+      --accent-border: #8f7130;
+      --accent-text: #ffffff;
+      --line: #d9d0bd;
+      --dialog-bg: #ffffff;
+      --backdrop: rgba(0,0,0,0.25);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 28px 24px;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.78;
+      margin-bottom: 24px;
+    }
+    .section { margin-bottom: 28px; }
+    .label {
+      font-size: 0.62rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      opacity: 0.55;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+    .label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .label-row .label { margin-bottom: 0; }
+    #root-selector { display: flex; gap: 5px; flex-wrap: wrap; }
+    .root-btn, .hand-btn, .arm-btn {
+      padding: 5px 9px; min-width: 36px;
+      background: var(--surface); border: 1px solid var(--surface-border); border-radius: 3px;
+      color: var(--surface-text); cursor: pointer; font-size: 12px; text-align: center;
+      transition: background 0.1s, color 0.1s;
+    }
+    .root-btn:hover, .hand-btn:hover, .arm-btn:hover { background: var(--surface-hover-bg); color: var(--surface-hover-text); }
+    .root-btn.active, .hand-btn.active { background: var(--accent-bg); color: var(--accent-text); border-color: var(--accent-border); }
+    svg { display: block; }
+    #fretboard-wrap { overflow-x: auto; }
+
+    .scale-name { line-height: 1.5; }
+    .scale-name .name { font-size: 1.05rem; font-weight: 600; color: var(--accent-text); }
+    .scale-name .name.fallback { font-weight: 400; font-style: italic; color: var(--text-muted); }
+    .scale-name .formula { display: block; font-size: 0.78rem; opacity: 0.82; letter-spacing: 0.02em; }
+
+    .hand-toggle { display: flex; gap: 5px; }
+    #piano { display: block; }
+
+    .mode-controls { display: flex; align-items: center; gap: 8px; outline: none; margin: 8px 0; }
+    .arm-btn { min-width: 28px; padding: 4px 8px; font-size: 12px; }
+    .mode-label { font-size: 0.7rem; opacity: 0.78; min-width: 60px; text-align: center; }
+
+    .ref-controls { display: flex; align-items: center; gap: 12px; font-size: 12px; margin-bottom: 10px; }
+    .ref-controls .sep { opacity: 0.7; }
+    .ref-controls label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+    #ref-table-wrap { overflow-x: auto; }
+    table.ref-table { border-collapse: collapse; font-size: 11px; }
+    table.ref-table th, table.ref-table td {
+      border: 2px solid var(--line); padding: 4px 7px; text-align: center;
+    }
+    table.ref-table th { font-weight: 500; color: var(--surface-text); }
+    table.ref-table th.ref-row-label { text-align: left; white-space: nowrap; color: var(--text-muted); }
+    table.ref-table th.ref-group-header {
+      text-align: left; background: var(--surface); color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px;
+    }
+    table.ref-table td.ref-cell.filled { color: var(--text); font-weight: 600; }
+    table.ref-table td.ref-cell.empty { background: transparent; opacity: 0.25; }
+    table.ref-table tr.ref-row { cursor: pointer; }
+    table.ref-table tr.ref-row:hover td, table.ref-table tr.ref-row:hover th.ref-row-label { filter: brightness(1.25); }
+    /* A bare ▶ reads as the chord-header's collapse/expand chevron (same
+       glyph, same size) — wrapping it in the universal circled-play-button
+       shape (as on any media player) makes its meaning unambiguous instead. */
+    .ref-play-btn {
+      background: none; border: 1px solid currentColor; border-radius: 50%; color: inherit; cursor: pointer;
+      width: 13px; height: 13px; display: inline-flex; align-items: center; justify-content: center;
+      font-size: 7px; padding: 0; margin-right: 5px; opacity: 0.55; vertical-align: middle;
+    }
+    .ref-play-btn:hover { opacity: 1; }
+
+    .chord-header { cursor: pointer; user-select: none; }
+    .chord-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    #chord-matrix-wrap { overflow-x: auto; margin-top: 6px; }
+    .chord-col { cursor: pointer; }
+    .chord-col:hover { filter: brightness(1.2); }
+
+    #color-legend { margin: 36px 0 12px; }
+    .legend-swatch {
+      display: inline-block; width: 14px; height: 14px; border-radius: 3px;
+      vertical-align: middle; margin-right: 6px; border: 1px solid rgba(255,255,255,0.25);
+    }
+    table.legend-table { border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+    table.legend-table th, table.legend-table td {
+      border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top;
+    }
+    table.legend-table th { font-weight: 600; color: var(--surface-text); }
+    #legend-full-wrap { overflow-x: auto; margin-top: 14px; }
+    #legend-full-wrap table.legend-table td { max-width: 340px; }
+
+    /* ── responsive layout ─────────────────────────────────────────────── */
+    /* Single column below 1100px (reference table falls to the bottom of
+       the stack); a ~70/30 two-column grid above it (main content / always-
+       visible reference table). */
+
+    .layout { display: grid; grid-template-columns: 1fr; gap: 24px; align-items: start; }
+    .col-main { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+    .col-main .section { margin-bottom: 0; } /* spacing comes from the flex gap instead */
+    .col-ref { min-width: 0; }
+
+    /* Two visual groups: scale-focused controls, and instrument-focused controls */
+    .group {
+      display: flex; flex-direction: column; gap: 24px;
+      padding: 18px 20px; border: 1px solid var(--panel-border); border-radius: 10px;
+      background: var(--panel-bg);
+    }
+
+    .setup-row { display: flex; flex-wrap: wrap; gap: 20px 32px; }
+    .setup-group { flex: 0 0 auto; }
+    .sub-toggle { margin-top: 6px; }
+
+    .root-select-mobile { display: none; width: 100%; padding: 6px; background: var(--surface);
+      border: 1px solid var(--surface-border); border-radius: 3px; color: var(--surface-text); font-size: 13px; }
+
+    #tuning-preset { padding: 4px 6px; background: var(--surface); border: 1px solid var(--surface-border);
+      border-radius: 3px; color: var(--surface-text); font-size: 12px; }
+
+    @media (max-width: 699px) {
+      #root-selector { display: none; }
+      .root-select-mobile { display: block; }
+    }
+
+    @media (min-width: 1100px) {
+      .layout { grid-template-columns: minmax(0, 2.4fr) minmax(260px, 1fr); }
+    }
+
+    dialog#synth-dialog {
+      background: var(--dialog-bg); color: var(--text); border: 1px solid var(--surface-border); border-radius: 6px;
+      padding: 18px 22px; width: min(460px, 90vw);
+    }
+    dialog#synth-dialog::backdrop { background: var(--backdrop); }
+    dialog#synth-dialog h2 {
+      font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em;
+      opacity: 0.78; margin-bottom: 14px;
+    }
+    .synth-row { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; }
+    .synth-row label {
+      display: flex; flex-direction: column; gap: 4px; font-size: 11px;
+      opacity: 0.85; flex: 1; min-width: 100px;
+    }
+    .synth-row select, .synth-row input[type="range"] { width: 100%; }
+    .synth-val { opacity: 0.6; font-weight: normal; }
+    .synth-hint { font-size: 10px; opacity: 0.55; margin: -4px 0 12px; line-height: 1.4; }
+    .synth-actions { justify-content: flex-end; margin-top: 4px; }

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SpiceMap</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1>SpiceMap</h1>
+
+<div class="layout" id="layout">
+
+  <div class="col-main">
+
+    <div class="group">
+
+      <div class="section setup-row">
+        <div class="setup-group">
+          <div class="label">Root</div>
+          <div id="root-selector"></div>
+          <select id="root-select-mobile" class="root-select-mobile" aria-label="Root"></select>
+        </div>
+
+        <div class="setup-group">
+          <div class="label">Labels</div>
+          <div class="hand-toggle">
+            <button id="label-mode-relative" class="hand-btn active">Relative</button>
+            <button id="label-mode-absolute" class="hand-btn">Absolute</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="label">Scale intervals — drag beads to reshape scale, or step through modes</div>
+        <svg id="abacus" viewBox="0 0 760 80" width="760" height="80"></svg>
+        <div class="mode-controls" id="mode-controls" tabindex="0">
+          <button id="mode-prev" class="arm-btn" aria-label="Previous mode">&#9664;</button>
+          <span id="mode-label" class="mode-label"></span>
+          <button id="mode-next" class="arm-btn" aria-label="Next mode">&#9654;</button>
+        </div>
+        <div id="scale-name" class="scale-name"></div>
+      </div>
+
+      <div class="section">
+        <div class="label chord-header" id="chord-header"><span id="chord-chevron">&#9654;</span>&nbsp;Diatonic chords</div>
+        <div id="chord-matrix-wrap" style="display:none;">
+          <svg id="chord-matrix" width="760"></svg>
+          <div class="chord-controls">
+            <div class="hand-toggle">
+              <button id="chord-triad-btn" class="hand-btn active">3-note</button>
+              <button id="chord-seventh-btn" class="hand-btn">4-note</button>
+            </div>
+            <span class="sep">|</span>
+            <div class="hand-toggle">
+              <button id="chord-color-scale-btn" class="hand-btn active">Scale-root color</button>
+              <button id="chord-color-chord-btn" class="hand-btn">Chord-root color</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="label">Sound</div>
+        <div class="hand-toggle">
+          <button id="drone-toggle" class="hand-btn">Root drone: off</button>
+          <button id="play-scale-btn" class="hand-btn">&#9654; Play scale</button>
+          <button id="play-chords-btn" class="hand-btn">&#9654; Play chords</button>
+          <button id="synth-settings-btn" class="hand-btn">&#9881; Setup&hellip;</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="group">
+
+      <div class="section setup-row">
+        <div class="setup-group">
+          <div class="label">Instrument</div>
+          <div class="hand-toggle">
+            <button id="instr-guitar" class="hand-btn active">Guitar</button>
+            <button id="instr-bass" class="hand-btn">Bass</button>
+            <button id="instr-ukulele" class="hand-btn">Ukulele</button>
+            <button id="instr-mandolin" class="hand-btn">Mandolin</button>
+            <button id="instr-banjo" class="hand-btn">Banjo</button>
+            <button id="instr-piano" class="hand-btn">Piano</button>
+          </div>
+          <div class="hand-toggle sub-toggle" id="guitar-strings-wrap">
+            <button id="guitar-strings-6" class="hand-btn active">6-string</button>
+            <button id="guitar-strings-7" class="hand-btn">7-string</button>
+            <button id="guitar-strings-8" class="hand-btn">8-string</button>
+          </div>
+          <div class="hand-toggle sub-toggle" id="bass-strings-wrap" style="display:none;">
+            <button id="bass-strings-4" class="hand-btn active">4-string</button>
+            <button id="bass-strings-5" class="hand-btn">5-string</button>
+            <button id="bass-strings-6" class="hand-btn">6-string</button>
+          </div>
+        </div>
+
+        <div class="setup-group" id="handedness-group">
+          <div class="label">Handedness</div>
+          <div class="hand-toggle" id="hand-toggle-wrap">
+            <button id="hand-left" class="hand-btn">Left-handed</button>
+            <button id="hand-right" class="hand-btn">Right-handed</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="fretboard-wrap">
+        <div class="label-row">
+          <div class="label" id="instrument-label">Fretboard — standard tuning — 15 frets</div>
+          <select id="tuning-preset" aria-label="Tuning preset"></select>
+        </div>
+        <svg id="fretboard" viewBox="0 0 1110 250" width="1110" height="250"></svg>
+        <svg id="piano" style="display:none;"></svg>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="col-ref">
+    <div class="section">
+      <div class="label">Scale reference table</div>
+      <div class="ref-controls">
+        <div class="hand-toggle" id="ref-notecount-wrap">
+          <button class="hand-btn" data-count="5">5</button>
+          <button class="hand-btn" data-count="6">6</button>
+          <button class="hand-btn active" data-count="7">7</button>
+          <button class="hand-btn" data-count="8">8</button>
+        </div>
+        <span class="sep">|</span>
+        <label><input type="radio" name="rowmode" value="families" checked> Families</label>
+        <label><input type="radio" name="rowmode" value="modes"> Modes</label>
+        <span class="sep">|</span>
+        <label><input type="checkbox" id="show-empty"> Show empty slots</label>
+      </div>
+      <div id="ref-table-wrap"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" id="color-legend">
+  <div class="label">Note colors — what each one means</div>
+  <table class="legend-table">
+    <thead>
+      <tr><th>Note</th><th>Color</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>R</td><td><span class="legend-swatch" data-degree="0"></span>white</td><td>Home. So central it needs no color of its own.</td></tr>
+      <tr><td>♭2 / ♭9</td><td><span class="legend-swatch" data-degree="1"></span>scarlet</td><td>Spicy, tense, exotic — demands resolution.</td></tr>
+      <tr><td>2 / 9</td><td><span class="legend-swatch" data-degree="2"></span>blue</td><td>Calm, open, unresolved but easy.</td></tr>
+      <tr><td>♭3</td><td><span class="legend-swatch" data-degree="3"></span>brown</td><td>Sad — the minor color.</td></tr>
+      <tr><td>3</td><td><span class="legend-swatch" data-degree="4"></span>orange</td><td>Happy — the major color.</td></tr>
+      <tr><td>4 / 11</td><td><span class="legend-swatch" data-degree="5"></span>green</td><td>Uplifting, reaching upward.</td></tr>
+      <tr><td>♭5 / ♯11</td><td><span class="legend-swatch" data-degree="6"></span>blood red</td><td>Dissonant, unstable — the tritone.</td></tr>
+      <tr><td>5</td><td><span class="legend-swatch" data-degree="7"></span>gray</td><td>Essential, yet emotionally neutral.</td></tr>
+      <tr><td>♭6 / ♯5</td><td><span class="legend-swatch" data-degree="8"></span>forest green</td><td>Enchanting and a little secretive.</td></tr>
+      <tr><td>6 / 13</td><td><span class="legend-swatch" data-degree="9"></span>pink</td><td>Playful, loveable.</td></tr>
+      <tr><td>♭7</td><td><span class="legend-swatch" data-degree="10"></span>gold</td><td>Bluesy — the warm pub-light note.</td></tr>
+      <tr><td>7</td><td><span class="legend-swatch" data-degree="11"></span>purple</td><td>Spiritual, yearning — floating above the harmony.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="label chord-header" id="legend-header"><span id="legend-chevron">&#9654;</span>&nbsp;Full explainer</div>
+  <div id="legend-full-wrap" style="display:none;">
+    <table class="legend-table">
+      <thead>
+        <tr><th>Degree</th><th>Feeling</th><th>Function</th><th>Application</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="legend-swatch" data-degree="0"></span>R (root)</td>
+          <td>Home, grounded, complete</td>
+          <td>The reference point everything else is measured against; no pull of its own</td>
+          <td>Every scale and chord, in every genre — the tonic</td>
+        </tr>
+        <tr>
+          <td><span class="legend-swatch" data-degree="1"></span>♭2 / ♭9</td>
+          <td>Spicy, tense, exotic, passionate</td>
+          <td>A half-step above home; the closest, most urgent interval; demands resolution down into the root</td>
+          <td>Flamenco, Phrygian modes, Middle Eastern and Balkan music, klezmer (<em>freygish</em>); altered-dominant ♭9 chords in jazz; a genre-defining sound in metal, often stacked over a tritone for maximum darkness</td>
+        </tr>
+        <tr>
+          <td><span class="legend-swatch" data-degree="2"></span>2 / 9</td>
+          <td>Peaceful, open, hopeful, gentle</td>
+          <td>A whole step out; passes through or hangs suspended; doesn't demand resolution</td>
+          <td>Sus2 / add9 in pop and folk melodies; dominant 9th and add9 voicings are everywhere in blues, funk, and jazz comping — a 9 chord is practically funk's signature color</td>
+        </tr>
+        <tr>
+          <td><span class="legend-swatch" data-degree="3"></span>♭3</td>
+          <td>Sad, wistful, nostalgic, bittersweet</td>
+          <td>Defines the chord as minor</td>
+          <td>Ubiquitous — defines "minor" in every genre, from classical and jazz to rock, pop, and metal. Also the classic blues "blue note," bent or slid into against a major backing</td>
+        </tr>
+        <tr>
+          <td><span class="legend-swatch" data-degree="4"></span>3</td>
+          <td>Happy, bright, joyful, confident</td>
+          <td>Defines the chord as major</td>
+          <td>Equally ubiquitous — defines "major" in every genre; the bright half of nearly every style's harmonic vocabulary</td>
+        </tr>
+        <tr>
+          <td><span class="legend-swatch" data-degree="5"></span>4 / 11</td>
+          <td>Uplifting, yearning, open</td>
+          <td>Leans toward the 3rd or the 5th; a suspension that wants to move</td>
+          <td>Sus4 chords in rock and pop power ballads; a mainstay of Celtic and modal folk melodies as a passing/drone tone</td>
+        </tr>
+        <tr>
+          <td><span class="legend-swatch" data-degree="6"></span>♭5 / ♯11</td>
+          <td>Dissonant, dangerous, unstable</td>
+          <td>Exact midpoint of the octave (the tritone) — inherently unstable; how much that instability dominates depends on what it's mixed into, not whether it's present</td>
+          <td>Dim7 chords, tritone substitutions, and altered dominants in jazz; a signature interval of metal and horror/thriller scoring, where the tension is the main flavor. In Lydian's maj7♯11, the same edge is folded into an otherwise sweet, floating major chord in jazz and film scoring — still there, like chili stirred into something mostly sweet, just blended rather than dominant</td>
+        </tr>
+        <tr>
+          <td><span class="legend-swatch" data-degree="7"></span>5</td>
+          <td>Stable, solid, essential yet neutral</td>
+          <td>Reinforces the root without adding major/minor color</td>
+          <td>The backbone of the power chord — arguably the single most-used interval in rock, punk, and metal riffing, plus drones across countless traditions worldwide</td>
+        </tr>
+        <tr>
+          <td><span class="legend-swatch" data-degree="8"></span>♭6 / ♯5</td>
+          <td>Enchanting, secretive, mysterious</td>
+          <td>As ♯5: floats between major and minor (augmented ambiguity). As ♭6: leans down into the 5th</td>
+          <td>Augmented chords in jazz and Great American Songbook harmony; harmonic minor, Phrygian dominant, and double harmonic scales (flamenco, klezmer, Egyptian and Arabic maqam music); the same ambiguous, floating quality drives whole-tone harmony in Impressionist classical music</td>
+        </tr>
+        <tr>
+          <td><span class="legend-swatch" data-degree="9"></span>6 / 13</td>
+          <td>Playful, affectionate, tender</td>
+          <td>Adds warmth and sweetness without changing major/minor quality</td>
+          <td>6/9 chords and Dorian mode in jazz and bossa nova comping; a warm staple in gospel and neo-soul voicings too</td>
+        </tr>
+        <tr>
+          <td><span class="legend-swatch" data-degree="10"></span>♭7</td>
+          <td>Bluesy, soulful, gritty</td>
+          <td>Defines dominant-7th / Mixolydian character; the classic V7 pull</td>
+          <td>Dominant 7th chords, blues, and Mixolydian broadly; the twang of country and southern rock (Mixolydian licks); reggae's core minor/dominant-7 chord vocabulary; a funk and R&B staple in dominant 9/13 voicings</td>
+        </tr>
+        <tr>
+          <td><span class="legend-swatch" data-degree="11"></span>7</td>
+          <td>Spiritual, yearning, otherworldly</td>
+          <td>The leading tone — the strongest pull of all, a half-step below home</td>
+          <td>Major7 chords in bebop, gospel, and "floating" jazz ballads; also the note doing the work in the classical cadence (leading tone resolving to tonic) across virtually all Western tonal music</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<dialog id="synth-dialog">
+  <h2>Setup</h2>
+
+  <div class="label">Playback</div>
+  <div class="synth-row">
+    <label>Overall octave <span class="synth-val" id="playback-octave-val"></span>
+      <input type="range" id="playback-octave" min="-2" max="2" step="1">
+    </label>
+    <label>Tempo <span class="synth-val" id="playback-tempo-val"></span>
+      <input type="range" id="playback-tempo" min="0.5" max="2" step="0.1">
+    </label>
+    <label>Sustain <span class="synth-val" id="playback-sustain-val"></span>
+      <input type="range" id="playback-sustain" min="0.25" max="3" step="0.25">
+    </label>
+  </div>
+  <p class="synth-hint">Overall octave and tempo apply to scale/chord playback and individual note clicks; sustain is how long an individual note click rings. Separate from the drone's own settings below.</p>
+
+  <div class="label">Drone</div>
+  <div class="synth-row">
+    <label>Drone instrument
+      <select id="synth-drone-instrument">
+        <option value="synth">Synthesizer</option>
+        <option value="harmonium">Harmonium (sampled)</option>
+        <option value="organ">Organ (sampled)</option>
+      </select>
+    </label>
+  </div>
+  <p class="synth-hint" id="synth-sample-hint" style="display:none;">A single looped recording, pitch-shifted to the root — no custom envelope/oscillator controls below apply, and root changes retune instantly rather than gliding. Harmonium's sustain is steadier and loops more seamlessly than organ's (organ has its own built-in tremolo, which can make the loop point faintly audible).</p>
+
+  <div id="synth-osc-rows">
+    <div class="synth-row">
+      <label>Preset
+        <select id="synth-preset">
+          <option value="">(custom)</option>
+          <option value="triangleEdge">Triangle + edge (default)</option>
+          <option value="sinePad">Plain sine pad</option>
+          <option value="sawPad">Detuned saw pad</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="synth-row">
+      <label style="flex-direction: row; align-items: center; gap: 6px;">
+        <input type="checkbox" id="synth-octave-down"> Layer octave below
+      </label>
+      <label style="flex-direction: row; align-items: center; gap: 6px;">
+        <input type="checkbox" id="synth-octave-up"> Layer octave above
+      </label>
+    </div>
+    <p class="synth-hint">Exact-octave layers, not detuned — they thicken the drone without adding the pulsing that Voices &gt; 1 causes.</p>
+
+    <div class="synth-row">
+      <label>Oscillator
+        <select id="synth-osc-type">
+          <option value="sine">Sine</option>
+          <option value="triangle">Triangle</option>
+          <option value="sawtooth">Sawtooth</option>
+          <option value="square">Square</option>
+        </select>
+      </label>
+      <label>Voices <span class="synth-val" id="synth-voices-val"></span>
+        <input type="range" id="synth-voices" min="1" max="4" step="1">
+      </label>
+      <label>Detune spread <span class="synth-val" id="synth-spread-val"></span>
+        <input type="range" id="synth-spread" min="0" max="40" step="1">
+      </label>
+    </div>
+    <p class="synth-hint">Voices &gt; 1 stacks detuned copies of the oscillator — that's what causes pulsing/beating. Leave voices at 1 for a perfectly static tone.</p>
+
+    <div class="synth-row">
+      <label>Attack <span class="synth-val" id="synth-attack-val"></span><input type="range" id="synth-attack" min="0" max="3" step="0.05"></label>
+      <label>Decay <span class="synth-val" id="synth-decay-val"></span><input type="range" id="synth-decay" min="0" max="2" step="0.05"></label>
+      <label>Sustain <span class="synth-val" id="synth-sustain-val"></span><input type="range" id="synth-sustain" min="0" max="1" step="0.01"></label>
+      <label>Release <span class="synth-val" id="synth-release-val"></span><input type="range" id="synth-release" min="0" max="4" step="0.05"></label>
+    </div>
+
+    <div class="synth-row">
+      <label>Saw edge mix <span class="synth-val" id="synth-edge-val"></span>
+        <input type="range" id="synth-edge" min="0" max="100" step="1">
+      </label>
+    </div>
+    <p class="synth-hint">Edge is always a single plain sawtooth (never detuned) layered underneath for grit — it won't add pulsing regardless of the mix amount.</p>
+  </div>
+
+  <div class="synth-row">
+    <label>Octave <span class="synth-val" id="synth-octave-val"></span>
+      <input type="range" id="synth-octave" min="-2" max="0" step="1">
+    </label>
+    <label>Filter cutoff <span class="synth-val" id="synth-cutoff-val"></span>
+      <input type="range" id="synth-cutoff" min="200" max="12000" step="50">
+    </label>
+  </div>
+
+  <div class="synth-row synth-actions">
+    <button id="synth-reset-btn" class="hand-btn">Reset drone to default</button>
+    <button id="synth-close-btn" class="hand-btn active">Close</button>
+  </div>
+</dialog>
+
+<script src="libs/tone.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
+
