@@ -2014,8 +2014,8 @@ const droneEdgeUp = new Tone.Synth({ oscillator: { type: 'sawtooth' } }).connect
 // gliding, since Player.playbackRate is a plain number, not a rampable
 // Tone.Signal.
 const DRONE_SAMPLE_SOURCES = {
-  harmonium: { url: 'samples/harmonium/C3.mp3', baseMidi: 48, loopStart: 0.8, loopEnd: 11.7, fade: 0.02 },
-  organ:     { url: 'samples/organ/C3.mp3',      baseMidi: 48, loopStart: 0.8, loopEnd: 10.0, fade: 0.02 },
+  harmonium: { url: 'https://samples.10keyz.com/harmonium/C3.mp3', baseMidi: 48, loopStart: 0.8, loopEnd: 11.7, fade: 0.02 },
+  organ:     { url: 'https://samples.10keyz.com/organ/C3.mp3',      baseMidi: 48, loopStart: 0.8, loopEnd: 10.0, fade: 0.02 },
 };
 const DRONE_SAMPLE_VOLUME = -8;
 
@@ -2206,7 +2206,7 @@ const noteSynth = new Tone.Sampler({
     A7: 'A7.mp3', C8: 'C8.mp3'
   },
   release: 1,
-  baseUrl: 'samples/piano/'
+  baseUrl: 'https://samples.10keyz.com/piano/'
 }).connect(reverb);
 noteSynth.volume.value = -4;
 
@@ -2219,12 +2219,17 @@ noteSynth.volume.value = -4;
 // instruments.
 const guitarSampler = new Tone.Sampler({
   urls: {
-    A2: 'A2.mp3', C3: 'C3.mp3', 'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3',
-    A3: 'A3.mp3', C4: 'C4.mp3', 'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3',
-    A4: 'A4.mp3', C5: 'C5.mp3'
+    D2: 'D2.mp3', 'D#2': 'Ds2.mp3', E2: 'E2.mp3', F2: 'F2.mp3', 'F#2': 'Fs2.mp3',
+    G2: 'G2.mp3', 'G#2': 'Gs2.mp3', A2: 'A2.mp3', 'A#2': 'As2.mp3', B2: 'B2.mp3',
+    C3: 'C3.mp3', 'C#3': 'Cs3.mp3', D3: 'D3.mp3', 'D#3': 'Ds3.mp3', E3: 'E3.mp3',
+    F3: 'F3.mp3', 'F#3': 'Fs3.mp3', G3: 'G3.mp3', 'G#3': 'Gs3.mp3', A3: 'A3.mp3',
+    'A#3': 'As3.mp3', B3: 'B3.mp3', C4: 'C4.mp3', 'C#4': 'Cs4.mp3', D4: 'D4.mp3',
+    'D#4': 'Ds4.mp3', E4: 'E4.mp3', F4: 'F4.mp3', 'F#4': 'Fs4.mp3', G4: 'G4.mp3',
+    'G#4': 'Gs4.mp3', A4: 'A4.mp3', 'A#4': 'As4.mp3', B4: 'B4.mp3', C5: 'C5.mp3',
+    'C#5': 'Cs5.mp3', D5: 'D5.mp3'
   },
   release: 1,
-  baseUrl: 'samples/guitar-acoustic/'
+  baseUrl: 'https://samples.10keyz.com/guitar-acoustic/'
 }).connect(reverb);
 guitarSampler.volume.value = -4;
 
@@ -2237,7 +2242,7 @@ const bassSampler = new Tone.Sampler({
     'C#5': 'Cs5.mp3'
   },
   release: 1,
-  baseUrl: 'samples/bass-electric/'
+  baseUrl: 'https://samples.10keyz.com/bass-electric/'
 }).connect(reverb);
 bassSampler.volume.value = -4;
 
