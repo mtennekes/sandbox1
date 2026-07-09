@@ -157,6 +157,21 @@ function degreeLabelAt(refIdx, semitone) {
 // route through formulaOf/beadLabelAt below.
 let labelMode = localStorage.getItem('n4a-label-mode') || 'relative';
 
+// 'beginner' (curated 5-scale reference table, no mode-stepper, absolute
+// labels by default) or 'advanced' (today's full catalog) — a permanent,
+// visible toggle rather than a dev-only switch, since intermediate users
+// may want to flip between the two depending on mood.
+let viewMode = localStorage.getItem('n4a-view-mode') || 'advanced';
+
+// 'free' or 'paid' — set via ?tier=free|paid in the URL, then persisted so
+// it sticks across visits without needing the param every time. No visible
+// in-app switcher (there's no real payment gate yet, just the feature
+// difference) — defaults to 'paid' so today's behavior is unchanged for
+// anyone who never passes the param.
+const urlTier = new URLSearchParams(location.search).get('tier');
+if (urlTier === 'free' || urlTier === 'paid') localStorage.setItem('n4a-tier', urlTier);
+let tier = localStorage.getItem('n4a-tier') || 'paid';
+
 function formulaOf(set) {
   if (labelMode === 'absolute') return set.map((s, i) => absoluteNoteName(s, set, i)).join(' ');
   const assign = assignDegreeIndices(set);
@@ -314,6 +329,18 @@ addCompositeEntry('Bebop major', 'Ionian', [0, 2, 4, 5, 7, 9, 11], [8]);        
 addCompositeEntry('Flamenco fusion', 'Phrygian', [0, 1, 3, 5, 7, 8, 10], [4], { role: 'alteration' }); // + natural 3, alteration
 
 function dictEntryByName(name) { return DICT_ENTRIES.find(e => e.name === name); }
+
+// Beginner view's curated reference table — the 5 scales most people reach
+// for, deliberately labeled without any "mode" terminology (Major/Minor
+// rather than Ionian/Aeolian) even though they're drawn from the same
+// catalog entries as the advanced view.
+const BEGINNER_SCALES = [
+  { label: 'Major',            set: FAMILIES.major.base },                    // Ionian
+  { label: 'Minor',             set: rotateToDegree(FAMILIES.major.base, 5) }, // Aeolian
+  { label: 'Major pentatonic',  set: PENTATONIC.base },                        // Gong
+  { label: 'Minor pentatonic',  set: rotateToDegree(PENTATONIC.base, 4) },     // Yu
+  { label: 'Blues',             set: dictEntryByName('Blues').set },
+];
 
 // ── §3 interactive scale naming ──────────────────────────────────────────────
 
@@ -790,6 +817,25 @@ function setLabelMode(mode) {
   renderChordMatrix();
 }
 
+// Beginner view swaps in a curated 5-scale reference table (no "modes"
+// vocabulary) and hides the mode-stepper — the abacus itself, diatonic
+// chords, and scale-name readout stay fully interactive in both views, so
+// beginners can still drag beads into "exotic" shapes.
+function setViewMode(mode) {
+  viewMode = mode;
+  localStorage.setItem('n4a-view-mode', mode);
+  document.getElementById('view-mode-beginner').classList.toggle('active', mode === 'beginner');
+  document.getElementById('view-mode-advanced').classList.toggle('active', mode === 'advanced');
+  document.getElementById('mode-controls').style.display = mode === 'beginner' ? 'none' : '';
+  document.querySelector('.ref-controls').style.display = mode === 'beginner' ? 'none' : '';
+  document.getElementById('diatonic-chords-section').style.display = mode === 'beginner' ? 'none' : '';
+  document.getElementById('abacus-label').textContent = mode === 'beginner'
+    ? 'Scale intervals — drag beads to reshape scale'
+    : 'Scale intervals — drag beads to reshape scale, or step through modes';
+  if (mode === 'beginner') setLabelMode('absolute'); // also re-renders table/abacus/etc.
+  else renderTable();
+}
+
 // ── abacus ────────────────────────────────────────────────────────────────────
 
 const AB_L  = 40;    // track left x
@@ -890,8 +936,13 @@ function beadDown(e, idx) {
   e.preventDefault();
   const svg  = document.getElementById('abacus');
   const rect = svg.getBoundingClientRect();
-  drag = { idx, rect, scale: svg.viewBox.baseVal.width / rect.width, startX: e.clientX, moved: false };
+  const startPos = scaleOffsets[idx];
+  // lastPlayedPos tracks what's already sounded during this drag, so
+  // beadMove only plays a note when the bead actually snaps to a *new*
+  // semitone, not on every pointermove event.
+  drag = { idx, rect, scale: svg.viewBox.baseVal.width / rect.width, startX: e.clientX, moved: false, lastPlayedPos: startPos };
   svg.setPointerCapture(e.pointerId);
+  playScaleDegree(startPos); // hear the bead's starting note on press
 }
 
 function beadMove(e) {
@@ -910,19 +961,21 @@ function beadMove(e) {
   beads[idx].circle.setAttribute('fill', icolor(pos));
   beads[idx].lbl.setAttribute('fill', textColorFor(pos));
   beads[idx].lbl.textContent = beadLabelAt(idx, pos);
+
+  // Play every semitone the bead passes through/snaps to along the drag —
+  // e.g. dragging 7 down to ♭6 sounds 7, ♭7, 6, ♭6 in turn.
+  if (pos !== drag.lastPlayedPos) {
+    drag.lastPlayedPos = pos;
+    playScaleDegree(pos);
+  }
 }
 
 function beadUp(e) {
   if (!drag) return;
-  const { idx, rect, scale, moved } = drag;
+  const { idx, rect, scale } = drag;
 
-  if (!moved) {
-    // a click, not a drag — hear the bead instead of reshaping the scale
-    playScaleDegree(scaleOffsets[idx]);
-    drag = null;
-    return;
-  }
-
+  // The plain-click "hear this bead" case is already covered by beadDown's
+  // press-to-preview above — no separate replay needed here.
   const svgX = (e.clientX - rect.left) * scale;
   const minP = idx > 1 ? scaleOffsets[idx - 1] + 1 : 1;
   const maxP = idx < scaleOffsets.length - 1 ? scaleOffsets[idx + 1] - 1 : 11;
@@ -935,8 +988,20 @@ function beadUp(e) {
 
 function renderName() {
   const r = nameScale(scaleOffsets);
+  // Beginner view avoids mode terminology — when the current shape is
+  // exactly one of the curated 5 (the common case, picked straight from
+  // the reference table), show its plain name instead of the catalog's
+  // modal one (e.g. "Major" not "Ionian"). A shape reached by dragging
+  // beads into something else entirely still falls through to the normal
+  // catalog name — that's the user's own exploration, not the curated set.
+  let name = r.name;
+  if (viewMode === 'beginner') {
+    const rooted = intervalSet(scaleOffsets);
+    const match = BEGINNER_SCALES.find(b => bitmaskOf(b.set) === bitmaskOf(rooted));
+    if (match) name = match.label;
+  }
   const el = document.getElementById('scale-name');
-  const label = r.name === 'no common name' ? r.name : `${NOTE_NAMES[rootPitchClass]} ${r.name}`;
+  const label = name === 'no common name' ? name : `${NOTE_NAMES[rootPitchClass]} ${name}`;
   el.innerHTML =
     `<span class="name${r.exact ? '' : ' fallback'}">${label}</span>` +
     `<span class="formula">${r.formula}</span>`;
@@ -1101,11 +1166,16 @@ function stringsOf(instr) {
 
 let instrument = localStorage.getItem('n4a-instrument') || 'guitar'; // any TUNINGS key, or 'piano'
 if (!TUNINGS[instrument] && instrument !== 'piano') instrument = 'guitar'; // guard against a stale/unknown stored key
+// Free tier only has guitar/piano — fall back if a stale localStorage value
+// (from a previous paid session, or a different tier) points elsewhere.
+if (tier === 'free' && !['guitar', 'guitar7', 'guitar8', 'piano'].includes(instrument)) instrument = 'guitar';
 
 // Last-used string count per family, so switching Guitar -> Bass -> Guitar
 // comes back to whichever guitar variant you had, not always the 6-string.
 let guitarStrings = INSTRUMENT_FAMILY[instrument] === 'guitar' ? stringsOf(instrument) : (Number(localStorage.getItem('n4a-guitar-strings')) || 6);
 let bassStrings   = INSTRUMENT_FAMILY[instrument] === 'bass'   ? stringsOf(instrument) : (Number(localStorage.getItem('n4a-bass-strings')) || 4);
+// Free tier has no 7/8-string guitar.
+if (tier === 'free' && guitarStrings !== 6) { guitarStrings = 6; instrument = 'guitar'; }
 
 function resolveInstrumentKey(family) {
   if (family === 'guitar') return guitarStrings === 6 ? 'guitar' : 'guitar' + guitarStrings;
@@ -1306,24 +1376,35 @@ function renderFretboard() {
     // crowd the tuner even though the flat part of the gap is the same.
     const vcx = mirror(fbMXs(s, 0) - fbR(s) - 26);
 
-    const down = mk('text', {
-      x: vcx - 15, y: y + 4, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 'bold',
-      fill: 'rgba(255,255,255,0.55)', cursor: 'pointer'
-    }, '<');
-    down.addEventListener('click', () => adjustTuning(s, -1));
-    svg.appendChild(down);
+    // Free tier keeps the tuning knobs visible but non-functional — grayed
+    // out, "not-allowed" cursor, and a native SVG <title> tooltip explaining
+    // why, rather than removing them outright.
+    {
+      const down = mk('text', {
+        x: vcx - 15, y: y + 4, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 'bold',
+        fill: 'rgba(255,255,255,0.55)', cursor: tier === 'free' ? 'not-allowed' : 'pointer',
+        class: tier === 'free' ? 'locked' : ''
+      }, '<');
+      if (tier === 'free') down.appendChild(mk('title', {}, PAID_FEATURE_MESSAGE));
+      else down.addEventListener('click', () => adjustTuning(s, -1));
+      svg.appendChild(down);
+    }
 
     svg.appendChild(mk('text', {
       x: vcx, y: y + 4, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 'bold',
       fill: 'rgba(255,255,255,0.9)', 'pointer-events': 'none'
     }, NOTE_NAMES[effectiveOpenPc(s)]));
 
-    const up = mk('text', {
-      x: vcx + 15, y: y + 4, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 'bold',
-      fill: 'rgba(255,255,255,0.55)', cursor: 'pointer'
-    }, '>');
-    up.addEventListener('click', () => adjustTuning(s, 1));
-    svg.appendChild(up);
+    {
+      const up = mk('text', {
+        x: vcx + 15, y: y + 4, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 'bold',
+        fill: 'rgba(255,255,255,0.55)', cursor: tier === 'free' ? 'not-allowed' : 'pointer',
+        class: tier === 'free' ? 'locked' : ''
+      }, '>');
+      if (tier === 'free') up.appendChild(mk('title', {}, PAID_FEATURE_MESSAGE));
+      else up.addEventListener('click', () => adjustTuning(s, 1));
+      svg.appendChild(up);
+    }
   }
 
   const selectedChord = (selectedChordDegree !== null && scaleOffsets.length >= 3)
@@ -1453,6 +1534,7 @@ function setInstrumentFamily(family) {
 }
 
 function setGuitarStrings(n) {
+  if (tier === 'free' && n !== 6) return; // 7/8-string is a locked, paid-only button
   guitarStrings = n;
   localStorage.setItem('n4a-guitar-strings', n);
   setInstrument(resolveInstrumentKey('guitar'));
@@ -1464,15 +1546,29 @@ function setBassStrings(n) {
   setInstrument(resolveInstrumentKey('bass'));
 }
 
+// Free tier: only guitar (6-string) + piano — the other families/strings
+// stay in the DOM (simplest, since every wiring path is by getElementById)
+// but are hidden, and never selectable.
+const FREE_TIER_FAMILIES = ['guitar', 'piano'];
+const PAID_FEATURE_MESSAGE = 'This feature is available in the paid version';
+
 function updateInstrumentUI() {
   const family = INSTRUMENT_FAMILY[instrument];
   ['guitar', 'bass', 'ukulele', 'mandolin', 'banjo', 'piano'].forEach(f => {
-    document.getElementById('instr-' + f).classList.toggle('active', family === f);
+    const btn = document.getElementById('instr-' + f);
+    btn.classList.toggle('active', family === f);
+    btn.style.display = (tier === 'free' && !FREE_TIER_FAMILIES.includes(f)) ? 'none' : '';
   });
 
   document.getElementById('guitar-strings-wrap').style.display = family === 'guitar' ? 'flex' : 'none';
   document.getElementById('bass-strings-wrap').style.display = family === 'bass' ? 'flex' : 'none';
-  [6, 7, 8].forEach(n => document.getElementById('guitar-strings-' + n).classList.toggle('active', guitarStrings === n));
+  [6, 7, 8].forEach(n => {
+    const btn = document.getElementById('guitar-strings-' + n);
+    btn.classList.toggle('active', guitarStrings === n);
+    const locked = tier === 'free' && n !== 6;
+    btn.classList.toggle('locked', locked);
+    btn.title = locked ? PAID_FEATURE_MESSAGE : '';
+  });
   [4, 5, 6].forEach(n => document.getElementById('bass-strings-' + n).classList.toggle('active', bassStrings === n));
 
   document.getElementById('fretboard').style.display = family === 'piano' ? 'none' : 'block';
@@ -1482,8 +1578,11 @@ function updateInstrumentUI() {
     ? `Piano — ${PIANO_OCTAVES} octaves`
     : `${INSTRUMENT_LABEL[instrument]} — ${currentTuningLabel()} — ${FRET_COUNT} frets`;
 
-  document.getElementById('tuning-preset').style.display = family === 'piano' ? 'none' : 'inline-block';
-  if (family !== 'piano') refreshTuningPresetSelect();
+  const showTuningPreset = family !== 'piano' && tier !== 'free';
+  document.getElementById('tuning-preset').style.display = showTuningPreset ? 'inline-block' : 'none';
+  if (showTuningPreset) refreshTuningPresetSelect();
+
+  document.getElementById('synth-settings-btn').style.display = tier === 'free' ? 'none' : '';
 }
 
 // ── piano (top-down keyboard, slight angle) ──────────────────────────────────
@@ -1706,6 +1805,15 @@ function renderTable() {
       });
     }
     table.appendChild(tr);
+  }
+
+  // Beginner view: skip the whole family/mode/note-count catalog entirely
+  // and render exactly the 5 curated rows, regardless of refNoteCount/
+  // refRowMode/showEmptySlots (those controls are hidden in this view).
+  if (viewMode === 'beginner') {
+    BEGINNER_SCALES.forEach(({ label, set }) => addRow(label, set));
+    wrap.appendChild(table);
+    return;
   }
 
   function addGroupHeader(label) {
@@ -1950,7 +2058,15 @@ function ensureAudio() {
 
 const midiToFreq = m => Tone.Frequency(m, 'midi').toFrequency();
 
-const reverb = new Tone.Freeverb(0.6, 3000).toDestination();
+// Every voice (piano/guitar/bass samplers + the drone chain) sums into this
+// single bus with nothing between it and the speakers — during chord
+// playback (several notes attacking within milliseconds of each other,
+// plus the drone if it's on) that sum can exceed 0dBFS and hard-clip,
+// which reads as an audible click/pop at irregular, voicing-dependent
+// moments rather than anything periodic. A limiter just before destination
+// catches that without otherwise coloring the sound.
+const limiter = new Tone.Limiter(-1).toDestination();
+const reverb = new Tone.Freeverb(0.6, 3000).connect(limiter);
 reverb.wet.value = 0.15;
 
 // ── configurable drone synth ──────────────────────────────────────────────────
@@ -1963,7 +2079,7 @@ reverb.wet.value = 0.15;
 // (never detuned) sawtooth layered in via edgeMix for a bit of grit/texture
 // without reintroducing any pulsing.
 const DRONE_DEFAULTS = {
-  instrument: 'synth', // 'synth' | 'harmonium' | 'organ'
+  instrument: 'organ', // 'synth' | 'harmonium' | 'organ'
   oscType: 'sawtooth',  // sine | triangle | sawtooth | square
   voices: 1,            // 1 = no detuning (no pulsing); 2-4 = detuned stack
   spread: 20,           // cents, only audible when voices > 1
@@ -2565,6 +2681,10 @@ document.getElementById('hand-right').onclick = () => setOrientation('right');
 document.getElementById('label-mode-relative').onclick = () => setLabelMode('relative');
 document.getElementById('label-mode-absolute').onclick = () => setLabelMode('absolute');
 
+// wire up view mode toggle (beginner vs advanced)
+document.getElementById('view-mode-beginner').onclick = () => setViewMode('beginner');
+document.getElementById('view-mode-advanced').onclick = () => setViewMode('advanced');
+
 // wire up instrument toggle (family buttons + string-count sub-toggles)
 document.getElementById('instr-guitar').onclick   = () => setInstrumentFamily('guitar');
 document.getElementById('instr-bass').onclick     = () => setInstrumentFamily('bass');
@@ -2643,7 +2763,8 @@ renderHandToggle();
 updateInstrumentUI();
 document.getElementById('label-mode-relative').classList.toggle('active', labelMode === 'relative');
 document.getElementById('label-mode-absolute').classList.toggle('active', labelMode === 'absolute');
-renderTable();
+setViewMode(viewMode); // syncs beginner/advanced UI + renders the table once
+
 updateChordExpanded();
 updateChordToggleButtons();
 render();

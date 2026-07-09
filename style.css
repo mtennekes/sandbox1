@@ -76,6 +76,10 @@
       letter-spacing: 0.12em;
       text-transform: uppercase;
       opacity: 0.78;
+    }
+    .header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px;
       margin-bottom: 24px;
     }
     .section { margin-bottom: 28px; }
@@ -98,6 +102,11 @@
     }
     .root-btn:hover, .hand-btn:hover, .arm-btn:hover { background: var(--surface-hover-bg); color: var(--surface-hover-text); }
     .root-btn.active, .hand-btn.active { background: var(--accent-bg); color: var(--accent-text); border-color: var(--accent-border); }
+    /* Free-tier controls that stay visible but don't work — grayed out,
+       "not-allowed" cursor, and a native title-attribute tooltip explaining
+       why (set from JS alongside this class). */
+    .hand-btn.locked, text.locked { opacity: 0.35; cursor: not-allowed; }
+    .hand-btn.locked:hover { background: var(--surface); color: var(--surface-text); }
     svg { display: block; }
     #fretboard-wrap { overflow-x: auto; }
 

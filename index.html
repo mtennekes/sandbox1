@@ -8,7 +8,13 @@
 </head>
 <body>
 
-<h1>SpiceMap</h1>
+<div class="header-row">
+  <h1>SpiceMap</h1>
+  <div class="hand-toggle" id="view-mode-toggle">
+    <button id="view-mode-beginner" class="hand-btn">Beginner</button>
+    <button id="view-mode-advanced" class="hand-btn active">Advanced</button>
+  </div>
+</div>
 
 <div class="layout" id="layout">
 
@@ -33,7 +39,7 @@
       </div>
 
       <div class="section">
-        <div class="label">Scale intervals — drag beads to reshape scale, or step through modes</div>
+        <div class="label" id="abacus-label">Scale intervals — drag beads to reshape scale, or step through modes</div>
         <svg id="abacus" viewBox="0 0 760 80" width="760" height="80"></svg>
         <div class="mode-controls" id="mode-controls" tabindex="0">
           <button id="mode-prev" class="arm-btn" aria-label="Previous mode">&#9664;</button>
@@ -44,6 +50,15 @@
       </div>
 
       <div class="section">
+        <div class="label">Sound</div>
+        <div class="hand-toggle">
+          <button id="drone-toggle" class="hand-btn">Root drone: off</button>
+          <button id="play-scale-btn" class="hand-btn">&#9654; Play scale</button>
+          <button id="synth-settings-btn" class="hand-btn">&#9881; Setup&hellip;</button>
+        </div>
+      </div>
+
+      <div class="section" id="diatonic-chords-section">
         <div class="label chord-header" id="chord-header"><span id="chord-chevron">&#9654;</span>&nbsp;Diatonic chords</div>
         <div id="chord-matrix-wrap" style="display:none;">
           <svg id="chord-matrix" width="760"></svg>
@@ -58,16 +73,9 @@
               <button id="chord-color-chord-btn" class="hand-btn">Chord-root color</button>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="label">Sound</div>
-        <div class="hand-toggle">
-          <button id="drone-toggle" class="hand-btn">Root drone: off</button>
-          <button id="play-scale-btn" class="hand-btn">&#9654; Play scale</button>
-          <button id="play-chords-btn" class="hand-btn">&#9654; Play chords</button>
-          <button id="synth-settings-btn" class="hand-btn">&#9881; Setup&hellip;</button>
+          <div class="hand-toggle">
+            <button id="play-chords-btn" class="hand-btn">&#9654; Play chords</button>
+          </div>
         </div>
       </div>
 
