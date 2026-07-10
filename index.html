@@ -98,16 +98,19 @@
             <button id="instr-banjo" class="hand-btn">Banjo</button>
             <button id="instr-piano" class="hand-btn">Piano</button>
           </div>
-          <div class="hand-toggle sub-toggle" id="guitar-strings-wrap">
-            <button id="guitar-strings-5" class="hand-btn">5-string</button>
-            <button id="guitar-strings-6" class="hand-btn active">6-string</button>
-            <button id="guitar-strings-7" class="hand-btn">7-string</button>
-            <button id="guitar-strings-8" class="hand-btn">8-string</button>
-          </div>
-          <div class="hand-toggle sub-toggle" id="bass-strings-wrap" style="display:none;">
-            <button id="bass-strings-4" class="hand-btn active">4-string</button>
-            <button id="bass-strings-5" class="hand-btn">5-string</button>
-            <button id="bass-strings-6" class="hand-btn">6-string</button>
+          <div class="string-tuning-row sub-toggle">
+            <div class="hand-toggle" id="guitar-strings-wrap">
+              <button id="guitar-strings-5" class="hand-btn">5-string</button>
+              <button id="guitar-strings-6" class="hand-btn active">6-string</button>
+              <button id="guitar-strings-7" class="hand-btn">7-string</button>
+              <button id="guitar-strings-8" class="hand-btn">8-string</button>
+            </div>
+            <div class="hand-toggle" id="bass-strings-wrap" style="display:none;">
+              <button id="bass-strings-4" class="hand-btn active">4-string</button>
+              <button id="bass-strings-5" class="hand-btn">5-string</button>
+              <button id="bass-strings-6" class="hand-btn">6-string</button>
+            </div>
+            <select id="tuning-preset" aria-label="Tuning preset"></select>
           </div>
         </div>
 
@@ -123,7 +126,6 @@
       <div class="section" id="fretboard-wrap">
         <div class="label-row">
           <div class="label" id="instrument-label">Fretboard — standard tuning — 15 frets</div>
-          <select id="tuning-preset" aria-label="Tuning preset"></select>
         </div>
         <svg id="fretboard" viewBox="0 0 1110 250" width="1110" height="250"></svg>
         <svg id="piano" style="display:none;"></svg>

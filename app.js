@@ -1174,7 +1174,7 @@ const TUNINGS = {
   banjo:   { openPc: [7, 2, 11, 7, 2],            openMidi: [67, 62, 59, 55, 50],                 thickness: [0.7, 2.0], nutT: 68,   nutB: 180 }   // 5-string open G (g4 D4 B3 G3 D3), 5th "drone" string approximated full-length — see SPEC discussion
 };
 const INSTRUMENT_FAMILY = {
-  guitar: 'guitar', guitar7: 'guitar', guitar8: 'guitar',
+  guitar5: 'guitar', guitar: 'guitar', guitar7: 'guitar', guitar8: 'guitar',
   bass: 'bass', bass5: 'bass', bass6: 'bass',
   ukulele: 'ukulele', mandolin: 'mandolin', banjo: 'banjo', piano: 'piano'
 };
@@ -1239,11 +1239,41 @@ const TUNING_PRESETS = {
   // spanning exactly 2 octaves (5th, 5th, 4th, 4th between strings), given
   // directly by the user rather than sourced independently; offsets here
   // are that tuning's distance from this baseline (E4 B3 G3 D3 A2).
-  guitar5:  { 'Jacob Collier': [-2, -2, -3, -5, -7], 'Standard': [0, 0, 0, 0, 0] },
+  guitar5:  { 'Standard': [0, 0, 0, 0, 0],
+              // 'Collier (open D)' is the same DAEAD shape with just the middle
+              // string raised a whole step (E -> F#, making a D major triad
+              // out of D-F#-A instead of DAEAD's stacked 5th/4th) — the lowest
+              // string's offset is kept at Jacob Collier's own -7 (not the
+              // nearer-to-zero +5 that also reaches the same pitch class) so
+              // it lands an octave lower, same as that preset, instead of
+              // crossing above the string next to it.
+              'Keith Richards Open G': [-2, 0, 0, 0, -2], 
+              'Jacob Collier': [-2, -2, -3, -5, -7], 
+              'Jacob Collier (key of A)': [0, -2, -3, -5, -5],
+              'Jacob Collier (open D)': [-2, -2, -1, -5, -7] },
   guitar:   { 'Standard': [0, 0, 0, 0, 0, 0], 'Drop D': [0, 0, 0, 0, 0, -2], 'Drop C': [-2, -2, -2, -2, -2, -4],
-              'Open G': [-2, 0, 0, 0, -2, -2], 'Open D': [-2, -2, -1, 0, 0, -2], 'DADGAD': [-2, -2, 0, 0, 0, -2] },
-  guitar7:  { 'Standard': [0, 0, 0, 0, 0, 0, 0], 'Drop A': [0, 0, 0, 0, 0, 0, -2] },
-  guitar8:  { 'Standard': [0, 0, 0, 0, 0, 0, 0, 0], 'Drop E': [0, 0, 0, 0, 0, 0, 0, -2] },
+              'Open G': [-2, 0, 0, 0, -2, -2], 'Open D': [-2, -2, -1, 0, 0, -2], 'DADGAD': [-2, -2, 0, 0, 0, -2],
+              'Half-Step Down': [-1, -1, -1, -1, -1, -1], 'Full-Step Down': [-2, -2, -2, -2, -2, -2],
+              'Open E': [0, 0, 1, 2, 2, 0], 'Open A': [0, 2, 2, 2, 0, 0], 'Open C': [0, 1, 0, -2, -2, -4] },
+  guitar7:  { 'Standard': [0, 0, 0, 0, 0, 0, 0], 'Drop A': [0, 0, 0, 0, 0, 0, -2],
+              'Half-Step Down 7': [-1, -1, -1, -1, -1, -1, -1], 'Drop G# / Ab': [-1, -1, -1, -1, -1, -1, -3],
+              'Full-Step Down 7': [-2, -2, -2, -2, -2, -2, -2], 'Drop G': [-2, -2, -2, -2, -2, -2, -4],
+              'Open A7': [0, -2, -3, -1, 0, 0, -2] },
+  guitar8:  { 'Standard': [0, 0, 0, 0, 0, 0, 0, 0], 'Drop E': [0, 0, 0, 0, 0, 0, 0, -2],
+              'Meshuggah / F Standard': [-1, -1, -1, -1, -1, -1, -1, -1], 'Drop Eb': [-1, -1, -1, -1, -1, -1, -1, -3],
+              'Drop D8': [-2, -2, -2, -2, -2, -2, -2, -4],
+              // "High-A 8" isn't a low string added below standard 7 (like
+              // every other 8-string preset here) — it's standard 7's own
+              // B1-E2-A2-D3-G3-B3-E4 shifted up a fourth (a major third for
+              // the G->B string specifically, matching standard tuning's one
+              // non-fourth interval) across all 8 strings, landing an extra
+              // high A on top instead of an extra low string on the bottom.
+              'High-A 8': [5, 5, 4, 5, 5, 5, 5, 5],
+              // "Low-A 8" needs the full-octave-down reading on every string
+              // (-9/-10, not the nearer +2/+3 same-pitch-class alternative) to
+              // actually land on A0 at the bottom — the nearer option would
+              // tune it *up*, contradicting "extreme low-end".
+              'Low-A 8': [-9, -9, -10, -9, -9, -9, -9, -9] },
   bass:     { 'Standard': [0, 0, 0, 0], 'Drop D': [0, 0, 0, -2], 'Drop C': [-2, -2, -2, -4] },
   bass5:    { 'Standard': [0, 0, 0, 0, 0], 'Drop A': [0, 0, 0, 0, -2] },
   bass6:    { 'Standard': [0, 0, 0, 0, 0, 0], 'Drop A': [0, 0, 0, 0, 0, -2] },
@@ -2118,7 +2148,16 @@ function ensureAudio() {
   // stuck.
   return Promise.all([Tone.start(), Tone.loaded()])
     .then(() => { audioStarted = true; })
-    .catch(err => { console.error('Audio failed to start/load — will retry on next click.', err); });
+    .catch(err => {
+      console.error('Audio failed to start/load — will retry on next click.', err);
+      // Tone.start() resolving means the context itself is genuinely running
+      // even if some unrelated sample's fetch is what made Tone.loaded()
+      // reject — don't keep re-awaiting that same dead fetch on every future
+      // click just because one sample (possibly for an instrument that isn't
+      // even selected) never loaded. That used to read as the whole app
+      // going sluggish on every single click, not just the first one.
+      if (Tone.context.state === 'running') audioStarted = true;
+    });
 }
 
 const midiToFreq = m => Tone.Frequency(m, 'midi').toFrequency();

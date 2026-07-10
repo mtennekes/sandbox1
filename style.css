@@ -203,6 +203,12 @@
        size to its unwrapped (max-content) width. */
     .setup-group { flex: 0 0 auto; max-width: 100%; }
     .sub-toggle { margin-top: 6px; }
+    /* Tuning preset lives right next to the string-count buttons — string
+       count and tuning are both "how is this instrument strung/tuned"
+       choices, so keeping them on one row reads as a single related group
+       instead of the dropdown living off by the fretboard label, far from
+       the control it's most relevant to. */
+    .string-tuning-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
     .root-select-mobile { display: none; width: 100%; padding: 6px; background: var(--surface);
       border: 1px solid var(--surface-border); border-radius: 3px; color: var(--surface-text); font-size: 13px; }
