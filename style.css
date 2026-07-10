@@ -216,6 +216,13 @@
     #tuning-preset { padding: 4px 6px; background: var(--surface); border: 1px solid var(--surface-border);
       border-radius: 3px; color: var(--surface-text); font-size: 12px; }
 
+    /* Shown only while the currently-selected instrument's samples are still
+       fetching (see refreshSampleLoadingIndicator in app.js) — a quiet pulse
+       rather than a spinner/progress bar, since there's no reliable per-file
+       progress signal to drive a real percentage off of. */
+    .sample-loading { font-size: 11px; color: var(--text-muted); animation: sample-loading-pulse 1.4s ease-in-out infinite; }
+    @keyframes sample-loading-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
     @media (max-width: 699px) {
       #root-selector { display: none; }
       .root-select-mobile { display: block; }

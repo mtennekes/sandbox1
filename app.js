@@ -1620,6 +1620,11 @@ function setInstrument(instr) {
   }
   updateInstrumentUI();
   renderInstrumentView();
+  // Kick off loading this family's samples immediately on switch, rather
+  // than waiting for the first note click — by the time you actually play
+  // something the fetch has had a head start instead of adding its own
+  // delay after the click.
+  currentNoteSampler();
 }
 
 function renderInstrumentView() {
@@ -1680,6 +1685,7 @@ function updateInstrumentUI() {
   if (showTuningPreset) refreshTuningPresetSelect();
 
   document.getElementById('synth-settings-btn').style.display = tier === 'free' ? 'none' : '';
+  refreshSampleLoadingIndicator();
 }
 
 // ── piano (top-down keyboard, slight angle) ──────────────────────────────────
@@ -2231,9 +2237,15 @@ const droneEdgeUp = new Tone.Synth({ oscillator: { type: 'sawtooth' } }).connect
 // Player per layer) — root changes also retune instantly rather than
 // gliding, since Player.playbackRate is a plain number, not a rampable
 // Tone.Signal.
+// Cloudflare R2 bucket (spicemap-samples), public via its default r2.dev
+// URL — replaces the old ChemiCloud/LiteSpeed host (samples.10keyz.com),
+// which had no Cache-Control header and no CDN in front of it. If a custom
+// domain ever gets attached to the bucket, this is the one line to change.
+const SAMPLES_BASE_URL = 'https://pub-28f7a744940144149ef7eb6aaea39678.r2.dev';
+
 const DRONE_SAMPLE_SOURCES = {
-  harmonium: { url: 'https://samples.10keyz.com/harmonium/C3.mp3', baseMidi: 48, loopStart: 0.8, loopEnd: 11.7, fade: 0.02 },
-  organ:     { url: 'https://samples.10keyz.com/organ/C3.mp3',      baseMidi: 48, loopStart: 0.8, loopEnd: 10.0, fade: 0.02 },
+  harmonium: { url: SAMPLES_BASE_URL + '/harmonium/C3.mp3', baseMidi: 48, loopStart: 0.8, loopEnd: 11.7, fade: 0.02 },
+  organ:     { url: SAMPLES_BASE_URL + '/organ/C3.mp3',     baseMidi: 48, loopStart: 0.8, loopEnd: 10.0, fade: 0.02 },
 };
 const DRONE_SAMPLE_VOLUME = -8;
 
@@ -2284,8 +2296,13 @@ function buildSeamlessLoopBuffer(sourceBuffer, loopStart, loopEnd, crossfadeSec)
   return out;
 }
 
+// Lazy like the note samplers above — harmonium and organ are two more
+// requests that don't need to happen at page load if the drone's never
+// turned on, or is left on a synth voice instead of a sampled one.
 const dronePlayers = {};
-Object.entries(DRONE_SAMPLE_SOURCES).forEach(([key, src]) => {
+function getDronePlayer(key) {
+  if (dronePlayers[key]) return dronePlayers[key];
+  const src = DRONE_SAMPLE_SOURCES[key];
   const player = new Tone.Player().connect(droneFilter);
   player.volume.value = DRONE_SAMPLE_VOLUME;
   dronePlayers[key] = player;
@@ -2297,7 +2314,8 @@ Object.entries(DRONE_SAMPLE_SOURCES).forEach(([key, src]) => {
     player.buffer.set(seamless);
     player.loop = true;
   });
-});
+  return player;
+}
 
 function edgeVolumeFor(mix) { return mix <= 0 ? -60 : -12 - (100 - mix) * 0.3; }
 
@@ -2341,7 +2359,9 @@ function setDroneParam(key, value) {
   }
 }
 
-function activeDronePlayer() { return dronePlayers[droneConfig.instrument] || null; }
+function activeDronePlayer() {
+  return DRONE_SAMPLE_SOURCES[droneConfig.instrument] ? getDronePlayer(droneConfig.instrument) : null;
+}
 
 const droneVoice = {
   triggerAttack: freq => {
@@ -2417,66 +2437,95 @@ const droneVoice = {
   }
 };
 
-// Real sampled grand piano (Tone.js's official Salamander set), pitch-shifted
-// per note from the nearest sample — this is what click-a-bead/chord playback uses.
-const noteSynth = new Tone.Sampler({
-  urls: {
-    A0: 'A0.mp3', C1: 'C1.mp3', 'D#1': 'Ds1.mp3', 'F#1': 'Fs1.mp3',
-    A1: 'A1.mp3', C2: 'C2.mp3', 'D#2': 'Ds2.mp3', 'F#2': 'Fs2.mp3',
-    A2: 'A2.mp3', C3: 'C3.mp3', 'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3',
-    A3: 'A3.mp3', C4: 'C4.mp3', 'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3',
-    A4: 'A4.mp3', C5: 'C5.mp3', 'D#5': 'Ds5.mp3', 'F#5': 'Fs5.mp3',
-    A5: 'A5.mp3', C6: 'C6.mp3', 'D#6': 'Ds6.mp3', 'F#6': 'Fs6.mp3',
-    A6: 'A6.mp3', C7: 'C7.mp3', 'D#7': 'Ds7.mp3', 'F#7': 'Fs7.mp3',
-    A7: 'A7.mp3', C8: 'C8.mp3'
+// Real sampled instruments (piano: Tone.js's official Salamander set;
+// guitar/bass: nbrosowsky/tonejs-instruments, CC-licensed), pitch-shifted per
+// note from the nearest sample — this is what click-a-bead/chord playback
+// uses. Ukulele/mandolin/banjo don't have their own recordings in that set,
+// so they borrow the acoustic guitar sample as the closest available
+// plucked-string timbre — still real strings, just not a perfect match for
+// those specific instruments.
+//
+// Each Sampler is only constructed (and only starts fetching its ~17-37
+// files) the first time that instrument family is actually needed, not all
+// three eagerly at page load — piano+guitar+bass+drone together are ~90
+// requests, and a visitor who only ever touches guitar has no reason to also
+// pull down bass and piano in the background. getSampler() below is the
+// lazy factory; samplerCache remembers what's already been built so
+// switching back to an instrument doesn't re-fetch it.
+const SAMPLER_CONFIG = {
+  piano: {
+    baseUrl: SAMPLES_BASE_URL + '/piano/',
+    urls: {
+      A0: 'A0.mp3', C1: 'C1.mp3', 'D#1': 'Ds1.mp3', 'F#1': 'Fs1.mp3',
+      A1: 'A1.mp3', C2: 'C2.mp3', 'D#2': 'Ds2.mp3', 'F#2': 'Fs2.mp3',
+      A2: 'A2.mp3', C3: 'C3.mp3', 'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3',
+      A3: 'A3.mp3', C4: 'C4.mp3', 'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3',
+      A4: 'A4.mp3', C5: 'C5.mp3', 'D#5': 'Ds5.mp3', 'F#5': 'Fs5.mp3',
+      A5: 'A5.mp3', C6: 'C6.mp3', 'D#6': 'Ds6.mp3', 'F#6': 'Fs6.mp3',
+      A6: 'A6.mp3', C7: 'C7.mp3', 'D#7': 'Ds7.mp3', 'F#7': 'Fs7.mp3',
+      A7: 'A7.mp3', C8: 'C8.mp3'
+    }
   },
-  release: 1,
-  baseUrl: 'https://samples.10keyz.com/piano/'
-}).connect(reverb);
-noteSynth.volume.value = -4;
+  guitar: {
+    baseUrl: SAMPLES_BASE_URL + '/guitar-acoustic/',
+    urls: {
+      D2: 'D2.mp3', 'D#2': 'Ds2.mp3', E2: 'E2.mp3', F2: 'F2.mp3', 'F#2': 'Fs2.mp3',
+      G2: 'G2.mp3', 'G#2': 'Gs2.mp3', A2: 'A2.mp3', 'A#2': 'As2.mp3', B2: 'B2.mp3',
+      C3: 'C3.mp3', 'C#3': 'Cs3.mp3', D3: 'D3.mp3', 'D#3': 'Ds3.mp3', E3: 'E3.mp3',
+      F3: 'F3.mp3', 'F#3': 'Fs3.mp3', G3: 'G3.mp3', 'G#3': 'Gs3.mp3', A3: 'A3.mp3',
+      'A#3': 'As3.mp3', B3: 'B3.mp3', C4: 'C4.mp3', 'C#4': 'Cs4.mp3', D4: 'D4.mp3',
+      'D#4': 'Ds4.mp3', E4: 'E4.mp3', F4: 'F4.mp3', 'F#4': 'Fs4.mp3', G4: 'G4.mp3',
+      'G#4': 'Gs4.mp3', A4: 'A4.mp3', 'A#4': 'As4.mp3', B4: 'B4.mp3', C5: 'C5.mp3',
+      'C#5': 'Cs5.mp3', D5: 'D5.mp3'
+    }
+  },
+  bass: {
+    baseUrl: SAMPLES_BASE_URL + '/bass-electric/',
+    urls: {
+      'A#1': 'As1.mp3', 'C#1': 'Cs1.mp3', E1: 'E1.mp3', G1: 'G1.mp3',
+      'A#2': 'As2.mp3', 'C#2': 'Cs2.mp3', E2: 'E2.mp3', G2: 'G2.mp3',
+      'A#3': 'As3.mp3', 'C#3': 'Cs3.mp3', E3: 'E3.mp3', G3: 'G3.mp3',
+      'A#4': 'As4.mp3', 'C#4': 'Cs4.mp3', E4: 'E4.mp3', G4: 'G4.mp3',
+      'C#5': 'Cs5.mp3'
+    }
+  }
+};
+const samplerCache = {};
+function getSampler(family) {
+  if (samplerCache[family]) return samplerCache[family];
+  const cfg = SAMPLER_CONFIG[family];
+  const sampler = new Tone.Sampler({
+    urls: cfg.urls,
+    release: 1,
+    baseUrl: cfg.baseUrl,
+    onload: refreshSampleLoadingIndicator
+  }).connect(reverb);
+  sampler.volume.value = -4;
+  samplerCache[family] = sampler;
+  refreshSampleLoadingIndicator();
+  return sampler;
+}
 
-// Instrument-matched samples (nbrosowsky/tonejs-instruments — CC-licensed,
-// same loading pattern as the piano above) for guitar and bass, rather than
-// always reaching for piano regardless of which neck is on screen. Ukulele/
-// mandolin/banjo don't have their own recordings in that set, so they
-// borrow the acoustic guitar sample as the closest available plucked-string
-// timbre — still real strings, just not a perfect match for those specific
-// instruments.
-const guitarSampler = new Tone.Sampler({
-  urls: {
-    D2: 'D2.mp3', 'D#2': 'Ds2.mp3', E2: 'E2.mp3', F2: 'F2.mp3', 'F#2': 'Fs2.mp3',
-    G2: 'G2.mp3', 'G#2': 'Gs2.mp3', A2: 'A2.mp3', 'A#2': 'As2.mp3', B2: 'B2.mp3',
-    C3: 'C3.mp3', 'C#3': 'Cs3.mp3', D3: 'D3.mp3', 'D#3': 'Ds3.mp3', E3: 'E3.mp3',
-    F3: 'F3.mp3', 'F#3': 'Fs3.mp3', G3: 'G3.mp3', 'G#3': 'Gs3.mp3', A3: 'A3.mp3',
-    'A#3': 'As3.mp3', B3: 'B3.mp3', C4: 'C4.mp3', 'C#4': 'Cs4.mp3', D4: 'D4.mp3',
-    'D#4': 'Ds4.mp3', E4: 'E4.mp3', F4: 'F4.mp3', 'F#4': 'Fs4.mp3', G4: 'G4.mp3',
-    'G#4': 'Gs4.mp3', A4: 'A4.mp3', 'A#4': 'As4.mp3', B4: 'B4.mp3', C5: 'C5.mp3',
-    'C#5': 'Cs5.mp3', D5: 'D5.mp3'
-  },
-  release: 1,
-  baseUrl: 'https://samples.10keyz.com/guitar-acoustic/'
-}).connect(reverb);
-guitarSampler.volume.value = -4;
-
-const bassSampler = new Tone.Sampler({
-  urls: {
-    'A#1': 'As1.mp3', 'C#1': 'Cs1.mp3', E1: 'E1.mp3', G1: 'G1.mp3',
-    'A#2': 'As2.mp3', 'C#2': 'Cs2.mp3', E2: 'E2.mp3', G2: 'G2.mp3',
-    'A#3': 'As3.mp3', 'C#3': 'Cs3.mp3', E3: 'E3.mp3', G3: 'G3.mp3',
-    'A#4': 'As4.mp3', 'C#4': 'Cs4.mp3', E4: 'E4.mp3', G4: 'G4.mp3',
-    'C#5': 'Cs5.mp3'
-  },
-  release: 1,
-  baseUrl: 'https://samples.10keyz.com/bass-electric/'
-}).connect(reverb);
-bassSampler.volume.value = -4;
+// Tiny "Loading sounds..." pill shown while the *currently selected*
+// instrument's sampler is still fetching — re-checked (rather than tracked
+// with its own show/hide calls per family) so it stays correct regardless of
+// which sampler's onload actually fires: a background prefetch for an
+// instrument you're not even looking at shouldn't flip this on, and
+// switching to one that's already cached shouldn't leave it stuck on.
+function refreshSampleLoadingIndicator() {
+  const family = INSTRUMENT_FAMILY[instrument] === 'bass' ? 'bass'
+    : INSTRUMENT_FAMILY[instrument] === 'piano' ? 'piano' : 'guitar';
+  const sampler = samplerCache[family];
+  const loading = !sampler || !sampler.loaded;
+  document.getElementById('sample-loading').style.display = loading ? '' : 'none';
+}
 
 // Which sampler click-a-bead/scale/chord playback should use right now.
 function currentNoteSampler() {
   const family = INSTRUMENT_FAMILY[instrument];
-  if (family === 'bass') return bassSampler;
-  if (family === 'piano') return noteSynth;
-  return guitarSampler; // guitar, ukulele, mandolin, banjo
+  if (family === 'bass') return getSampler('bass');
+  if (family === 'piano') return getSampler('piano');
+  return getSampler('guitar'); // guitar, ukulele, mandolin, banjo
 }
 // Bass sits an octave below the other instruments (a real bass guitar
 // sounds an octave down from a regular guitar) — everything else plays at
@@ -2882,3 +2931,6 @@ setViewMode(viewMode); // syncs beginner/advanced UI + renders the table once
 
 updateChordToggleButtons();
 render();
+// Start loading the current instrument's samples right away instead of
+// waiting for the first click — see currentNoteSampler()/getSampler().
+currentNoteSampler();
