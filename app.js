@@ -2139,24 +2139,22 @@ function ensureAudio() {
   // Tone.loaded() waits on every sampler/buffer in the app's shared load
   // queue (piano, guitar, bass, drone samples — all fetched from external
   // GitHub Pages/jsdelivr hosts), not just the instrument currently in use.
-  // A transient network/CORS hiccup fetching any single one of them used to
-  // reject this promise with nothing to catch it (an unhandled rejection),
-  // and since audioStarted never flipped true, every later click just
-  // re-awaited that same already-rejected promise forever — audio was
-  // silently dead for the rest of the session. Catch it, log it, and leave
-  // audioStarted false so the next click retries the load instead of being
-  // stuck.
+  // A transient network/CORS hiccup fetching any single one of them rejects
+  // this promise — logged here so it's not an unhandled rejection, then
+  // re-thrown (not swallowed) so every caller's own .then(...) is *skipped*
+  // instead of still firing a triggerAttack against a sampler whose buffer
+  // never actually finished loading ("buffer is either not set or not
+  // loaded", cascading into further unhandled rejections downstream).
+  // audioStarted stays false either way, so the next click retries the load
+  // from scratch rather than either being stuck silently dead (old bug) or
+  // stuck "on" forever despite a real sample never loading (regression this
+  // replaces — flipping audioStarted true just because the context was
+  // running left playback permanently attempting broken buffers).
   return Promise.all([Tone.start(), Tone.loaded()])
     .then(() => { audioStarted = true; })
     .catch(err => {
       console.error('Audio failed to start/load — will retry on next click.', err);
-      // Tone.start() resolving means the context itself is genuinely running
-      // even if some unrelated sample's fetch is what made Tone.loaded()
-      // reject — don't keep re-awaiting that same dead fetch on every future
-      // click just because one sample (possibly for an instrument that isn't
-      // even selected) never loaded. That used to read as the whole app
-      // going sluggish on every single click, not just the first one.
-      if (Tone.context.state === 'running') audioStarted = true;
+      throw err;
     });
 }
 
@@ -2349,6 +2347,13 @@ const droneVoice = {
   triggerAttack: freq => {
     const player = activeDronePlayer();
     if (player) {
+      // player.buffer.set(...) runs once the drone recording's fetch
+      // resolves (see DRONE_SAMPLE_SOURCES setup below) — if that fetch is
+      // still pending or failed outright, .loaded stays false forever and
+      // player.start() would throw "buffer is either not set or not
+      // loaded". Skip silently rather than crash; there's nothing to
+      // retry here since the fetch itself only ever runs once at startup.
+      if (!player.loaded) return;
       const src = DRONE_SAMPLE_SOURCES[droneConfig.instrument];
       player.playbackRate = freq / midiToFreq(src.baseMidi);
       // Undo any fade-out ramp left over from a previous stop (see
@@ -2507,7 +2512,7 @@ function toggleDrone() {
       droneVoice.triggerRelease();
     }
     updateDroneButton();
-  });
+  }).catch(() => {}); // logged inside ensureAudio already — just don't play if it never loaded
 }
 
 // Called every render() — if the drone is on and the root moved (root select,
@@ -2535,9 +2540,11 @@ function updateDroneButton() {
 // bass-family octave-down still work as expected.
 function playPhysicalNote(midi) {
   ensureAudio().then(() => {
+    const sampler = currentNoteSampler();
+    if (!sampler.loaded) return; // see playScaleDegree — .loaded is the reliable per-instrument check
     const shiftedMidi = midi + 12 * playbackOctave + samplerOctaveShift();
-    currentNoteSampler().triggerAttackRelease(midiToFreq(shiftedMidi), playbackSustain);
-  });
+    sampler.triggerAttackRelease(midiToFreq(shiftedMidi), playbackSustain);
+  }).catch(() => {});
 }
 
 // offset: semitones above the root within the current scale (scaleOffsets[idx],
@@ -2552,9 +2559,18 @@ function playPhysicalNote(midi) {
 // later.
 function playScaleDegree(offset) {
   ensureAudio().then(() => {
+    const sampler = currentNoteSampler();
+    // Tone.loaded() (awaited inside ensureAudio) only reflects downloads
+    // still in flight — a sample that already failed by the time we get
+    // here has been silently dropped from its tracking, so it can resolve
+    // "successfully" even though this specific sampler never actually
+    // finished loading. .loaded is the real, per-instrument check; skip
+    // rather than let triggerAttackRelease throw "buffer is either not set
+    // or not loaded".
+    if (!sampler.loaded) return;
     const midi = 60 + offset + centeredPc(rootPitchClass) + 12 * playbackOctave + samplerOctaveShift();
-    currentNoteSampler().triggerAttackRelease(midiToFreq(midi), playbackSustain);
-  });
+    sampler.triggerAttackRelease(midiToFreq(midi), playbackSustain);
+  }).catch(() => {});
 }
 
 function playChordArpeggio(chord) {
@@ -2567,11 +2583,12 @@ function playChordArpeggio(chord) {
     const baseMidi = 60 + chord.rootPc + centeredPc(rootPitchClass) + 12 * playbackOctave + samplerOctaveShift();
     const now = Tone.now();
     const sampler = currentNoteSampler();
+    if (!sampler.loaded) return; // see playScaleDegree — .loaded is the reliable per-instrument check
     const spacing = 0.16 / playbackTempo;
     chord.intervals.forEach((iv, i) => {
       sampler.triggerAttackRelease(midiToFreq(baseMidi + iv), '4n', now + i * spacing);
     });
-  });
+  }).catch(() => {});
 }
 
 // Ascending run root -> ... -> octave root. Takes any set (not just the
@@ -2583,13 +2600,14 @@ function previewScale(set) {
     const now = Tone.now();
     const run = [...set, 12];
     const sampler = currentNoteSampler();
+    if (!sampler.loaded) return; // see playScaleDegree — .loaded is the reliable per-instrument check
     const shift = samplerOctaveShift();
     const step = 0.24 / playbackTempo;
     run.forEach((offset, i) => {
       const midi = 60 + offset + centeredPc(rootPitchClass) + 12 * playbackOctave + shift;
       sampler.triggerAttackRelease(midiToFreq(midi), step * 0.9, now + i * step);
     });
-  });
+  }).catch(() => {});
 }
 
 function playScale() {
@@ -2605,6 +2623,7 @@ function playAllChords() {
     const now = Tone.now();
     const step = 0.75 / playbackTempo;
     const sampler = currentNoteSampler();
+    if (!sampler.loaded) return; // see playScaleDegree — .loaded is the reliable per-instrument check
     const shift = samplerOctaveShift();
     chords.forEach((chord, ci) => {
       // No mod-fold here (unlike an isolated pitch-class lookup): chord.rootPc is
@@ -2618,7 +2637,7 @@ function playAllChords() {
         sampler.triggerAttackRelease(midiToFreq(baseMidi + iv), step * 0.9, t);
       });
     });
-  });
+  }).catch(() => {});
 }
 
 // ── §8 drone synth settings dialog ────────────────────────────────────────────
