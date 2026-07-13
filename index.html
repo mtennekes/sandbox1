@@ -24,7 +24,7 @@
 
     <div class="group">
 
-      <div class="section setup-row">
+      <div class="section setup-row" id="root-row">
         <div class="setup-group">
           <div class="label">Root</div>
           <div id="root-selector"></div>
@@ -32,16 +32,16 @@
         </div>
       </div>
 
-      <div class="section">
+      <div class="section" id="abacus-section">
         <div id="scale-name" class="scale-name"></div>
         <svg id="abacus" viewBox="0 0 760 80" width="760" height="80"></svg>
-        <div class="mode-controls" id="mode-controls" tabindex="0">
+        <div class="mode-controls mobile-collapsible" id="mode-controls" tabindex="0">
           <button id="mode-prev" class="arm-btn" aria-label="Previous mode">&#9664;</button>
           <span id="mode-label" class="mode-label"></span>
           <button id="mode-next" class="arm-btn" aria-label="Next mode">&#9654;</button>
         </div>
 
-        <div id="diatonic-chords-section">
+        <div id="diatonic-chords-section" class="mobile-collapsible">
           <div class="label">Diatonic chords</div>
           <svg id="chord-matrix" width="760"></svg>
           <div class="chord-controls">
@@ -57,7 +57,7 @@
           </div>
         </div>
 
-        <div class="setup-row abacus-controls-row">
+        <div class="setup-row abacus-controls-row mobile-collapsible" id="abacus-controls-row">
           <div class="setup-group" id="labels-group">
             <div class="label">Labels</div>
             <div class="hand-toggle">
@@ -75,7 +75,7 @@
         </div>
       </div>
 
-      <div class="section" id="sound-section">
+      <div class="section mobile-collapsible" id="sound-section">
         <div class="label">Sound</div>
         <div class="hand-toggle">
           <button id="drone-toggle" class="hand-btn">Root drone: off</button>
@@ -89,7 +89,7 @@
 
     <div class="group">
 
-      <div class="section setup-row" id="instrument-hand-row">
+      <div class="section setup-row mobile-collapsible" id="instrument-hand-row">
         <div class="setup-group">
           <div class="label">Instrument</div>
           <div class="hand-toggle">

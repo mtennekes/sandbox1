@@ -228,13 +228,19 @@
       .root-select-mobile { display: block; }
     }
 
-    /* Mobile "settings drawer": on a phone-width screen, the Sound
-       controls and the Instrument/Handedness row sit between the abacus
-       and the fretboard, pushing the fretboard below the fold even though
-       it, the abacus, and the scale name are the three things worth seeing
-       together at a glance. Collapsed by default at this width, with a
-       toggle button to reveal them in place — untouched at any wider
-       breakpoint, where there's room for everything already. */
+    /* Mobile "settings drawer": on a phone-width screen, the Sound,
+       Instrument/Handedness, mode-stepper, diatonic-chords, and
+       labels/notes controls sit between the abacus and the fretboard,
+       pushing the fretboard below the fold even though it, the abacus, and
+       the scale name are the three things worth seeing together at a
+       glance. All of them share the .mobile-collapsible marker (see the
+       matching class on each in index.html) so one rule collapses them —
+       collapsed by default at this width, with a toggle button to reveal
+       them in place. `revert` (not a fixed display value) because the
+       collapsed set mixes flex rows and plain block sections. Untouched at
+       any wider breakpoint, where there's room for everything already, and
+       superseded by the landscape "app mode" below on short/wide phone
+       screens.  */
     .mobile-settings-toggle { display: none; }
     @media (max-width: 699px) {
       .mobile-settings-toggle {
@@ -243,9 +249,71 @@
         color: var(--surface-text); font-size: 12px; text-align: left; cursor: pointer;
       }
       .mobile-settings-toggle:hover { background: var(--surface-hover-bg); color: var(--surface-hover-text); }
-      #sound-section, #instrument-hand-row { display: none; }
-      body.settings-expanded #sound-section { display: block; }
-      body.settings-expanded #instrument-hand-row { display: flex; }
+      .mobile-collapsible { display: none; }
+      body.settings-expanded .mobile-collapsible { display: revert; }
+    }
+
+    /* Landscape "app mode" — a phone turned sideways (short viewport
+       height, not just narrow width) gets a dedicated no-scroll layout:
+       only the root picker, scale name, abacus, and fretboard/piano are
+       ever on screen, sized to fill the viewport exactly. Everything else
+       (Sound, Instrument/Handedness, mode stepper, diatonic chords,
+       labels/notes, the header, the reference table, the color legend)
+       is reachable through the same settings toggle as the portrait
+       drawer above, now rendered as a small fixed gear button — opening it
+       switches this block back to a normal scrolling document rather than
+       trying to cram a second no-scroll layout around a much taller
+       control panel. max-height (not max-width) is the trigger, since a
+       tablet in landscape has plenty of room and shouldn't collapse to
+       this. */
+    @media (orientation: landscape) and (max-height: 500px) {
+      html, body { height: 100dvh; overflow: hidden; padding: 6px 10px; }
+      body.settings-expanded { height: auto; min-height: 100dvh; overflow: auto; }
+
+      .header-row, #color-legend, .col-ref { display: none; }
+
+      .mobile-settings-toggle {
+        display: flex; align-items: center; justify-content: center;
+        position: fixed; top: 6px; right: 8px; z-index: 10;
+        width: 30px; height: 30px; margin: 0; padding: 0; border-radius: 50%;
+        font-size: 0; /* the button's own JS-set label is replaced by the gear glyph below */
+      }
+      .mobile-settings-toggle::after { content: '\2699'; font-size: 16px; }
+      .mobile-collapsible { display: none; }
+      body.settings-expanded .mobile-collapsible { display: revert; }
+
+      .layout { height: 100%; gap: 6px; }
+      .col-main { height: 100%; gap: 6px; }
+      body.settings-expanded .layout,
+      body.settings-expanded .col-main { height: auto; }
+      /* Flatten both .group panels so their sections become direct flex
+         children of .col-main, in DOM order: Root row, abacus section,
+         (collapsed) Sound, (collapsed) Instrument/Handedness, fretboard —
+         i.e. the exact three visible blocks stack with no wrapper padding
+         or borders eating into the tight vertical budget. */
+      .group { display: contents; }
+
+      #root-row { flex: 0 0 auto; gap: 8px 20px; }
+      #root-row .label { display: none; }
+
+      #abacus-section { flex: 0 0 auto; padding-top: 0; border-top: none; }
+      .scale-name { margin-bottom: 4px; }
+      .scale-name .name { font-size: 0.9rem; }
+
+      /* The fretboard/piano gets whatever height is left after the root
+         row and abacus take theirs — width:100%/height:100% (rather than
+         the site-wide height:auto rule) lets it actually grow to fill that
+         space, letterboxed by the SVG's own preserveAspectRatio so it
+         never distorts or overflows. */
+      #fretboard-wrap { flex: 1 1 auto; min-height: 0; padding-top: 0; border-top: none; display: flex; flex-direction: column; }
+      #fretboard-wrap .label-row { flex: 0 0 auto; margin-bottom: 4px; }
+      #fretboard-wrap .label { font-size: 9px; }
+      #fretboard, #piano { flex: 1 1 auto; min-height: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
+
+      body.settings-expanded #abacus-section,
+      body.settings-expanded #fretboard-wrap { flex: none; }
+      body.settings-expanded #fretboard,
+      body.settings-expanded #piano { height: auto; }
     }
 
     @media (min-width: 1100px) {
