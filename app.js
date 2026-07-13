@@ -847,7 +847,24 @@ const AB_STEP = (AB_R - AB_L) / 12;
 const atX    = pos => AB_L + pos * AB_STEP;
 const aXtoP  = x   => (x - AB_L) / AB_STEP;
 
-let beads = []; // per-bead: { circle, lbl }
+// Touch target sizing: the visible bead (AB_BR) stays small and precise, but
+// on a phone the SVG is scaled way down (viewBox 760 wide vs. a ~330px
+// screen), shrinking a 15-unit radius to a handful of real pixels — nowhere
+// near tappable. Each bead gets an invisible, larger hit circle sized to
+// half the gap to its nearest neighbor (or the track edge), so adjacent hit
+// areas never overlap and every bead uses as much of its own space as it
+// can. Capped well inside the viewBox height so it never gets clipped by
+// the SVG's own overflow:hidden.
+const AB_HIT_CAP = 40;
+function beadHitRadius(idx, pos) {
+  const leftGap  = idx > 0 ? (pos - scaleOffsets[idx - 1]) * AB_STEP : pos * AB_STEP + AB_L;
+  const rightGap = idx < scaleOffsets.length - 1
+    ? (scaleOffsets[idx + 1] - pos) * AB_STEP
+    : (12 - pos) * AB_STEP + (760 - AB_R);
+  return Math.max(AB_BR, Math.min(AB_HIT_CAP, Math.min(leftGap, rightGap) / 2));
+}
+
+let beads = []; // per-bead: { circle, lbl, hit }
 
 function renderAbacus() {
   const svg = document.getElementById('abacus');
@@ -907,23 +924,32 @@ function renderAbacus() {
     const circle = mk('circle', {
       cx: x, cy: AB_TY, r: AB_BR,
       fill: color, stroke: 'rgba(255,255,255,0.25)', 'stroke-width': 1.5,
-      cursor: fixed ? 'pointer' : 'ew-resize',
-      style: fixed ? '' : 'touch-action: none;'
+      'pointer-events': 'none'
     });
     const lbl = mk('text', {
       x, y: AB_TY + 5, 'text-anchor': 'middle',
       'font-size': 10, 'font-weight': 'bold',
       fill: textColorFor(pos), 'pointer-events': 'none'
     }, label);
+    // Invisible, larger touch/click target layered on top — see
+    // beadHitRadius above for why the visible bead itself is too small to
+    // tap reliably on a phone.
+    const hit = mk('circle', {
+      cx: x, cy: AB_TY, r: beadHitRadius(idx, pos),
+      fill: 'transparent',
+      cursor: fixed ? 'pointer' : 'ew-resize',
+      style: fixed ? '' : 'touch-action: none;'
+    });
 
     svg.appendChild(circle);
     svg.appendChild(lbl);
-    beads[idx] = { circle, lbl };
+    svg.appendChild(hit);
+    beads[idx] = { circle, lbl, hit };
 
     if (fixed) {
-      circle.addEventListener('click', () => playScaleDegree(pos));
+      hit.addEventListener('click', () => playScaleDegree(pos));
     } else {
-      circle.addEventListener('pointerdown', e => beadDown(e, idx));
+      hit.addEventListener('pointerdown', e => beadDown(e, idx));
     }
   });
 }
@@ -958,6 +984,7 @@ function beadMove(e) {
 
   beads[idx].circle.setAttribute('cx', cx);
   beads[idx].lbl.setAttribute('x', cx);
+  beads[idx].hit.setAttribute('cx', cx);
   beads[idx].circle.setAttribute('fill', icolor(pos));
   beads[idx].lbl.setAttribute('fill', textColorFor(pos));
   beads[idx].lbl.textContent = beadLabelAt(idx, pos);
@@ -2893,6 +2920,17 @@ document.querySelectorAll('#ref-notecount-wrap button').forEach(b => {
 // wire up mobile root select
 document.getElementById('root-select-mobile').addEventListener('change', e => {
   rootPitchClass = Number(e.target.value); render();
+});
+
+// wire up mobile settings-drawer toggle (see .mobile-settings-toggle in
+// style.css — collapsed by default under 700px so the abacus, scale name,
+// and fretboard fit on one screen without the Sound/Instrument controls in
+// between; no-op above that width, where the button itself is hidden).
+document.getElementById('mobile-settings-toggle').addEventListener('click', () => {
+  const expanded = document.body.classList.toggle('settings-expanded');
+  document.getElementById('mobile-settings-toggle').textContent =
+    (expanded ? '▼' : '▶') + ' Sound & instrument settings';
+  document.getElementById('mobile-settings-toggle').setAttribute('aria-expanded', String(expanded));
 });
 
 // wire up chord matrix controls
