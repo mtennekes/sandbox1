@@ -241,7 +241,7 @@
        any wider breakpoint, where there's room for everything already, and
        superseded by the landscape "app mode" below on short/wide phone
        screens.  */
-    .mobile-settings-toggle { display: none; }
+    .mobile-settings-toggle, .mobile-reflib-toggle { display: none; }
     @media (max-width: 699px) {
       .mobile-settings-toggle {
         display: block; width: 100%; margin: -8px 0 20px; padding: 8px 10px;
@@ -267,25 +267,48 @@
        tablet in landscape has plenty of room and shouldn't collapse to
        this. */
     @media (orientation: landscape) and (max-height: 500px) {
-      html, body { height: 100dvh; overflow: hidden; padding: 6px 10px; }
-      body.settings-expanded { height: auto; min-height: 100dvh; overflow: auto; }
-
-      .header-row, #color-legend, .col-ref { display: none; }
-
-      .mobile-settings-toggle {
-        display: flex; align-items: center; justify-content: center;
-        position: fixed; top: 6px; right: 8px; z-index: 10;
-        width: 30px; height: 30px; margin: 0; padding: 0; border-radius: 50%;
-        font-size: 0; /* the button's own JS-set label is replaced by the gear glyph below */
+      /* height is pinned to lvh (the viewport size assuming Safari's
+         address/tab chrome has collapsed), not dvh, and overflow stays
+         scrollable rather than hidden. While the chrome is still showing,
+         that makes the page a bit taller than what's actually visible —
+         genuine scroll content for iOS's native "scroll hides the chrome"
+         gesture to grab onto. Once the chrome collapses the visible
+         viewport grows to match lvh and that slack disappears on its own,
+         so the page settles filling the screen exactly, no gap left over.
+         A hard height + overflow:hidden (the previous approach) leaves
+         nothing to scroll, so the chrome has no gesture to react to and
+         just sits there permanently — which is also what was clipping the
+         bottom of the abacus/fretboard, since dvh itself only updates in
+         response to a scroll that this design was preventing. Falls back
+         to dvh (declared first) on browsers without lvh support. */
+      html, body { height: 100dvh; height: 100lvh; overflow-y: auto; overflow-x: hidden; padding: 6px 10px; }
+      body.settings-expanded, body.reflib-expanded {
+        height: auto; min-height: 100dvh; min-height: 100lvh;
       }
+
+      .header-row, #color-legend { display: none; }
+      .col-ref { display: none; }
+      body.reflib-expanded .col-ref { display: block; margin-top: 12px; }
+
+      .mobile-settings-toggle, .mobile-reflib-toggle {
+        display: flex; align-items: center; justify-content: center;
+        position: fixed; top: 6px; z-index: 10;
+        width: 30px; height: 30px; margin: 0; padding: 0; border-radius: 50%;
+        font-size: 0; /* the button's own JS-set label is replaced by the glyph below */
+      }
+      .mobile-settings-toggle { right: 8px; }
       .mobile-settings-toggle::after { content: '\2699'; font-size: 16px; }
+      .mobile-reflib-toggle { right: 44px; }
+      .mobile-reflib-toggle::after { content: '\1F4D6'; font-size: 15px; }
       .mobile-collapsible { display: none; }
       body.settings-expanded .mobile-collapsible { display: revert; }
 
       .layout { height: 100%; gap: 6px; }
       .col-main { height: 100%; gap: 6px; }
       body.settings-expanded .layout,
-      body.settings-expanded .col-main { height: auto; }
+      body.settings-expanded .col-main,
+      body.reflib-expanded .layout,
+      body.reflib-expanded .col-main { height: auto; }
       /* Flatten both .group panels so their sections become direct flex
          children of .col-main, in DOM order: Root row, abacus section,
          (collapsed) Sound, (collapsed) Instrument/Handedness, fretboard —
@@ -311,9 +334,13 @@
       #fretboard, #piano { flex: 1 1 auto; min-height: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
 
       body.settings-expanded #abacus-section,
-      body.settings-expanded #fretboard-wrap { flex: none; }
+      body.settings-expanded #fretboard-wrap,
+      body.reflib-expanded #abacus-section,
+      body.reflib-expanded #fretboard-wrap { flex: none; }
       body.settings-expanded #fretboard,
-      body.settings-expanded #piano { height: auto; }
+      body.settings-expanded #piano,
+      body.reflib-expanded #fretboard,
+      body.reflib-expanded #piano { height: auto; }
     }
 
     @media (min-width: 1100px) {

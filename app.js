@@ -2931,6 +2931,30 @@ document.getElementById('mobile-settings-toggle').addEventListener('click', () =
   document.getElementById('mobile-settings-toggle').textContent =
     (expanded ? '▼' : '▶') + ' Sound & instrument settings';
   document.getElementById('mobile-settings-toggle').setAttribute('aria-expanded', String(expanded));
+  if (expanded) collapseReflibDrawer();
+});
+
+// wire up mobile scale-library toggle — same drawer mechanism as the
+// settings toggle above, but reveals .col-ref (see landscape "app mode" in
+// style.css) instead of the .mobile-collapsible sections. The two drawers
+// are mutually exclusive: opening one closes the other, since both are
+// full-width panels sharing the same scroll space in landscape app mode.
+function collapseReflibDrawer() {
+  document.body.classList.remove('reflib-expanded');
+  document.getElementById('mobile-reflib-toggle').textContent = '▶ Scale library';
+  document.getElementById('mobile-reflib-toggle').setAttribute('aria-expanded', 'false');
+}
+function collapseSettingsDrawer() {
+  document.body.classList.remove('settings-expanded');
+  document.getElementById('mobile-settings-toggle').textContent = '▶ Sound & instrument settings';
+  document.getElementById('mobile-settings-toggle').setAttribute('aria-expanded', 'false');
+}
+document.getElementById('mobile-reflib-toggle').addEventListener('click', () => {
+  const expanded = document.body.classList.toggle('reflib-expanded');
+  document.getElementById('mobile-reflib-toggle').textContent =
+    (expanded ? '▼' : '▶') + ' Scale library';
+  document.getElementById('mobile-reflib-toggle').setAttribute('aria-expanded', String(expanded));
+  if (expanded) collapseSettingsDrawer();
 });
 
 // wire up chord matrix controls
