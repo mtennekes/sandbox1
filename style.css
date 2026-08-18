@@ -228,29 +228,69 @@
       .root-select-mobile { display: block; }
     }
 
-    /* Mobile "settings drawer": on a phone-width screen, the Sound,
+    /* Portrait "app mode": on a phone-width screen, the Sound,
        Instrument/Handedness, mode-stepper, diatonic-chords, and
-       labels/notes controls sit between the abacus and the fretboard,
-       pushing the fretboard below the fold even though it, the abacus, and
-       the scale name are the three things worth seeing together at a
-       glance. All of them share the .mobile-collapsible marker (see the
-       matching class on each in index.html) so one rule collapses them —
-       collapsed by default at this width, with a toggle button to reveal
-       them in place. `revert` (not a fixed display value) because the
-       collapsed set mixes flex rows and plain block sections. Untouched at
-       any wider breakpoint, where there's room for everything already, and
-       superseded by the landscape "app mode" below on short/wide phone
-       screens.  */
+       labels/notes controls otherwise sit between the abacus and the
+       fretboard, pushing the fretboard below the fold even though it, the
+       abacus, and the scale name are the three things worth seeing
+       together at a glance. All of them share the .mobile-collapsible
+       marker (see the matching class on each in index.html), and — along
+       with the color legend and scale library — are hidden here and
+       reached instead through two small fixed buttons (gear = settings,
+       book = scale library) that each pop open a <dialog>
+       (#settings-popup / #reflib-popup, styled further below), mirroring
+       the landscape "app mode" further down. The header (title +
+       Beginner/Advanced toggle) stays on screen, unlike in landscape —
+       portrait phones have much more vertical room, so there's budget for
+       it and losing quick access to that toggle isn't worth the space it
+       would save. Untouched at any wider breakpoint, where there's room
+       for everything already, and superseded by the landscape "app mode"
+       below on short/wide phone screens. */
     .mobile-settings-toggle, .mobile-reflib-toggle { display: none; }
     @media (max-width: 699px) {
-      .mobile-settings-toggle {
-        display: block; width: 100%; margin: -8px 0 20px; padding: 8px 10px;
-        background: var(--surface); border: 1px solid var(--surface-border); border-radius: 4px;
-        color: var(--surface-text); font-size: 12px; text-align: left; cursor: pointer;
+      html, body { height: 100dvh; height: 100lvh; overflow-y: auto; overflow-x: hidden; }
+      body { min-height: 0; display: flex; flex-direction: column; padding: 16px 16px 12px; }
+
+      #color-legend, .col-ref, .mobile-collapsible { display: none; }
+
+      .header-row { flex: 0 0 auto; margin-bottom: 14px; }
+
+      .mobile-settings-toggle, .mobile-reflib-toggle {
+        display: flex; align-items: center; justify-content: center;
+        position: fixed; top: 10px; z-index: 10;
+        width: 34px; height: 34px; margin: 0; padding: 0; border-radius: 50%;
+        background: var(--surface); border: 1px solid var(--surface-border);
+        font-size: 0; /* the button's own JS-set label is replaced by the glyph below */
       }
-      .mobile-settings-toggle:hover { background: var(--surface-hover-bg); color: var(--surface-hover-text); }
-      .mobile-collapsible { display: none; }
-      body.settings-expanded .mobile-collapsible { display: revert; }
+      .mobile-settings-toggle { right: 14px; }
+      .mobile-settings-toggle::after { content: '\2699'; font-size: 18px; }
+      .mobile-reflib-toggle { right: 54px; }
+      .mobile-reflib-toggle::after { content: '\1F4D6'; font-size: 17px; }
+
+      .layout { flex: 1 1 auto; min-height: 0; }
+      .col-main { height: 100%; gap: 12px; }
+      /* Flatten both .group panels so their sections become direct flex
+         children of .col-main — same technique as landscape app mode. */
+      .group { display: contents; }
+
+      #root-row { flex: 0 0 auto; }
+      #abacus-section { flex: 0 0 auto; padding-top: 0; border-top: none; }
+      .scale-name { margin-bottom: 6px; }
+
+      /* The fretboard/piano gets whatever height is left after the root
+         row and abacus take theirs — same technique as landscape app mode. */
+      #fretboard-wrap { flex: 1 1 auto; min-height: 0; padding-top: 0; border-top: none; display: flex; flex-direction: column; }
+      #fretboard-wrap .label-row { flex: 0 0 auto; margin-bottom: 6px; }
+      #fretboard, #piano { flex: 1 1 auto; min-height: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
+
+      /* The abacus/fretboard's own SVG font sizes are tuned for the
+         desktop-scale artwork; shrunk to fit a ~350px-wide phone screen
+         they read as barely legible. Both auto-scale with the whole SVG
+         (see #fretboard, #piano, #abacus max-width/height:auto above), so
+         bumping the font-size numbers here makes the text bigger relative
+         to the beads/fretboard itself, not just bigger on screen. */
+      #abacus text { font-size: 14px; }
+      #fretboard text.fret-num { font-size: 15px; }
     }
 
     /* Landscape "app mode" — a phone turned sideways (short viewport
@@ -258,14 +298,14 @@
        only the root picker, scale name, abacus, and fretboard/piano are
        ever on screen, sized to fill the viewport exactly. Everything else
        (Sound, Instrument/Handedness, mode stepper, diatonic chords,
-       labels/notes, the header, the reference table, the color legend)
-       is reachable through the same settings toggle as the portrait
-       drawer above, now rendered as a small fixed gear button — opening it
-       switches this block back to a normal scrolling document rather than
-       trying to cram a second no-scroll layout around a much taller
-       control panel. max-height (not max-width) is the trigger, since a
-       tablet in landscape has plenty of room and shouldn't collapse to
-       this. */
+       labels/notes, the header, the reference table, the color legend) is
+       reachable through two small fixed buttons (gear = settings, book =
+       scale library) that each pop open a <dialog> (#settings-popup /
+       #reflib-popup, styled below) rather than expanding this layout in
+       place — the popup has its own scroll/stacking context, so the base
+       view here never needs to grow or scroll to make room for it.
+       max-height (not max-width) is the trigger, since a tablet in
+       landscape has plenty of room and shouldn't collapse to this. */
     @media (orientation: landscape) and (max-height: 500px) {
       /* height is pinned to lvh (the viewport size assuming Safari's
          address/tab chrome has collapsed), not dvh, and overflow stays
@@ -282,13 +322,8 @@
          response to a scroll that this design was preventing. Falls back
          to dvh (declared first) on browsers without lvh support. */
       html, body { height: 100dvh; height: 100lvh; overflow-y: auto; overflow-x: hidden; padding: 6px 10px; }
-      body.settings-expanded, body.reflib-expanded {
-        height: auto; min-height: 100dvh; min-height: 100lvh;
-      }
 
-      .header-row, #color-legend { display: none; }
-      .col-ref { display: none; }
-      body.reflib-expanded .col-ref { display: block; margin-top: 12px; }
+      .header-row, #color-legend, .col-ref, .mobile-collapsible { display: none; }
 
       .mobile-settings-toggle, .mobile-reflib-toggle {
         display: flex; align-items: center; justify-content: center;
@@ -300,20 +335,14 @@
       .mobile-settings-toggle::after { content: '\2699'; font-size: 16px; }
       .mobile-reflib-toggle { right: 44px; }
       .mobile-reflib-toggle::after { content: '\1F4D6'; font-size: 15px; }
-      .mobile-collapsible { display: none; }
-      body.settings-expanded .mobile-collapsible { display: revert; }
 
       .layout { height: 100%; gap: 6px; }
       .col-main { height: 100%; gap: 6px; }
-      body.settings-expanded .layout,
-      body.settings-expanded .col-main,
-      body.reflib-expanded .layout,
-      body.reflib-expanded .col-main { height: auto; }
       /* Flatten both .group panels so their sections become direct flex
          children of .col-main, in DOM order: Root row, abacus section,
-         (collapsed) Sound, (collapsed) Instrument/Handedness, fretboard —
-         i.e. the exact three visible blocks stack with no wrapper padding
-         or borders eating into the tight vertical budget. */
+         (hidden) Sound, (hidden) Instrument/Handedness, fretboard — i.e.
+         the exact three visible blocks stack with no wrapper padding or
+         borders eating into the tight vertical budget. */
       .group { display: contents; }
 
       #root-row { flex: 0 0 auto; gap: 8px 20px; }
@@ -333,19 +362,43 @@
       #fretboard-wrap .label { font-size: 9px; }
       #fretboard, #piano { flex: 1 1 auto; min-height: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
 
-      body.settings-expanded #abacus-section,
-      body.settings-expanded #fretboard-wrap,
-      body.reflib-expanded #abacus-section,
-      body.reflib-expanded #fretboard-wrap { flex: none; }
-      body.settings-expanded #fretboard,
-      body.settings-expanded #piano,
-      body.reflib-expanded #fretboard,
-      body.reflib-expanded #piano { height: auto; }
+      /* Same font-size bump as portrait app mode above, and for the same
+         reason — see the comment there. */
+      #abacus text { font-size: 14px; }
+      #fretboard text.fret-num { font-size: 15px; }
     }
 
     @media (min-width: 1100px) {
       .layout { grid-template-columns: minmax(0, 2.4fr) minmax(260px, 1fr); }
     }
+
+    /* Popups the mobile-landscape settings/scale-library buttons open (see
+       @media (orientation: landscape) above) — .mobile-collapsible sections
+       and .col-ref are reparented into #settings-popup-body /
+       #reflib-popup-body while open (by JS, in app.js) and moved back on
+       close, so this just needs to make them visible again once inside. */
+    dialog.mobile-popup {
+      background: var(--dialog-bg); color: var(--text); border: 1px solid var(--surface-border); border-radius: 10px;
+      padding: 16px 18px; width: min(420px, 92vw);
+      max-height: calc(100dvh - 32px); max-height: calc(100lvh - 32px);
+      overflow-y: auto;
+    }
+    dialog.mobile-popup::backdrop { background: var(--backdrop); }
+    dialog.mobile-popup .mobile-collapsible,
+    dialog.mobile-popup .col-ref { display: revert; }
+    /* Moving these out of .group drops the divider .group .section:not(:first-child)
+       normally draws between them — replace it with an equivalent one here,
+       keyed off adjacency instead of group membership. */
+    dialog.mobile-popup .mobile-collapsible + .mobile-collapsible {
+      margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--panel-border);
+    }
+    .mobile-popup-close {
+      float: right; position: sticky; top: 0; margin: -4px -4px 8px 8px;
+      width: 26px; height: 26px; border-radius: 50%; line-height: 1;
+      background: var(--surface); border: 1px solid var(--surface-border); color: var(--surface-text);
+      font-size: 16px; cursor: pointer;
+    }
+    .mobile-popup-close:hover { background: var(--surface-hover-bg); color: var(--surface-hover-text); }
 
     dialog#synth-dialog {
       background: var(--dialog-bg); color: var(--text); border: 1px solid var(--surface-border); border-radius: 6px;

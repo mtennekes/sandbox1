@@ -1528,14 +1528,14 @@ function renderFretboard() {
       stroke: '#5a4a2e', 'stroke-width': 2
     }));
     svg.appendChild(mk('text', {
-      x: mirror(numberX(n)), y: NUT_B + 22,
+      x: mirror(numberX(n)), y: NUT_B + 22, class: 'fret-num',
       'text-anchor': 'middle', 'font-size': 11, fill: '#ffffff'
     }, String(n)));
   }
 
   // fret "0" label under open-string column
   svg.appendChild(mk('text', {
-    x: mirror(numberX(0)), y: NUT_B + 22,
+    x: mirror(numberX(0)), y: NUT_B + 22, class: 'fret-num',
     'text-anchor': 'middle', 'font-size': 11, fill: '#ffffff'
   }, '0'));
 
@@ -2922,39 +2922,80 @@ document.getElementById('root-select-mobile').addEventListener('change', e => {
   rootPitchClass = Number(e.target.value); render();
 });
 
-// wire up mobile settings-drawer toggle (see .mobile-settings-toggle in
-// style.css — collapsed by default under 700px so the abacus, scale name,
-// and fretboard fit on one screen without the Sound/Instrument controls in
-// between; no-op above that width, where the button itself is hidden).
-document.getElementById('mobile-settings-toggle').addEventListener('click', () => {
-  const expanded = document.body.classList.toggle('settings-expanded');
-  document.getElementById('mobile-settings-toggle').textContent =
-    (expanded ? '▼' : '▶') + ' Sound & instrument settings';
-  document.getElementById('mobile-settings-toggle').setAttribute('aria-expanded', String(expanded));
-  if (expanded) collapseReflibDrawer();
+// wire up mobile settings/scale-library buttons (see .mobile-settings-toggle
+// / .mobile-reflib-toggle in style.css — fixed circular buttons in both
+// portrait phone-width and landscape phone-height "app mode", hidden
+// entirely above those breakpoints where there's room for everything
+// inline already). Clicking one opens a <dialog> popup and reparents the
+// relevant content into it — .mobile-collapsible sections for settings,
+// .col-ref for the scale library — moving it back to its original spot on
+// close. A popup has its own independent scroll/stacking context, so it
+// doesn't need the base fretboard view to grow or scroll to make room for
+// it: the fretboard/abacus stay exactly as they were underneath.
+const phoneAppModeMQ = window.matchMedia('(max-width: 699px), (orientation: landscape) and (max-height: 500px)');
+
+function wireMobilePopup(dialog, closeBtnId) {
+  document.getElementById(closeBtnId).addEventListener('click', () => dialog.close());
+  // Clicking the backdrop (outside the dialog's own box) closes it — native
+  // <dialog> reports such clicks with target === the dialog element itself,
+  // so distinguishing them from a click inside needs a bounding-box check.
+  dialog.addEventListener('click', e => {
+    const r = dialog.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close();
+  });
+}
+
+// Moves `nodes` into `container` and returns a restore function that puts
+// each one back at its original (parent, next-sibling) position — used so
+// the popups can borrow the real, ID-referenced elements instead of cloning
+// them (app.js renders into these by ID, so clones would go stale).
+function parkNodes(nodes, container) {
+  const spots = nodes.map(node => ({ node, parent: node.parentNode, next: node.nextSibling }));
+  nodes.forEach(node => container.appendChild(node));
+  return () => spots.forEach(({ node, parent, next }) => parent.insertBefore(node, next));
+}
+
+const settingsPopup = document.getElementById('settings-popup');
+const settingsPopupBody = document.getElementById('settings-popup-body');
+let restoreSettingsNodes = null;
+wireMobilePopup(settingsPopup, 'settings-popup-close');
+settingsPopup.addEventListener('close', () => {
+  if (restoreSettingsNodes) { restoreSettingsNodes(); restoreSettingsNodes = null; }
+  document.getElementById('mobile-settings-toggle').setAttribute('aria-expanded', 'false');
 });
 
-// wire up mobile scale-library toggle — same drawer mechanism as the
-// settings toggle above, but reveals .col-ref (see landscape "app mode" in
-// style.css) instead of the .mobile-collapsible sections. The two drawers
-// are mutually exclusive: opening one closes the other, since both are
-// full-width panels sharing the same scroll space in landscape app mode.
-function collapseReflibDrawer() {
-  document.body.classList.remove('reflib-expanded');
-  document.getElementById('mobile-reflib-toggle').textContent = '▶ Scale library';
+const reflibPopup = document.getElementById('reflib-popup');
+const reflibPopupBody = document.getElementById('reflib-popup-body');
+let restoreReflibNodes = null;
+wireMobilePopup(reflibPopup, 'reflib-popup-close');
+reflibPopup.addEventListener('close', () => {
+  if (restoreReflibNodes) { restoreReflibNodes(); restoreReflibNodes = null; }
   document.getElementById('mobile-reflib-toggle').setAttribute('aria-expanded', 'false');
-}
-function collapseSettingsDrawer() {
-  document.body.classList.remove('settings-expanded');
-  document.getElementById('mobile-settings-toggle').textContent = '▶ Sound & instrument settings';
-  document.getElementById('mobile-settings-toggle').setAttribute('aria-expanded', 'false');
-}
+});
+
+// Orientation/resize can move the page out of phone app mode entirely while
+// a popup is open (e.g. rotating a phone into a size where the toggle
+// buttons themselves go away) — close it rather than leaving its content
+// stranded off in the dialog with no visible way back.
+phoneAppModeMQ.addEventListener('change', e => {
+  if (!e.matches) { settingsPopup.close(); reflibPopup.close(); }
+});
+
+document.getElementById('mobile-settings-toggle').addEventListener('click', () => {
+  if (settingsPopup.open) { settingsPopup.close(); return; }
+  reflibPopup.close();
+  restoreSettingsNodes = parkNodes(Array.from(document.querySelectorAll('.mobile-collapsible')), settingsPopupBody);
+  settingsPopup.showModal();
+  document.getElementById('mobile-settings-toggle').setAttribute('aria-expanded', 'true');
+});
+
+// wire up mobile scale-library toggle — same popup mechanism as settings.
 document.getElementById('mobile-reflib-toggle').addEventListener('click', () => {
-  const expanded = document.body.classList.toggle('reflib-expanded');
-  document.getElementById('mobile-reflib-toggle').textContent =
-    (expanded ? '▼' : '▶') + ' Scale library';
-  document.getElementById('mobile-reflib-toggle').setAttribute('aria-expanded', String(expanded));
-  if (expanded) collapseSettingsDrawer();
+  if (reflibPopup.open) { reflibPopup.close(); return; }
+  settingsPopup.close();
+  restoreReflibNodes = parkNodes([document.querySelector('.col-ref')], reflibPopupBody);
+  reflibPopup.showModal();
+  document.getElementById('mobile-reflib-toggle').setAttribute('aria-expanded', 'true');
 });
 
 // wire up chord matrix controls
