@@ -19,137 +19,19 @@ function rotateToDegree(set, k) {
   return set.map(x => ((x - d) % 12 + 12) % 12).sort((a, b) => a - b);
 }
 
-//const PAL = [
-//  "#FFFFFF","#BE0032","#377EB8","#BF5B17","#FF7F00","#4DAF4A",
-//  "#DC050C","#a0a0a0","#AC8763","#F781BF","#F0E442","#AB4EF3"
-//]; // Sentiment12, with interval 7 (perfect 5th) → gray and interval 10 (♭7) → yellow
+// PAL/colorOf/textColorFor/BLACK_TEXT_FUNCTIONS/NOTE_NAMES/FLAT_NAMES/
+// MAJOR_REF/TABLE_LABELS/ROMAN/FAMILIES/mk/accidental/degreeDist/
+// assignDegreeIndices/degreeLabelAt now live in ../shared/theory.js (loaded
+// before this file — see index.html) so masalamap/fusionmap/spicemap share
+// one copy instead of three. `functionOf`/`icolor` are spicemap's own
+// naming for the same shared `mod12`/`colorOf` — kept as thin aliases so
+// the rest of this file didn't need touching everywhere they're used.
+const functionOf = mod12;
+const icolor = colorOf;
 
-const PAL = [
-  "#FFFFFF","#F51D2C","#377EB8","#BF5B17","#FF7F00","#4DAF4A",
-  "#8A0303","#a0a0a0","#006906","#F781BF","#E9C81C","#AB4EF3"
-]; // R=white, ♭2=scarlet, 2=blue, ♭3=brown, 3=orange, 4=green,
-   // ♭5=blood, 5=gray, ♭6=rose, 6=pink, ♭7=gold, 7=purple
-
-function functionOf(interval) { return ((interval % 12) + 12) % 12; }
-function colorOf(fn) { return PAL[fn]; }
-const icolor = s => colorOf(functionOf(s));
-
-// Functions whose background reads as "bright"
-// get black label text instead of white for contrast.
-const BLACK_TEXT_FUNCTIONS = new Set([0, 4, 5, 7, 9, 10]);
-const textColorFor = interval => BLACK_TEXT_FUNCTIONS.has(functionOf(interval)) ? '#000000' : 'rgba(255,255,255,0.9)';
-
-// Fixed generic labels — used ONLY for axis-style references that aren't
-// tied to one specific scale: the abacus's position ticks and the reference
-// table's column header. Color follows raw pitch (semitone) everywhere, but
-// TEXT labels for an actual scale's notes are computed per-scale instead
-// (see degreeLabelAt below) — the same tritone reads "♯4" in Lydian but
-// "♭5" in Locrian, because which degree slot it fills depends on context,
-// not on the semitone alone.
-const TABLE_LABELS = ['R','♭2','2','♭3','3','4','♯4','5','♭6','6','♭7','7'];
-
-// Reference degree semitones for a major scale, indexed by rank (0 = 1st
-// degree ... 6 = 7th degree).
-const MAJOR_REF = [0, 2, 4, 5, 7, 9, 11];
-
-function accidental(diff) {
-  if (diff === 0) return '';
-  const n = Math.abs(diff);
-  if (n === 1) return diff > 0 ? '♯' : '♭';
-  if (n === 2) return diff > 0 ? '𝄪' : '𝄫';
-  return (diff > 0 ? '♯' : '♭').repeat(n); // defensive fallback for extreme manual drags
-}
-
-// Signed semitone distance from a note to the major-scale reference degree
-// at `refIdx` (0=1st degree ... 6=7th), wrapped to the nearest octave.
-function degreeDist(semitone, refIdx) {
-  let diff = semitone - MAJOR_REF[refIdx];
-  if (diff > 6) diff -= 12;
-  if (diff < -6) diff += 12;
-  return diff;
-}
-
-// Which of the 7 major-scale reference degrees does each note in a scale
-// "belong" to — a sequence alignment between the scale's notes (ascending)
-// and the 7 reference degrees (ascending), allowing degrees to be **skipped**
-// (missing from the scale, e.g. pentatonic's 4th/7th — cost 0) or **repeated**
-// (more than one note landing on the same nominal degree, e.g. blues' natural
-// 4 and raised 4 both reading off "degree 4" — cost = that note's own
-// deviation). This is what makes minor pentatonic read "♭3 4 5 ♭7" instead of
-// mis-numbering every note after a skip, and blues read "♭3 4 ♭5 5 ♭7" instead
-// of drifting into ♯2/♯3 the way a strict one-note-per-degree model would
-// (that was the bug in the first version of this — see Increment 3 spec §4).
-//
-// Degree 1 is forced onto the root (note 0) at zero cost, guaranteeing the
-// root never carries an accidental. Among equal-cost alignments, prefer
-// fewer repeats (i.e. don't reuse a degree if a fresh one is available at
-// the same cost — this is what keeps octatonic's ♯4-then-5 distinct instead
-// of collapsing onto degree 5 twice), then fewer sharps. Both tie-breaks are
-// heuristics per the spec, not a proven rule.
-//
-// Exception: when the scale has exactly 7 notes (matching the 7 reference
-// degrees 1-to-1), repeats are disallowed outright rather than merely
-// discouraged. With 7 notes and 7 degrees, a repeat necessarily means some
-// OTHER degree got skipped instead — e.g. double harmonic major's "Locrian
-// 𝄫3 𝄫7" mode has adjacent semitone neighbors at both the 2nd/3rd and
-// 6th/7th degrees, and minimizing raw semitone cost alone finds it cheaper
-// to call the higher neighbor a second "2" or "6" (repeat, ♮) than a proper
-// 𝄫3/𝄫7 (skip, cost 2) — technically lower-cost, but it reuses one letter
-// name twice while never using another at all, which standard notation for
-// a 7-note scale never does. Forcing a bijection here also fixes the
-// absolute (sharp/flat) spelling for the same note, since that's derived
-// from this same accidental sign.
-function assignDegreeIndices(set) {
-  const n = set.length;
-  const R = MAJOR_REF.length;
-  const bijection = n === R;
-
-  // dp[i][j] = best (cost, repeats, sharps) for note i landing on degree j,
-  // given some non-decreasing (or, if `bijection`, strictly increasing)
-  // choice of degrees for notes 0..i-1.
-  const dp = Array.from({ length: n }, () => new Array(R).fill(null));
-  const back = Array.from({ length: n }, () => new Array(R).fill(-1));
-  const sharpOf = diff => (diff > 0 ? 1 : 0);
-  const lessOrEq = (a, b) => a[0] !== b[0] ? a[0] < b[0] : a[1] !== b[1] ? a[1] < b[1] : a[2] <= b[2];
-
-  const d0 = degreeDist(set[0], 0);
-  dp[0][0] = [Math.abs(d0), 0, sharpOf(d0)];
-
-  for (let i = 1; i < n; i++) {
-    for (let j = 0; j < R; j++) {
-      let best = null, bestPrev = -1;
-      const maxPrev = bijection ? j - 1 : j;
-      for (let jp = 0; jp <= maxPrev; jp++) {
-        if (!dp[i - 1][jp]) continue;
-        const diff = degreeDist(set[i], j);
-        const cand = [dp[i - 1][jp][0] + Math.abs(diff), dp[i - 1][jp][1] + (jp === j ? 1 : 0), dp[i - 1][jp][2] + sharpOf(diff)];
-        if (!best || lessOrEq(cand, best)) { best = cand; bestPrev = jp; }
-      }
-      dp[i][j] = best;
-      back[i][j] = bestPrev;
-    }
-  }
-
-  let bestJ = -1, bestVal = null;
-  for (let j = 0; j < R; j++) {
-    if (dp[n - 1][j] && (!bestVal || dp[n - 1][j][0] < bestVal[0] ||
-        (dp[n - 1][j][0] === bestVal[0] && dp[n - 1][j][1] < bestVal[1]) ||
-        (dp[n - 1][j][0] === bestVal[0] && dp[n - 1][j][1] === bestVal[1] && dp[n - 1][j][2] < bestVal[2]))) {
-      bestVal = dp[n - 1][j]; bestJ = j;
-    }
-  }
-  const result = new Array(n);
-  let j = bestJ;
-  for (let i = n - 1; i >= 0; i--) { result[i] = j; j = i > 0 ? back[i][j] : j; }
-  return result;
-}
-
-// Theoretically correct degree label for a note at reference slot `refIdx`
-// (0-6) with semitone `semitone` — the accidental is just that degree's
-// semitone compared to the major-scale reference for the same slot.
-function degreeLabelAt(refIdx, semitone) {
-  return accidental(degreeDist(semitone, refIdx)) + (refIdx + 1);
-}
+// TABLE_LABELS/MAJOR_REF/accidental/degreeDist/assignDegreeIndices/
+// degreeLabelAt now live in shared/theory.js (ported verbatim — see there
+// for the full rationale on the degree-assignment algorithm).
 
 // 'relative' (1, ♭3, 4, ...) or 'absolute' (actual note names, C, E♭, F, ...)
 // — toggled from the Root section, applies everywhere a degree label is
@@ -172,22 +54,10 @@ const urlTier = new URLSearchParams(location.search).get('tier');
 if (urlTier === 'free' || urlTier === 'paid') localStorage.setItem('n4a-tier', urlTier);
 let tier = localStorage.getItem('n4a-tier') || 'paid';
 
-function formulaOf(set) {
-  if (labelMode === 'absolute') return set.map((s, i) => absoluteNoteName(s, set, i)).join(' ');
-  const assign = assignDegreeIndices(set);
-  return set.map((s, i) => i === 0 ? '1' : degreeLabelAt(assign[i], s)).join(' ');
-}
-// Same idea, but root spelled "R" (relative mode) — used for bead/cell
-// labels (abacus, reference table rows). `set` is the full scale this note
-// belongs to (needed to resolve which reference slot each rank maps to);
-// defaults to the live scaleOffsets.
-function beadLabelAt(idx, semitone, set) {
-  const s = set || scaleOffsets;
-  if (labelMode === 'absolute') return absoluteNoteName(semitone, s, idx);
-  if (idx === 0) return 'R';
-  const assign = assignDegreeIndices(s);
-  return degreeLabelAt(assign[idx], semitone);
-}
+// formulaOf/beadLabelAt now live in shared/theory.js, parameterized
+// (labelMode/rootPitchClass passed explicitly instead of read off globals,
+// so multiple abacus instances can each label independently) — call sites
+// below now pass `labelMode, rootPitchClass` explicitly.
 function bitmaskOf(set) { return set.reduce((m, s) => m | (1 << s), 0); }
 
 // ── scale dictionary ────────────────────────────────────────────────────────────
@@ -200,12 +70,8 @@ const FAMILY_LABEL = {
   doubleHarmonic: 'Double harmonic major',
 };
 
-const FAMILIES = {
-  major:         { base: [0,2,4,5,7,9,11], modes: ['Ionian','Dorian','Phrygian','Lydian','Mixolydian','Aeolian','Locrian'] },
-  melodicMinor:  { base: [0,2,3,5,7,9,11], modes: ['Melodic minor','Dorian ♭2','Lydian augmented','Lydian dominant','Mixolydian ♭6','Locrian ♮2','Altered scale'] },
-  harmonicMinor: { base: [0,2,3,5,7,8,11], modes: ['Harmonic minor','Locrian ♮6','Ionian ♯5','Dorian ♯4','Phrygian dominant','Lydian ♯2','Ultralocrian'] },
-  harmonicMajor: { base: [0,2,4,5,7,8,11], modes: ['Harmonic major','Dorian ♭5','Phrygian ♭4','Lydian ♭3','Mixolydian ♭2','Lydian augmented ♯2','Locrian 𝄫7'] },
-};
+// FAMILIES now lives in shared/theory.js (identical base/modes; it also
+// carries a `label` field spicemap doesn't read, harmless).
 
 const EXOTIC = {
   doubleHarmonic: {
@@ -375,7 +241,7 @@ function nameScale(positions) {
   const rooted = intervalSet(positions);
   // Always computed fresh (never cached on the catalog entry) so it stays
   // correct as rootPitchClass/labelMode change — see formulaOf.
-  const formula = formulaOf(rooted);
+  const formula = formulaOf(rooted, labelMode, rootPitchClass);
 
   // Exact catalog hit — pass `kind`/`entry` through so bead rendering can
   // apply the right treatment (hollow "added" bead for composite scales,
@@ -411,7 +277,13 @@ function nameScale(positions) {
 // folded to pitch class (relative to the scale root, same convention as
 // scaleOffsets/icolor) so a chord row lines up directly under the abacus.
 
-const CHORD_QUALITY = {
+// Named SPICEMAP_CHORD_QUALITY, not CHORD_QUALITY — shared/theory.js has
+// its own table of the same shape for masalamap/fusionmap, but without the
+// sus2/sus4 entries this one has (spicemap's chordsInScale can produce
+// suspended triads; masalamap's stacked-3rds generation never does).
+// Deliberately kept separate rather than merged, per the "not done here"
+// note on future chord-logic consolidation.
+const SPICEMAP_CHORD_QUALITY = {
   '0,4,7':    { symbol: '',      name: 'major' },
   '0,3,7':    { symbol: 'm',     name: 'minor' },
   '0,3,6':    { symbol: '°',     name: 'diminished' },
@@ -431,7 +303,7 @@ const CHORD_QUALITY = {
 
 function chordQuality(intervals) {
   const key = Array.from(new Set(intervals.map(x => ((x % 12) + 12) % 12))).sort((a, b) => a - b).join(',');
-  return CHORD_QUALITY[key] || { symbol: null, name: 'no common symbol', fallback: true };
+  return SPICEMAP_CHORD_QUALITY[key] || { symbol: null, name: 'no common symbol', fallback: true };
 }
 
 // Increment 3 §6, non-7 chord stacking: at each step, walk the scale and
@@ -699,10 +571,10 @@ function chordToneDisplayLabel(chord, pos, tonePc) {
     return chordToneLabelAt(pos, relFromChordRoot);
   }
   const idx = scaleOffsets.indexOf(tonePc);
-  return beadLabelAt(idx, tonePc, scaleOffsets);
+  return beadLabelAt(idx, tonePc, scaleOffsets, labelMode, rootPitchClass);
 }
 
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+// ROMAN now lives in shared/theory.js (identical array).
 
 // Case follows the chord's own 3rd (major third -> uppercase, minor third ->
 // lowercase); the quality symbol (already computed) supplies °/ø/+/7 etc.
@@ -718,7 +590,7 @@ function romanNumeralFor(chord) {
 
 function chordAbsoluteSymbol(chord) {
   const idx = scaleOffsets.indexOf(chord.rootPc);
-  const letter = absoluteNoteName(chord.rootPc, scaleOffsets, idx);
+  const letter = absoluteNoteName(chord.rootPc, scaleOffsets, idx, rootPitchClass);
   return letter + (chord.quality.symbol || '');
 }
 
@@ -735,15 +607,7 @@ function chordFullName(chord) {
   return `${roman} — ${abs} ${chord.quality.name}${approxNote}`;
 }
 
-// ── svg helper ────────────────────────────────────────────────────────────────
-
-const NS = 'http://www.w3.org/2000/svg';
-function mk(tag, attrs, text) {
-  const el = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-  if (text !== undefined) el.textContent = text;
-  return el;
-}
+// mk()/SVG_NS now live in shared/theory.js (identical implementation).
 
 // ── data model ────────────────────────────────────────────────────────────────
 
@@ -764,23 +628,9 @@ function syncArmband() {
 
 // ── root selector ─────────────────────────────────────────────────────────────
 
-const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-// Enharmonic (flat) spellings for the same 12 pitch classes — naturals are
-// identical to NOTE_NAMES, so only the black-key entries actually differ.
-const FLAT_NAMES = ['C','D♭','D','E♭','E','F','G♭','G','A♭','A','B♭','B'];
-
-// Absolute note name for a scale member, spelled sharp or flat to match its
-// own relative-degree accidental (e.g. A Phrygian's ♭2 is spelled B♭, not
-// A♯) rather than always defaulting to NOTE_NAMES' sharps. `idx` is this
-// note's position within `set`; the root (idx 0) always keeps its plain
-// NOTE_NAMES spelling — degree assignment has nothing to disambiguate there.
-function absoluteNoteName(semitone, set, idx) {
-  const pc = ((semitone + rootPitchClass) % 12 + 12) % 12;
-  if (idx === 0) return NOTE_NAMES[pc];
-  const assign = assignDegreeIndices(set);
-  const diff = degreeDist(semitone, assign[idx]);
-  return diff < 0 ? FLAT_NAMES[pc] : NOTE_NAMES[pc];
-}
+// NOTE_NAMES/FLAT_NAMES/absoluteNoteName now live in shared/theory.js —
+// absoluteNoteName there takes rootPitchClass as an explicit 4th param
+// instead of reading it off this file's global (see call sites below).
 
 function renderRoot() {
   const div = document.getElementById('root-selector');
@@ -811,7 +661,7 @@ function setLabelMode(mode) {
   localStorage.setItem('n4a-label-mode', mode);
   document.getElementById('label-mode-relative').classList.toggle('active', mode === 'relative');
   document.getElementById('label-mode-absolute').classList.toggle('active', mode === 'absolute');
-  renderAbacus();
+  abacusController.setLabelMode(mode);
   renderName();
   renderTable();
   renderChordMatrix();
@@ -827,6 +677,7 @@ function setViewMode(mode) {
   document.getElementById('view-mode-beginner').classList.toggle('active', mode === 'beginner');
   document.getElementById('view-mode-advanced').classList.toggle('active', mode === 'advanced');
   document.getElementById('mode-controls').style.display = mode === 'beginner' ? 'none' : '';
+  document.getElementById('notecount-group').style.display = mode === 'beginner' ? 'none' : '';
   document.querySelector('.ref-controls').style.display = mode === 'beginner' ? 'none' : '';
   document.getElementById('diatonic-chords-section').style.display = mode === 'beginner' ? 'none' : '';
   // Beginner always shows absolute note names (forced below), so the
@@ -847,169 +698,21 @@ const AB_STEP = (AB_R - AB_L) / 12;
 const atX    = pos => AB_L + pos * AB_STEP;
 const aXtoP  = x   => (x - AB_L) / AB_STEP;
 
-// Touch target sizing: the visible bead (AB_BR) stays small and precise, but
-// on a phone the SVG is scaled way down (viewBox 760 wide vs. a ~330px
-// screen), shrinking a 15-unit radius to a handful of real pixels — nowhere
-// near tappable. Each bead gets an invisible, larger hit circle sized to
-// half the gap to its nearest neighbor (or the track edge), so adjacent hit
-// areas never overlap and every bead uses as much of its own space as it
-// can. Capped well inside the viewBox height so it never gets clipped by
-// the SVG's own overflow:hidden.
-const AB_HIT_CAP = 40;
-function beadHitRadius(idx, pos) {
-  const leftGap  = idx > 0 ? (pos - scaleOffsets[idx - 1]) * AB_STEP : pos * AB_STEP + AB_L;
-  const rightGap = idx < scaleOffsets.length - 1
-    ? (scaleOffsets[idx + 1] - pos) * AB_STEP
-    : (12 - pos) * AB_STEP + (760 - AB_R);
-  return Math.max(AB_BR, Math.min(AB_HIT_CAP, Math.min(leftGap, rightGap) / 2));
-}
-
-let beads = []; // per-bead: { circle, lbl, hit }
-
-function renderAbacus() {
-  const svg = document.getElementById('abacus');
-  svg.innerHTML = '';
-  beads = [];
-
-  // track
-  svg.appendChild(mk('line', {
-    x1: AB_L, y1: AB_TY, x2: AB_R, y2: AB_TY,
-    stroke: '#7d828c', 'stroke-width': 6, 'stroke-linecap': 'round'
-  }));
-
-  // tick marks + semitone numbers
-  // The in-between ticks (the "empty slots" a bead isn't sitting on) are
-  // colored exactly like the surrounding panel's own surface (--bg blended
-  // with --panel-bg — the panel reads slightly brighter than the bare page
-  // background, so matching plain --bg would leave a visible seam) rather
-  // than a visible line — they read as notches cut into the track instead
-  // of drawn marks, which reads more clearly at a glance than a thin
-  // colored tick did.
-  const panelColor = getComputedStyle(document.documentElement).getPropertyValue('--panel-solid').trim();
-  for (let i = 0; i <= 12; i++) {
-    const x = atX(i);
-    if (i === 0) {
-      svg.appendChild(mk('line', { x1: x, y1: AB_TY - 9, x2: x, y2: AB_TY + 9, stroke: '#5566aa', 'stroke-width': 2 }));
-    } else if (i === 12) {
-      // Nudged right of the track's own end and drawn thicker/plain gray
-      // (matching the track) instead of the old thin indigo-tinted line.
-      const rx = x + 4;
-      svg.appendChild(mk('line', { x1: rx, y1: AB_TY - 9, x2: rx, y2: AB_TY + 9, stroke: '#7d828c', 'stroke-width': 3 }));
-    } else {
-      svg.appendChild(mk('line', { x1: x, y1: AB_TY - 9, x2: x, y2: AB_TY + 9, stroke: panelColor, 'stroke-width': 2 }));
-    }
-    if (i < 12) {
-      // Complements whatever the beads are showing rather than repeating it
-      // — relative beads get an absolute-note axis underneath (and vice
-      // versa), so the two together always show both readings at once
-      // instead of the axis being redundant with the bead in relative mode.
-      const axisLabel = labelMode === 'relative' ? NOTE_NAMES[(i + rootPitchClass) % 12] : TABLE_LABELS[i];
-      svg.appendChild(mk('text', {
-        x, y: AB_TY + 29, 'text-anchor': 'middle', 'font-size': 10, fill: '#ffffff'
-      }, axisLabel));
-    }
-  }
-
-  // beads — composite scales (flamenco fusion etc.) render identically to
-  // everything else: no "added tone" bead treatment. A composite scale is a
-  // blend of two scales, not a base scale plus one lesser note (the ♮3 in
-  // flamenco fusion matters as much as the ♭3 it sits next to — it's not a
-  // decoration), so singling it out visually would misrepresent it.
-  scaleOffsets.forEach((pos, idx) => {
-    const x     = atX(pos);
-    const color = icolor(pos);
-    const fixed = idx === 0;
-    const label = beadLabelAt(idx, pos, scaleOffsets);
-
-    const circle = mk('circle', {
-      cx: x, cy: AB_TY, r: AB_BR,
-      fill: color, stroke: 'rgba(255,255,255,0.25)', 'stroke-width': 1.5,
-      'pointer-events': 'none'
-    });
-    const lbl = mk('text', {
-      x, y: AB_TY + 5, 'text-anchor': 'middle',
-      'font-size': 10, 'font-weight': 'bold',
-      fill: textColorFor(pos), 'pointer-events': 'none'
-    }, label);
-    // Invisible, larger touch/click target layered on top — see
-    // beadHitRadius above for why the visible bead itself is too small to
-    // tap reliably on a phone.
-    const hit = mk('circle', {
-      cx: x, cy: AB_TY, r: beadHitRadius(idx, pos),
-      fill: 'transparent',
-      cursor: fixed ? 'pointer' : 'ew-resize',
-      style: fixed ? '' : 'touch-action: none;'
-    });
-
-    svg.appendChild(circle);
-    svg.appendChild(lbl);
-    svg.appendChild(hit);
-    beads[idx] = { circle, lbl, hit };
-
-    if (fixed) {
-      hit.addEventListener('click', () => playScaleDegree(pos));
-    } else {
-      hit.addEventListener('pointerdown', e => beadDown(e, idx));
-    }
-  });
-}
-
-// ── abacus drag ───────────────────────────────────────────────────────────────
-
-let drag = null;
-
-function beadDown(e, idx) {
-  e.preventDefault();
-  const svg  = document.getElementById('abacus');
-  const rect = svg.getBoundingClientRect();
-  const startPos = scaleOffsets[idx];
-  // lastPlayedPos tracks what's already sounded during this drag, so
-  // beadMove only plays a note when the bead actually snaps to a *new*
-  // semitone, not on every pointermove event.
-  drag = { idx, rect, scale: svg.viewBox.baseVal.width / rect.width, startX: e.clientX, moved: false, lastPlayedPos: startPos };
-  svg.setPointerCapture(e.pointerId);
-  playScaleDegree(startPos); // hear the bead's starting note on press
-}
-
-function beadMove(e) {
-  if (!drag) return;
-  if (Math.abs(e.clientX - drag.startX) > 3) drag.moved = true;
-  const { idx, rect, scale } = drag;
-  const svgX = (e.clientX - rect.left) * scale;
-
-  const minP = idx > 1 ? scaleOffsets[idx - 1] + 1 : 1;
-  const maxP = idx < scaleOffsets.length - 1 ? scaleOffsets[idx + 1] - 1 : 11;
-  const cx   = Math.max(atX(minP), Math.min(atX(maxP), svgX));
-  const pos  = Math.round(aXtoP(cx));
-
-  beads[idx].circle.setAttribute('cx', cx);
-  beads[idx].lbl.setAttribute('x', cx);
-  beads[idx].hit.setAttribute('cx', cx);
-  beads[idx].circle.setAttribute('fill', icolor(pos));
-  beads[idx].lbl.setAttribute('fill', textColorFor(pos));
-  beads[idx].lbl.textContent = beadLabelAt(idx, pos);
-
-  // Play every semitone the bead passes through/snaps to along the drag —
-  // e.g. dragging 7 down to ♭6 sounds 7, ♭7, 6, ♭6 in turn.
-  if (pos !== drag.lastPlayedPos) {
-    drag.lastPlayedPos = pos;
-    playScaleDegree(pos);
-  }
-}
-
-function beadUp(e) {
-  if (!drag) return;
-  const { idx, rect, scale } = drag;
-
-  // The plain-click "hear this bead" case is already covered by beadDown's
-  // press-to-preview above — no separate replay needed here.
-  const svgX = (e.clientX - rect.left) * scale;
-  const minP = idx > 1 ? scaleOffsets[idx - 1] + 1 : 1;
-  const maxP = idx < scaleOffsets.length - 1 ? scaleOffsets[idx + 1] - 1 : 11;
-  scaleOffsets[idx] = Math.max(minP, Math.min(maxP, Math.round(aXtoP(svgX))));
-  drag = null;
-  render();
-}
+// Rendering + drag interaction now live in ../shared/abacus.js (so
+// masalamap/fusionmap can each create their own instance) — this file just
+// configures one instance with spicemap's own geometry/audio, and keeps
+// AB_L/AB_R/AB_TY/AB_BR/AB_STEP/atX/aXtoP above as plain constants/pure
+// functions (unchanged) since the chord-matrix and mode-stepping code below
+// position themselves off the exact same values, and `abacusController`
+// itself is configured with these same numbers so the two stay pixel-
+// aligned automatically.
+const abacusController = createAbacus(document.getElementById('abacus'), {
+  scaleOffsets, rootPitchClass, labelMode,
+  left: AB_L, right: AB_R, y: AB_TY, beadRadius: AB_BR, width: 760,
+  tickInactiveColor: getComputedStyle(document.documentElement).getPropertyValue('--panel-solid').trim(),
+  onChange(newOffsets) { scaleOffsets = newOffsets; render(); },
+  onBeadPlay(offset) { playScaleDegree(offset); },
+});
 
 // ── scale name display ───────────────────────────────────────────────────────
 
@@ -1096,7 +799,7 @@ function stepMode(dir) {
   let delta = ((newRootPC - rootPitchClass) % 12 + 12) % 12; // old position of the new root
   if (dir < 0) delta -= 12;                                   // small negative shift for "prev"
 
-  const moves = beads.map((bead, i) => {
+  const moves = abacusController.beads.map((bead, i) => {
     const oldPos = scaleOffsets[i];
     let newPos = oldPos - delta;
     let wrap = false;
@@ -1145,7 +848,7 @@ function stepMode(dir) {
       bead.circle.style.transition = `fill ${COLOR}ms ease`;
       bead.circle.setAttribute('fill', icolor(newPos));
       bead.lbl.setAttribute('fill', textColorFor(newPos));
-      bead.lbl.textContent = beadLabelAt(idx, newPos);
+      bead.lbl.textContent = beadLabelAt(idx, newPos, scaleOffsets, labelMode, rootPitchClass);
     });
     setTimeout(() => {
       applyArmRotation(newIdx); // commits state and does a clean, already-settled re-render
@@ -1850,8 +1553,8 @@ function renderPiano() {
 
 // ── §2 scale reference table ─────────────────────────────────────────────────
 
-let refRowMode = 'modes';   // 'families' | 'modes'
-let showEmptySlots = false;
+let refRowMode = 'families';   // 'families' | 'modes'
+let showEmptySlots = true;
 let refNoteCount = 7;          // 5 | 6 | 7 | 8 — which catalog rows are on offer (Increment 3 §8)
 
 // Sensible default scale to load when switching the note-count selector —
@@ -1915,7 +1618,7 @@ function renderTable() {
         const td = document.createElement('td');
         const rank = set.indexOf(s);
         if (rank !== -1) {
-          td.textContent = beadLabelAt(rank, s, set);
+          td.textContent = beadLabelAt(rank, s, set, labelMode, rootPitchClass);
           td.style.background = colorOf(functionOf(s));
           td.style.color = textColorFor(s);
           td.className = 'ref-cell filled';
@@ -1927,7 +1630,7 @@ function renderTable() {
     } else {
       set.forEach((s, rank) => {
         const td = document.createElement('td');
-        td.textContent = beadLabelAt(rank, s, set);
+        td.textContent = beadLabelAt(rank, s, set, labelMode, rootPitchClass);
         td.style.background = colorOf(functionOf(s));
         td.style.color = textColorFor(s);
         td.className = 'ref-cell filled';
@@ -2090,15 +1793,12 @@ function renderChordMatrix() {
 
     chord.tonesPc.forEach((pc, pos) => {
       const cy = firstCy + pos * CH_GAP;
-      if (pos === 0) {
-        col.appendChild(mk('circle', {
-          cx: x, cy, r: CH_BR + 3, fill: 'none',
-          stroke: 'rgba(255,255,255,0.7)', 'stroke-width': 1.5,
-          'stroke-dasharray': chord.approximate ? '3,2' : 'none'
-        }));
-      }
-      col.appendChild(mk('circle', {
-        cx: x, cy, r: CH_BR,
+      // Square-ish (small rx), not round — same shape language as the
+      // scale-library's ref-cell squares, so chord tones read as distinct
+      // from the round abacus/fretboard beads at a glance. No separate
+      // root-ring marker; the root is already first in reading order.
+      col.appendChild(mk('rect', {
+        x: x - CH_BR, y: cy - CH_BR, width: CH_BR * 2, height: CH_BR * 2, rx: 3,
         fill: chordToneColor(chord, pc),
         stroke: 'rgba(255,255,255,0.25)', 'stroke-width': 1
       }));
@@ -2848,7 +2548,7 @@ function wireSynthDialog() {
 function render() {
   syncArmband();
   renderRoot();
-  renderAbacus();
+  abacusController.sync({ scaleOffsets, rootPitchClass, labelMode });
   renderName();
   syncChromaticToggle();
   renderModeLabel();
@@ -2859,11 +2559,6 @@ function render() {
   // only worth refreshing when that mode is actually active.
   if (labelMode === 'absolute') renderTable();
 }
-
-// wire up abacus drag events once
-const abacusSvg = document.getElementById('abacus');
-abacusSvg.addEventListener('pointermove', beadMove);
-abacusSvg.addEventListener('pointerup',   beadUp);
 
 // wire up mode stepping (buttons + keyboard)
 document.getElementById('mode-prev').onclick = () => stepMode(-1);

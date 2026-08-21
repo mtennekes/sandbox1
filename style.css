@@ -72,23 +72,23 @@
       min-height: 100vh;
     }
     h1 {
-      font-size: 0.85rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      opacity: 0.78;
+      font-size: 28px;
+      letter-spacing: 0.02em;
     }
     .header-row {
       display: flex; align-items: center; justify-content: flex-start;
       flex-wrap: wrap; gap: 16px;
       margin-bottom: 24px;
     }
+    .tagline { font-size: 14px; color: #cfd1d6; }
+    .tagline a { color: var(--accent-border); text-decoration: underline; }
     .section { margin-bottom: 28px; }
     .label {
       font-size: 0.62rem;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      opacity: 0.55;
-      font-weight: 500;
+      opacity: 0.85;
+      font-weight: 600;
       margin-bottom: 6px;
     }
     .label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -115,7 +115,11 @@
     #fretboard, #piano, #abacus, #chord-matrix { max-width: 100%; height: auto; }
 
     .scale-name { line-height: 1.5; margin-bottom: 10px; }
-    .scale-name .name { font-size: 1.05rem; font-weight: 600; color: var(--accent-text); }
+    /* Plain bright text, not --accent-text — that token is about to become
+       a foreground-on-accent-fill color (see .root-btn.active), a
+       different job than "a decorative pop of accent hue on the page
+       background" this rule used it for. */
+    .scale-name .name { font-size: 1.05rem; font-weight: 600; color: var(--text); }
     .scale-name .name.fallback { font-weight: 400; font-style: italic; color: var(--text-muted); }
 
     #diatonic-chords-section { margin-top: 14px; }
@@ -128,9 +132,13 @@
     .arm-btn { min-width: 28px; padding: 4px 8px; font-size: 12px; }
     .mode-label { font-size: 0.7rem; opacity: 0.78; min-width: 60px; text-align: center; }
 
-    .ref-controls { display: flex; align-items: center; gap: 12px; font-size: 12px; margin-bottom: 10px; }
+    .ref-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 12px; margin-bottom: 10px; }
     .ref-controls .sep { opacity: 0.7; }
     .ref-controls label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+    /* These two remaining controls only reformat how the table displays —
+       unlike the note-count buttons (now up in the root row), neither
+       changes which scale is actually loaded. */
+    .ref-controls-hint { opacity: 0.6; }
     #ref-table-wrap { overflow-x: auto; }
     table.ref-table { border-collapse: collapse; font-size: 11px; }
     table.ref-table th, table.ref-table td {
@@ -181,7 +189,17 @@
     .layout { display: grid; grid-template-columns: 1fr; gap: 24px; align-items: start; }
     .col-main { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
     .col-main .section { margin-bottom: 0; } /* spacing comes from the flex gap instead */
-    .col-ref { min-width: 0; }
+    /* Scoped to .layout > so this stops applying once JS reparents .col-ref
+       into the mobile popup body (dialog.mobile-popup already supplies its
+       own border/bg there — see below) — gives the scale library the same
+       panel treatment .group already gives the two columns beside it,
+       instead of sitting unboxed. */
+    .layout > .col-ref {
+      min-width: 0;
+      padding: 16px 14px; border: 1px solid var(--panel-border); border-radius: 10px;
+      background: var(--panel-bg);
+    }
+    .layout > .col-ref .section:last-child { margin-bottom: 0; }
 
     /* Two visual groups: scale-focused controls, and instrument-focused controls */
     .group {

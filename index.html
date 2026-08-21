@@ -14,6 +14,7 @@
     <button id="view-mode-beginner" class="hand-btn active">Beginner</button>
     <button id="view-mode-advanced" class="hand-btn">Advanced</button>
   </div>
+  <div class="tagline">see also <a href="masalamap/">masalamap</a> and <a href="fusionmap/">fusionmap</a></div>
 </div>
 
 <button id="mobile-settings-toggle" class="mobile-settings-toggle" aria-expanded="false">&#9654; Sound &amp; instrument settings</button>
@@ -30,6 +31,15 @@
           <div class="label">Root</div>
           <div id="root-selector"></div>
           <select id="root-select-mobile" class="root-select-mobile" aria-label="Root"></select>
+        </div>
+        <div class="setup-group" id="notecount-group">
+          <div class="label">Scale size</div>
+          <div class="hand-toggle" id="ref-notecount-wrap">
+            <button class="hand-btn" data-count="5">5</button>
+            <button class="hand-btn" data-count="6">6</button>
+            <button class="hand-btn active" data-count="7">7</button>
+            <button class="hand-btn" data-count="8">8</button>
+          </div>
         </div>
       </div>
 
@@ -143,17 +153,11 @@
     <div class="section">
       <div class="label">Scale library</div>
       <div class="ref-controls">
-        <div class="hand-toggle" id="ref-notecount-wrap">
-          <button class="hand-btn" data-count="5">5</button>
-          <button class="hand-btn" data-count="6">6</button>
-          <button class="hand-btn active" data-count="7">7</button>
-          <button class="hand-btn" data-count="8">8</button>
-        </div>
+        <span class="ref-controls-hint">Display:</span>
+        <label><input type="radio" name="rowmode" value="families" checked> Families</label>
+        <label><input type="radio" name="rowmode" value="modes"> Modes</label>
         <span class="sep">|</span>
-        <label><input type="radio" name="rowmode" value="families"> Families</label>
-        <label><input type="radio" name="rowmode" value="modes" checked> Modes</label>
-        <span class="sep">|</span>
-        <label><input type="checkbox" id="show-empty"> Show empty slots</label>
+        <label><input type="checkbox" id="show-empty" checked> Show empty slots</label>
       </div>
       <div id="ref-table-wrap"></div>
     </div>
@@ -377,6 +381,8 @@
 </dialog>
 
 <script src="libs/tone.js"></script>
+<script src="shared/theory.js"></script>
+<script src="shared/abacus.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
