@@ -2,23 +2,74 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- maximum-scale/user-scalable: double-tap-to-zoom was reported twice
+       even after touch-action:manipulation went on the universal selector.
+       touch-action only governs how a gesture is routed to the page; it
+       does not revoke the viewport's own zoomability, and WebKit still had
+       a zoomable viewport to fall back on. Pinning the scale is what
+       actually removes it. Mobile Safari deliberately ignores
+       user-scalable=no (accessibility — a web page must stay zoomable),
+       but a WKWebView app like this one honours it, which is exactly the
+       difference between this app and a website. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>SpiceMap</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- Source spot for the title and Basic/Full switch — app.js parks both
+     into the scale-name row (applyHeaderPlacement), so this row itself is
+     never shown. -->
 <div class="header-row">
   <h1>SpiceMap</h1>
-  <div class="hand-toggle" id="view-mode-toggle">
-    <button id="view-mode-beginner" class="hand-btn active">Beginner</button>
-    <button id="view-mode-advanced" class="hand-btn">Advanced</button>
-  </div>
-  <div class="tagline">see also <a href="masalamap/">masalamap</a> and <a href="fusionmap/">fusionmap</a></div>
+  <!-- A small two-position switch that sits directly UNDER the "SpiceMap"
+       title, not beside it — beside it, the title+control block ate enough
+       of the portrait row that the scale name often no longer fit. Both
+       labels always showing, with the current one filled in, says what the
+       setting is and which way it's set in one glance. The whole switch is
+       the tap target. -->
+  <button type="button" id="view-mode-switch" class="mode-switch" role="switch" aria-checked="false" aria-label="Basic view">
+    <span class="mode-switch-opt" data-mode="beginner">Basic</span><span class="mode-switch-opt" data-mode="advanced">Full</span>
+  </button>
 </div>
 
-<button id="mobile-settings-toggle" class="mobile-settings-toggle" aria-expanded="false">&#9654; Sound &amp; instrument settings</button>
-<button id="mobile-reflib-toggle" class="mobile-reflib-toggle" aria-expanded="false">&#9654; Scale library</button>
+<script>
+  // Marks <html> as the wrapped native app (Capacitor) — CSS uses it to
+  // drop web-only bits (the sibling-tool links, the scroll slack mobile
+  // Safari's chrome-collapse gesture needs).
+  if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+    document.documentElement.classList.add('native-app');
+  }
+
+  // Which layout to draw, decided here (before first paint) and again by
+  // app.js's applyLayout() on every resize/rotation:
+  //   phone    — phone-sized in either orientation; the instrument follows
+  //              the phone (upright in portrait, lying down in landscape).
+  //   vertical — instrument and abacus stand upright (html.lay-v) or lie
+  //              down (html.lay-h). Bigger screens default to the same
+  //              portrait/landscape rule, but the Rotate button overrides
+  //              it, remembered separately per screen orientation.
+  //   sidebar  — room to keep the scale library open on the left
+  //              (html.lib-side) instead of behind the Browse button.
+  window.spicemapLayout = function () {
+    var w = window.innerWidth, h = window.innerHeight;
+    var portrait = h > w;
+    var phone = portrait ? w < 700 : h <= 500;
+    var pref = null;
+    try { pref = localStorage.getItem('n4a-instr-orient-' + (portrait ? 'portrait' : 'landscape')); } catch (e) {}
+    var vertical = phone ? portrait : (pref ? pref === 'v' : portrait);
+    var sidebar = !phone && w >= (vertical ? 700 : 1000);
+    return { phone: phone, portrait: portrait, vertical: vertical, sidebar: sidebar };
+  };
+  window.spicemapApplyLayoutClasses = function (L) {
+    var c = document.documentElement.classList;
+    c.toggle('phone', L.phone);
+    c.toggle('lay-v', L.vertical);
+    c.toggle('lay-h', !L.vertical);
+    c.toggle('lib-side', L.sidebar);
+  };
+  window.spicemapApplyLayoutClasses(window.spicemapLayout());
+</script>
 
 <div class="layout" id="layout">
 
@@ -27,72 +78,132 @@
     <div class="group">
 
       <div class="section setup-row" id="root-row">
-        <div class="setup-group">
+        <div class="setup-group" id="root-group">
           <div class="label">Root</div>
           <div id="root-selector"></div>
-          <select id="root-select-mobile" class="root-select-mobile" aria-label="Root"></select>
+          <!-- Custom dropdown, not a native <select> — iOS/WKWebView's
+               native picker ignores author CSS for its own colors
+               regardless of appearance:none/color-scheme (tried both,
+               still light gray), so this is built entirely out of styled
+               divs instead, wired up in app.js (see wireDropdown). -->
+          <div id="root-select-mobile" class="root-select-mobile">
+            <button type="button" id="root-select-btn" class="dropdown-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Root">
+              <span id="root-select-value"></span>
+              <span class="dropdown-arrow" aria-hidden="true"></span>
+            </button>
+            <div id="root-select-list" class="dropdown-list" role="listbox" tabindex="-1" aria-label="Root" hidden></div>
+          </div>
         </div>
         <div class="setup-group" id="notecount-group">
-          <div class="label">Scale size</div>
+          <div class="label">Mode</div>
+          <div class="hand-toggle" id="scale-chord-mode-wrap">
+            <button id="mode-scale-btn" class="hand-btn active">Scale</button>
+            <button id="mode-chord-btn" class="hand-btn">Chord</button>
+          </div>
+          <!-- "Scale size" for Scale mode, "Chord size" for Chord mode — see
+               setChordMode() in app.js, which shows/hides these two sets via
+               visibility (not hidden/display:none — Scale's 5 buttons and
+               Chord's 3 take different total width, and removing the
+               inactive set from layout made the row visibly jump on every
+               switch; visibility:hidden keeps its space reserved instead).
+               Initial visibility is set by setChordMode() at load, not here. -->
           <div class="hand-toggle" id="ref-notecount-wrap">
-            <button class="hand-btn" data-count="5">5</button>
-            <button class="hand-btn" data-count="6">6</button>
-            <button class="hand-btn active" data-count="7">7</button>
-            <button class="hand-btn" data-count="8">8</button>
+            <button class="hand-btn" data-count="3" data-chord-count>3</button>
+            <button class="hand-btn" data-count="4" data-chord-count>4</button>
+            <button class="hand-btn" data-count="5" data-scale-count>5</button>
+            <button class="hand-btn" data-count="5" data-chord-count>5</button>
+            <button class="hand-btn" data-count="6" data-scale-count>6</button>
+            <button class="hand-btn" data-count="6" data-chord-count>6</button>
+            <button class="hand-btn active" data-count="7" data-scale-count>7</button>
+            <button class="hand-btn" data-count="8" data-scale-count>8</button>
+            <!-- Replaces the old standalone Chromatic toggle — see
+                 addDictEntry('Chromatic', ...) in app.js. -->
+            <button class="hand-btn" data-count="12" data-scale-count title="Chromatic (all 12 notes)">12</button>
           </div>
         </div>
       </div>
 
       <div class="section" id="abacus-section">
-        <div id="scale-name" class="scale-name"></div>
+        <div class="scale-name-row">
+          <!-- Empty on desktop (see .scale-name-row-left in style.css) — in
+               app mode, app.js parks #view-mode-toggle and the "SpiceMap"
+               title here from .header-row (hidden there in app mode), so
+               Beginner/Advanced stays reachable even in landscape, where
+               .header-row itself has no room. -->
+          <div class="scale-name-row-left" id="scale-name-row-left"></div>
+          <div id="scale-name" class="scale-name"></div>
+          <div class="scale-name-actions">
+            <!-- Phone app mode only (see .reflib-open-btn in style.css) —
+                 opens the scale/chord library popup. A static child here
+                 (not nested inside #notecount-group, which app.js also
+                 parks into this same row in Advanced mode — see
+                 applyNotecountPlacement) specifically so it stays reachable
+                 in Beginner mode too, where #notecount-group itself is
+                 hidden entirely (setViewMode) — nesting it there once
+                 meant Beginner mode had no way to open the library at all.
+                 "Browse", not "Library" (its original label) — "library"
+                 is musical jargon that isn't necessarily one every player
+                 would recognize as "tap here to see all scales/chords," so
+                 both this button and the panel's own heading
+                 (#ref-library-label, set from app.js — "Browse
+                 scales"/"Browse chords") read as a plain action instead. -->
+            <button id="reflib-open-btn" class="hand-btn reflib-open-btn" aria-expanded="false" title="Browse scales &amp; chords">&#128214; Browse</button>
+          </div>
+        </div>
         <svg id="abacus" viewBox="0 0 760 80" width="760" height="80"></svg>
-        <div class="mode-controls mobile-collapsible" id="mode-controls" tabindex="0">
-          <button id="mode-prev" class="arm-btn" aria-label="Previous mode">&#9664;</button>
-          <span id="mode-label" class="mode-label"></span>
-          <button id="mode-next" class="arm-btn" aria-label="Next mode">&#9654;</button>
-        </div>
 
-        <div id="diatonic-chords-section" class="mobile-collapsible">
-          <div class="label">Diatonic chords</div>
-          <svg id="chord-matrix" width="760"></svg>
-          <div class="chord-controls">
-            <div class="hand-toggle">
-              <button id="chord-triad-btn" class="hand-btn active">3-note</button>
-              <button id="chord-seventh-btn" class="hand-btn">4-note</button>
-            </div>
-            <span class="sep">|</span>
-            <div class="hand-toggle">
-              <button id="chord-color-scale-btn" class="hand-btn active">Scale-root color</button>
-              <button id="chord-color-chord-btn" class="hand-btn">Chord-root color</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="setup-row abacus-controls-row mobile-collapsible" id="abacus-controls-row">
-          <div class="setup-group" id="labels-group">
-            <div class="label">Labels</div>
-            <div class="hand-toggle">
-              <button id="label-mode-relative" class="hand-btn active">Relative</button>
-              <button id="label-mode-absolute" class="hand-btn">Absolute</button>
-            </div>
-          </div>
-
-          <div class="setup-group">
-            <div class="label">Notes</div>
-            <div class="hand-toggle">
-              <button id="chromatic-toggle" class="hand-btn">Chromatic</button>
+        <!-- Mode stepper, labels toggle, and sound controls all in one row —
+             each used to be its own stacked block (with an optional caption
+             above it), which cost three separate rows of height once they
+             stopped being popup-only. Grouping them side by side keeps them
+             all one tap away without shrinking the abacus or fretboard. -->
+        <div class="quickbar" id="quickbar">
+          <div class="mode-controls" id="mode-controls" tabindex="0">
+            <!-- Thin chevrons, not the solid ▶/◀ triangles — those are
+                 reserved for Play (#play-scale-btn) elsewhere in this same
+                 row, and having both read as the identical glyph was
+                 genuinely ambiguous at a glance. -->
+            <button id="mode-prev" class="arm-btn" aria-label="Previous mode">&#8249;</button>
+            <span id="mode-label" class="mode-label"></span>
+            <button id="mode-next" class="arm-btn" aria-label="Next mode">&#8250;</button>
+            <!-- Chord-only concept (a scale's ascending run has no
+                 "voicing" to speak of) — hidden/shown by syncChordModeUI
+                 alongside the rest of the chord-vs-scale UI. Living inside
+                 #mode-controls (not just next to it in the DOM) means it
+                 automatically travels along wherever this whole block gets
+                 parked (portrait's root row, landscape's quickbar — see
+                 applyModeControlsPlacement/applyRootSelectorPlacement in
+                 app.js), with no extra plumbing needed to keep the two
+                 stuck together. -->
+            <!-- Custom dropdown, not a native <select> — see the matching
+                 comment on #root-select-mobile above for why. -->
+            <div id="voicing-select" class="voicing-select">
+              <button type="button" id="voicing-select-btn" class="dropdown-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Chord voicing" title="Chord voicing">
+                <span id="voicing-select-value"></span>
+                <span class="dropdown-arrow" aria-hidden="true"></span>
+              </button>
+              <div id="voicing-select-list" class="dropdown-list" role="listbox" tabindex="-1" aria-label="Chord voicing" hidden></div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div class="section mobile-collapsible" id="sound-section">
-        <div class="label">Sound</div>
-        <div class="hand-toggle">
-          <button id="drone-toggle" class="hand-btn">Root drone: off</button>
-          <button id="play-scale-btn" class="hand-btn">&#9654; Play scale</button>
-          <button id="play-chords-btn" class="hand-btn">&#9654; Play chords</button>
-          <button id="synth-settings-btn" class="hand-btn">&#9881; Setup&hellip;</button>
+          <!-- A Relative/Absolute label toggle used to sit here, then moved
+               to the Setup dialog, and is now gone altogether — see the
+               note where it last lived, in #synth-dialog below. -->
+
+          <!-- Deliberately NOT wrapped in a .hand-toggle the way these used
+               to be: that wrapper brought its own 5px internal gap, so
+               Drone/Play/Setup sat tighter together than the gap between
+               them and #instrument-label (parked into this same row by
+               app.js, and therefore spaced by .quickbar's own larger gap).
+               As plain children of .quickbar they all share that one gap
+               value, so every button in the row is evenly spaced by
+               construction rather than by keeping two numbers in sync. -->
+          <button id="drone-toggle" class="hand-btn drone-btn" aria-pressed="false">
+            <span class="drone-led" aria-hidden="true"></span>Drone
+          </button>
+          <button id="play-scale-btn" class="hand-btn" title="Play scale">&#9654; Play</button>
+          <button id="synth-settings-btn" class="hand-btn" title="Sound setup">&#9881; Setup</button>
+          <button id="rotate-btn" class="hand-btn rotate-btn" title="Rotate instrument" aria-label="Rotate instrument"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12.4 1.6v3h-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Rotate</button>
         </div>
       </div>
 
@@ -123,7 +234,29 @@
               <button id="bass-strings-5" class="hand-btn">5-string</button>
               <button id="bass-strings-6" class="hand-btn">6-string</button>
             </div>
-            <select id="tuning-preset" aria-label="Tuning preset"></select>
+            <!-- Visible label, not just the aria one: on its own this
+                 control shows only the CURRENT tuning's name ("Standard"),
+                 which reads as a status word rather than something you can
+                 change, and says nothing about what it's the name OF. -->
+            <label class="inline-field">Tuning
+              <select id="tuning-preset" aria-label="Tuning preset"></select>
+            </label>
+          </div>
+        </div>
+
+        <!-- How much instrument to draw: frets for the stringed ones,
+             octaves (and key length) for the piano. Remembered separately
+             for the upright and lying-down layouts — see
+             refreshInstrumentSizeControls in app.js. -->
+        <div class="setup-group" id="instrument-size-group">
+          <div class="label" id="instrument-size-label">Frets</div>
+          <div class="hand-toggle" id="instrument-size-toggle"></div>
+          <div id="piano-keys-field">
+            <div class="label">Key length</div>
+            <div class="hand-toggle" id="piano-keys-toggle">
+              <button type="button" class="hand-btn" data-keys="short">Short</button>
+              <button type="button" class="hand-btn" data-keys="long">Realistic</button>
+            </div>
           </div>
         </div>
 
@@ -151,13 +284,24 @@
 
   <div class="col-ref">
     <div class="section">
-      <div class="label">Scale library</div>
+      <div class="label" id="ref-library-label">Browse scales</div>
       <div class="ref-controls">
-        <span class="ref-controls-hint">Display:</span>
-        <label><input type="radio" name="rowmode" value="families" checked> Families</label>
-        <label><input type="radio" name="rowmode" value="modes"> Modes</label>
-        <span class="sep">|</span>
-        <label><input type="checkbox" id="show-empty" checked> Show empty slots</label>
+        <!-- A chord type has no modal rotations to group by the way a scale
+             family does, so this pair is meaningless in chord mode — see
+             setChordMode() in app.js, which hides it there. Pill buttons
+             (matching the .hand-btn look used everywhere else — root
+             picker, note-count, instrument buttons) rather than native
+             radios, which were the one control left in this whole app
+             still using the browser's own default form-control styling.
+             Modes is the default (not Families) — it's the view that
+             actually shows a scale's own flavor/character, with the
+             family it belongs to still labeled via each group's own
+             header (see addGroupHeader in app.js) rather than lost. -->
+        <span class="ref-controls-hint" id="rowmode-hint">Display:</span>
+        <div class="hand-toggle" id="rowmode-toggle">
+          <button type="button" id="rowmode-families-btn" class="hand-btn" data-rowmode="families">Families</button>
+          <button type="button" id="rowmode-modes-btn" class="hand-btn active" data-rowmode="modes">Modes</button>
+        </div>
       </div>
       <div id="ref-table-wrap"></div>
     </div>
@@ -172,8 +316,8 @@
       <tr><th>Note</th><th>Color</th><th>Meaning</th></tr>
     </thead>
     <tbody>
-      <tr><td>R</td><td><span class="legend-swatch" data-degree="0"></span>white</td><td>Home. So central it needs no color of its own.</td></tr>
-      <tr><td>♭2 / ♭9</td><td><span class="legend-swatch" data-degree="1"></span>scarlet</td><td>Spicy, tense, exotic — demands resolution.</td></tr>
+      <tr><td>R</td><td><span class="legend-swatch" data-degree="0"></span>white</td><td>Home.</td></tr>
+      <tr><td>♭2 / ♭9</td><td><span class="legend-swatch" data-degree="1"></span>scarlet</td><td>Spicy, tense — demands resolution.</td></tr>
       <tr><td>2 / 9</td><td><span class="legend-swatch" data-degree="2"></span>blue</td><td>Calm, open, unresolved but easy.</td></tr>
       <tr><td>♭3</td><td><span class="legend-swatch" data-degree="3"></span>brown</td><td>Sad — the minor color.</td></tr>
       <tr><td>3</td><td><span class="legend-swatch" data-degree="4"></span>orange</td><td>Happy — the major color.</td></tr>
@@ -183,7 +327,7 @@
       <tr><td>♭6 / ♯5</td><td><span class="legend-swatch" data-degree="8"></span>forest green</td><td>Enchanting and a little secretive.</td></tr>
       <tr><td>6 / 13</td><td><span class="legend-swatch" data-degree="9"></span>pink</td><td>Playful, loveable.</td></tr>
       <tr><td>♭7</td><td><span class="legend-swatch" data-degree="10"></span>gold</td><td>Bluesy — the warm pub-light note.</td></tr>
-      <tr><td>7</td><td><span class="legend-swatch" data-degree="11"></span>purple</td><td>Spiritual, yearning — floating above the harmony.</td></tr>
+      <tr><td>7</td><td><span class="legend-swatch" data-degree="11"></span>purple</td><td>Yearning, dreamy, longing.</td></tr>
     </tbody>
   </table>
 
@@ -281,12 +425,78 @@
   <div id="reflib-popup-body"></div>
 </dialog>
 
-<dialog id="synth-dialog">
+<!-- Short meaning of each Sentiment12 color, opened from Setup → Colors.
+     Filled from #color-legend's table by app.js. -->
+<dialog id="colors-popup" class="mobile-popup">
+  <button type="button" id="colors-popup-close" class="mobile-popup-close" aria-label="Close">&times;</button>
+  <h2 id="colors-popup-title"></h2>
+  <p id="colors-popup-intro" class="colors-popup-intro"></p>
+  <div id="colors-popup-body"></div>
+</dialog>
+
+<dialog id="synth-dialog" class="mobile-popup">
+  <button type="button" id="synth-popup-close" class="mobile-popup-close" aria-label="Close">&times;</button>
   <h2>Setup</h2>
+
+  <!-- The Relative/Absolute toggle that used to head this dialog is gone,
+       not just hidden: both readings are always on screen at once now (the
+       beads show one, the abacus's own axis row the other — see
+       labelMode's declaration in app.js), so there was nothing left for it
+       to switch, and its "Labels" heading was sitting here captioning an
+       empty space. -->
+
+  <!-- Three top-level sections — Fretboard, Colours, Audio — each with a
+       glyph, so this dialog reads as a few named areas rather than one
+       long undifferentiated stack of sliders. .synth-section-title is the
+       big one; .label stays the sub-heading inside each. -->
+  <!-- Fretboard-only, so hidden while piano is the instrument (see
+       updateInstrumentUI in app.js). -->
+  <div id="perspective-section">
+  <div class="synth-section-title"><span aria-hidden="true">🎸</span>Fretboard</div>
+
+  <!-- A switch, not a heading with sliders permanently under it: the two
+       perspective sliders are a "set once and forget" pair, and most of
+       the time they're just two more rows of clutter between you and the
+       settings you actually came for. Same LED as the Drone button, for
+       the same reason — lit means on, with no on/off text that could be
+       read as either state or action. -->
+  <label class="led-toggle">
+    <input type="checkbox" id="perspective-toggle">
+    <span class="drone-led" aria-hidden="true"></span>
+    <span>Perspective<span id="neck-taper-orient"></span></span>
+  </label>
+  <div class="synth-row" id="perspective-rows">
+    <label>Neck taper <span class="synth-val" id="neck-taper-val"></span>
+      <input type="range" id="neck-taper" min="0" max="20" step="1">
+    </label>
+    <label>Fret fan <span class="synth-val" id="fret-fan-val"></span>
+      <input type="range" id="fret-fan" min="0" max="20" step="1">
+    </label>
+  </div>
+
+  </div>
+
+  <div class="synth-section-title"><span aria-hidden="true">🎨</span>Colors</div>
+  <!-- Buttons, not a <select>: iOS draws a native select's picker white
+       whatever the CSS says (see .dropdown-btn in style.css), and with
+       only three presets a segmented control is one tap instead of two.
+       Custom gets its own button further down (#palette-custom-toggle). -->
+  <div class="synth-row palette-row">
+    <div class="hand-toggle" id="palette-toggle" role="radiogroup" aria-label="Palette"></div>
+    <button type="button" id="palette-info-btn" class="hand-btn info-btn"><svg class="info-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="4.8" r="1" fill="currentColor"/><path d="M8 7.2v4.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>What do the colors mean?</button>
+  </div>
+  <!-- Twelve swatches, one per degree, shown only for the Custom palette
+       (see syncPaletteUI in app.js). <input type="color"> hands the whole
+       job to the OS picker, which is both less code and a better picker
+       than anything hand-rolled here would be. -->
+  <div class="hand-toggle palette-custom-toggle" id="palette-custom-toggle"></div>
+  <div id="palette-custom-row" class="palette-swatches"></div>
+
+  <div class="synth-section-title"><span aria-hidden="true">🔊</span>Audio</div>
 
   <div class="label">Playback</div>
   <div class="synth-row">
-    <label>Overall octave <span class="synth-val" id="playback-octave-val"></span>
+    <label>Octave <span class="synth-val" id="playback-octave-val"></span>
       <input type="range" id="playback-octave" min="-2" max="2" step="1">
     </label>
     <label>Tempo <span class="synth-val" id="playback-tempo-val"></span>
@@ -296,21 +506,58 @@
       <input type="range" id="playback-sustain" min="0.25" max="3" step="0.25">
     </label>
   </div>
-  <p class="synth-hint">Overall octave and tempo apply to scale/chord playback and individual note clicks; sustain is how long an individual note click rings. Separate from the drone's own settings below.</p>
 
+  <!-- Bluetooth speakers play everything a few hundred ms late; the
+       scale preview's bead pulses wait this long so they land with the
+       sound (see outputLatencyMs in app.js). Detected automatically where
+       the platform reports it; the slider and tap test correct the rest,
+       remembered per output device. -->
+  <div class="label">Speaker sync</div>
+  <div class="sync-detected" id="sync-detected"></div>
+  <div class="synth-row">
+    <label>Extra delay <span class="synth-val" id="sync-adjust-val"></span>
+      <input type="range" id="sync-adjust" min="-200" max="600" step="10">
+    </label>
+  </div>
+  <div class="synth-row synth-actions">
+    <button type="button" id="sync-test-btn" class="hand-btn">Tap test</button>
+  </div>
+  <div id="sync-test-pad" class="sync-test-pad" hidden></div>
+
+  <!-- Drone: the three settings that apply to EVERY drone voice (which
+       instrument, how low, how dark) sit together up front. Octave and
+       Filter cutoff used to be stranded in their own row BELOW the whole
+       synth block, which read as if they were more synth internals — they
+       aren't: octave drives droneBaseMidi() and cutoff runs through
+       droneFilter, both of which a sampled harmonium/organ goes through
+       just as much as the synth does. -->
   <div class="label">Drone</div>
   <div class="synth-row">
-    <label>Drone instrument
+    <label>Instrument
       <select id="synth-drone-instrument">
         <option value="synth">Synthesizer</option>
         <option value="harmonium">Harmonium (sampled)</option>
         <option value="organ">Organ (sampled)</option>
       </select>
     </label>
+    <label>Octave <span class="synth-val" id="synth-octave-val"></span>
+      <input type="range" id="synth-octave" min="-2" max="0" step="1">
+    </label>
+    <label>Filter cutoff <span class="synth-val" id="synth-cutoff-val"></span>
+      <input type="range" id="synth-cutoff" min="200" max="12000" step="50">
+    </label>
   </div>
-  <p class="synth-hint" id="synth-sample-hint" style="display:none;">A single looped recording, pitch-shifted to the root — no custom envelope/oscillator controls below apply, and root changes retune instantly rather than gliding. Harmonium's sustain is steadier and loops more seamlessly than organ's (organ has its own built-in tremolo, which can make the loop point faintly audible).</p>
 
-  <div id="synth-osc-rows">
+  <!-- Collapsed by default: this is a dozen oscillator/envelope controls
+       that only mean anything if you already know what an ADSR is, and
+       they only apply at all when the drone instrument is the synth —
+       refreshSynthDialogControls still hides this whole element outright
+       for the sampled voices (it sets display on this same id, which works
+       on a <details> exactly as it did on the <div> this used to be, and
+       takes the summary with it rather than leaving a stray heading). -->
+  <details id="synth-osc-rows" class="synth-details">
+    <summary>Synthesizer voice</summary>
+
     <div class="synth-row">
       <label>Preset
         <select id="synth-preset">
@@ -323,14 +570,11 @@
     </div>
 
     <div class="synth-row">
-      <label style="flex-direction: row; align-items: center; gap: 6px;">
-        <input type="checkbox" id="synth-octave-down"> Layer octave below
-      </label>
-      <label style="flex-direction: row; align-items: center; gap: 6px;">
+      <label class="synth-checkbox"><input type="checkbox" id="synth-octave-down"> Layer octave below</label>
+      <label class="synth-checkbox">
         <input type="checkbox" id="synth-octave-up"> Layer octave above
       </label>
     </div>
-    <p class="synth-hint">Exact-octave layers, not detuned — they thicken the drone without adding the pulsing that Voices &gt; 1 causes.</p>
 
     <div class="synth-row">
       <label>Oscillator
@@ -344,11 +588,10 @@
       <label>Voices <span class="synth-val" id="synth-voices-val"></span>
         <input type="range" id="synth-voices" min="1" max="4" step="1">
       </label>
-      <label>Detune spread <span class="synth-val" id="synth-spread-val"></span>
+      <label>Detune <span class="synth-val" id="synth-spread-val"></span>
         <input type="range" id="synth-spread" min="0" max="40" step="1">
       </label>
     </div>
-    <p class="synth-hint">Voices &gt; 1 stacks detuned copies of the oscillator — that's what causes pulsing/beating. Leave voices at 1 for a perfectly static tone.</p>
 
     <div class="synth-row">
       <label>Attack <span class="synth-val" id="synth-attack-val"></span><input type="range" id="synth-attack" min="0" max="3" step="0.05"></label>
@@ -358,26 +601,21 @@
     </div>
 
     <div class="synth-row">
-      <label>Saw edge mix <span class="synth-val" id="synth-edge-val"></span>
+      <label>Saw edge <span class="synth-val" id="synth-edge-val"></span>
         <input type="range" id="synth-edge" min="0" max="100" step="1">
       </label>
     </div>
-    <p class="synth-hint">Edge is always a single plain sawtooth (never detuned) layered underneath for grit — it won't add pulsing regardless of the mix amount.</p>
-  </div>
+  </details>
 
-  <div class="synth-row">
-    <label>Octave <span class="synth-val" id="synth-octave-val"></span>
-      <input type="range" id="synth-octave" min="-2" max="0" step="1">
-    </label>
-    <label>Filter cutoff <span class="synth-val" id="synth-cutoff-val"></span>
-      <input type="range" id="synth-cutoff" min="200" max="12000" step="50">
-    </label>
-  </div>
-
+  <!-- Sits with the Drone section it actually resets, not orphaned at the
+       very bottom of the dialog under the Playback/Fretboard settings it
+       has nothing to do with. -->
   <div class="synth-row synth-actions">
     <button id="synth-reset-btn" class="hand-btn">Reset drone to default</button>
-    <button id="synth-close-btn" class="hand-btn active">Close</button>
   </div>
+
+  <!-- Website only (hidden in the app, where these aren't bundled). -->
+  <div class="tagline" id="sibling-tools-tagline">See also <a href="masalamap/">masalamap</a> (including diatonic chords) and <a href="fusionmap/">fusionmap</a>.</div>
 </dialog>
 
 <script src="libs/tone.js"></script>

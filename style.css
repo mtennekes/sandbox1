@@ -1,6 +1,6 @@
     /* ── theme tokens ───────────────────────────────────────────────────
        Chrome (page bg/text, panels, buttons, table, dialog) only — the
-       note-color system (abacus/fretboard/piano/chord-matrix, driven by
+       note-color system (abacus/fretboard/piano, driven by
        PAL/icolor in app.js) is a separate, deliberate palette and isn't
        wired to these yet.
        Default theme lives on :root; alternates override via
@@ -9,7 +9,7 @@
     :root {
       --bg: #16213e;
       --text: #ffffff;
-      --text-muted: #dde3f7;
+      --text-muted: #e8edfc;
       --panel-bg: rgba(255,255,255,0.02);
       --panel-solid: #1b2542; /* --bg blended with --panel-bg, as an opaque color (for SVG strokes etc. that can't use the translucent panel-bg directly) */
       --panel-border: #232f52;
@@ -28,7 +28,7 @@
     :root[data-theme="slate"] {
       --bg: #1e2126;
       --text: #eef0f3;
-      --text-muted: #c7ccd6;
+      --text-muted: #dadee6;
       --panel-bg: rgba(255,255,255,0.03);
       --panel-solid: #25282d; /* --bg blended with --panel-bg, as an opaque color (for SVG strokes etc. that can't use the translucent panel-bg directly) */
       --panel-border: #35393f;
@@ -47,7 +47,7 @@
     :root[data-theme="paper"] {
       --bg: #f3efe7;
       --text: #2a241c;
-      --text-muted: #6b6152;
+      --text-muted: #5b5344;
       --panel-bg: rgba(0,0,0,0.03);
       --panel-solid: #ece8e0; /* --bg blended with --panel-bg, as an opaque color (for SVG strokes etc. that can't use the translucent panel-bg directly) */
       --panel-border: #d9d0bd;
@@ -64,6 +64,61 @@
       --backdrop: rgba(0,0,0,0.25);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* Controls behave like app controls, not web text: no selecting a
+       button's label, and no iOS long-press callout/magnifier on them. */
+    button, .hand-btn, .dropdown-btn, .dropdown-option, label, svg {
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    }
+    /* Inside the native app, nothing is text to copy — turn it off
+       everywhere (inputs still get focus and work as normal). */
+    html.native-app body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    /* touch-action: manipulation disables double-tap-to-zoom (and the
+       ~300ms tap delay that comes with leaving it enabled) while still
+       allowing normal single-finger scroll/pan — this is a touch-first app,
+       not a page meant to be zoomed into, and double-tapping a bead/fret to
+       play it quickly was triggering the browser's zoom gesture instead.
+       touch-action is NOT an inherited property (unlike almost everything
+       else in CSS) — setting it on html/body alone, as this used to, only
+       actually applies to a touch that lands directly ON html or body
+       themselves, which in practice is almost never what's under a
+       finger; every button/dialog/SVG/etc. nested inside still defaulted
+       to plain 'auto' and could still trigger double-tap-zoom, which is
+       exactly the "sometimes still zooms" report this was meant to fix
+       the first time. Setting it on the universal selector instead covers
+       every element by default; the abacus/fretboard's own draggable hit
+       targets already set 'touch-action: none' inline for instant drag
+       response (see shared/abacus.js/app.js) — inline style always
+       outranks this rule, so they're unaffected either way. */
+    /* ── UI text scale ──────────────────────────────────────────────────
+       One lever for the compact on-screen chrome (buttons, dropdowns, the
+       mode/inversion readout, the Instrument pill), rather than the two
+       dozen separate 11px/12px/0.7rem literals these used to be. Two
+       reasons it's worth a variable: this has now been asked for twice —
+       once to make the row read as ONE consistent size, once to make
+       everything bigger — and both of those are a one-line change here
+       instead of a scattered sweep that's easy to do half of.
+       --ui-font is the row of controls' own size; --ui-font-sm is for the
+       denser strips (the title row's own buttons, the library's Browse
+       button) that sit alongside text rather than standing alone.
+       Landscape app mode redefines both a step smaller further down — the
+       viewport is barely 400px tall there, and a single shared number
+       across both orientations would have to be sized for the tighter one.
+       Deliberately NOT the SVG type (abacus/fretboard/piano labels): those
+       scale with their own viewBox, not with page px, so they're tuned
+       where they're drawn. */
+    :root { --ui-font: 13px; --ui-font-sm: 12px; }
+    *, *::before, *::after { touch-action: manipulation; }
+    /* Also on <html>, not just <body>. Body's background normally
+       propagates to the canvas, so this looks redundant — but during an
+       orientation change iOS resizes the web view and can paint its own
+       (white by default) backdrop for a frame before the page repaints
+       into the new size, which is the white flash a user reported
+       mid-rotation. Setting it here as well means every layer that could
+       be exposed during that resize is already the right colour. The
+       native half of the same fix is backgroundColor in
+       capacitor.config.json — CSS alone can't reach the WKWebView's own
+       background. */
+    html { background: var(--bg); }
     body {
       font-family: system-ui, -apple-system, sans-serif;
       background: var(--bg);
@@ -82,6 +137,8 @@
     }
     .tagline { font-size: 14px; color: #cfd1d6; }
     .tagline a { color: var(--accent-border); text-decoration: underline; }
+    #sibling-tools-tagline { margin-top: 22px; font-size: var(--ui-font-sm); }
+    html.native-app #sibling-tools-tagline { display: none; }
     .section { margin-bottom: 28px; }
     .label {
       font-size: 0.62rem;
@@ -93,11 +150,48 @@
     }
     .label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .label-row .label { margin-bottom: 0; }
+    /* #instrument-label doubles as the "open instrument setup" trigger in
+       app mode (see app.js) — one element, not a label plus a separate
+       icon button — where it's moved into .quickbar so it and the loading
+       indicator don't cost their own row above the fretboard. Restyled to
+       look like the surrounding .hand-btn pill buttons there (overriding
+       .label's small-uppercase-caption look) so the whole row reads as one
+       consistent set of buttons instead of a mix of styles.
+       Fixed width, sized to its own (fixed, short — see updateInstrumentUI)
+       "Instrument" text — no flex-grow — so it's one tile among equals in
+       the row's mosaic rather than the one piece that swells to fill
+       whatever space the others don't use. */
+    .quickbar #instrument-label {
+      flex: 0 0 auto; margin: 0; white-space: nowrap; cursor: pointer;
+      padding: 5px 9px; background: var(--surface); border: 1px solid var(--surface-border);
+      border-radius: 3px; color: var(--surface-text); text-align: center;
+      /* font-size belongs here, not in the per-orientation blocks: this
+         element carries .label too, whose 0.62rem caption size would
+         otherwise win in whichever orientation didn't happen to override
+         it — which is exactly how it ended up two steps smaller than the
+         Root/Inversion/Voicing controls beside it. One rule, both
+         orientations, same --ui-font as its neighbours. */
+      font-size: var(--ui-font);
+      text-transform: none; font-weight: normal; letter-spacing: normal; opacity: 1;
+    }
+    .quickbar #instrument-label:hover { background: var(--surface-hover-bg); color: var(--surface-hover-text); }
+    .quickbar #instrument-label::before { content: "\1F3B8\00a0"; }
+    /* Floats over the instrument's top corner while samples load (see
+       app.js) rather than taking width in a toolbar row. */
+    #fretboard-wrap { position: relative; }
+    #fretboard-wrap > #sample-loading {
+      position: absolute; top: 4px; right: 4px; z-index: 1; pointer-events: none;
+      padding: 2px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.55); color: #fff;
+    }
+    /* The toolbar rows scroll sideways only as a safety net on a very
+       narrow screen — no visible scrollbar for that. */
+    .quickbar, .scale-name-row, #scale-name { scrollbar-width: none; }
+    .quickbar::-webkit-scrollbar, .scale-name-row::-webkit-scrollbar, #scale-name::-webkit-scrollbar { display: none; }
     #root-selector { display: flex; gap: 5px; flex-wrap: wrap; }
     .root-btn, .hand-btn, .arm-btn {
       padding: 5px 9px; min-width: 36px;
       background: var(--surface); border: 1px solid var(--surface-border); border-radius: 3px;
-      color: var(--surface-text); cursor: pointer; font-size: 12px; text-align: center;
+      color: var(--surface-text); cursor: pointer; font-size: var(--ui-font); text-align: center;
       transition: background 0.1s, color 0.1s;
     }
     .root-btn:hover, .hand-btn:hover, .arm-btn:hover { background: var(--surface-hover-bg); color: var(--surface-hover-text); }
@@ -112,8 +206,70 @@
        each SVG's width/height attributes are its natural (max) size, and
        the viewBox preserves aspect ratio, so this only ever scales down,
        never up past native size. */
-    #fretboard, #piano, #abacus, #chord-matrix { max-width: 100%; height: auto; }
+    #fretboard, #piano, #abacus { max-width: 100%; height: auto; }
 
+    /* Scale name plus its "connected" quick actions (chromatic toggle, and
+       on narrow/short screens the scale-library and settings icons) sit in
+       one row so they read as belonging together, rather than the icons
+       floating in a corner disconnected from what they act on. */
+    .scale-name-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 10px; }
+    .scale-name-row .scale-name { margin-bottom: 0; }
+    /* Empty and inert on desktop, where "SpiceMap"/Beginner-Advanced stay
+       in .header-row — populated only in app mode (see app.js), where
+       display:none here would be wrong the moment JS parks content into
+       it, so this is overridden back to flex inside each app-mode query. */
+    .scale-name-row-left { display: none; }
+    /* Parked into .scale-name-row-left in app mode only — see
+       applyHeaderPlacement() in app.js — inert on desktop otherwise. */
+    #view-mode-switch { display: none; }
+    .scale-name-row-left #view-mode-switch { display: inline-flex; }
+    /* Basic/Full switch: a small pill with both labels, the current one
+       filled. Sized to sit under the title without making the row any
+       taller than the buttons to its right already do. */
+    .mode-switch {
+      padding: 1px; border: 1px solid var(--surface-border); border-radius: 999px;
+      background: var(--surface); cursor: pointer; font: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mode-switch-opt {
+      padding: 1px 6px; border-radius: 999px;
+      font-size: 9px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--text-muted); opacity: 0.6; line-height: 1.3;
+      transition: background 0.12s ease, color 0.12s ease, opacity 0.12s ease;
+    }
+    .mode-switch-opt.active { background: var(--accent-bg); color: var(--accent-text); opacity: 1; }
+    /* margin-left:auto (not the row's own justify-content:space-between)
+       is what actually pins this to the right edge — with 3 items in app
+       mode (title+icon block, scale name, this), space-between was
+       distributing the row's free space into the GAP before the scale
+       name too, so a shorter/longer name changed that gap and visibly
+       shifted the name (and the root note in it) sideways. An auto margin
+       here absorbs all the free space itself, so scale-name-row-left and
+       #scale-name just sit at their natural adjacent size at the left,
+       completely unaffected by how long the name is. */
+    .scale-name-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+    /* #notecount-group is parked in here too (applyNotecountPlacement() in
+       app.js) — order:-1 keeps it reading "mode, size, library" left to
+       right regardless of DOM append order, and its own "Mode" caption is
+       dropped, matching every other quickbar-style control's caption-free
+       look once space is tight. */
+    /* gap here is effectively just the space between the Scale/Chord
+       toggle and the note-count buttons — the third child (.label) is
+       hidden in this context and doesn't participate. Doubled (6px→12px)
+       so the two groups read as visually distinct rather than one run-on
+       row of buttons. */
+    .scale-name-actions #notecount-group { display: flex; align-items: center; gap: 12px; order: -1; }
+    .scale-name-actions #notecount-group .label { display: none; }
+    /* Scale mode shows 5 buttons (5/6/7/8/12), Chord mode 4 (3/4/5/6) —
+       a fixed min-width (sized to the wider, Scale, case: 5 * 24px buttons
+       + 4 * 6px gaps = 144px, rounded up) keeps the row's own footprint
+       from jumping when you switch, without the buttons themselves needing
+       to stay in the layout while hidden (that approach left gaps in the
+       middle of the row — see setChordMode() in app.js). Needs the
+       .hand-btn min-width override just below — the shared .hand-btn rule
+       sets min-width:36px, which alone would make Scale's actual content
+       204px, not the 144px this min-width assumes. */
+    #ref-notecount-wrap { min-width: 148px; }
     .scale-name { line-height: 1.5; margin-bottom: 10px; }
     /* Plain bright text, not --accent-text — that token is about to become
        a foreground-on-accent-fill color (see .root-btn.active), a
@@ -122,41 +278,83 @@
     .scale-name .name { font-size: 1.05rem; font-weight: 600; color: var(--text); }
     .scale-name .name.fallback { font-weight: 400; font-style: italic; color: var(--text-muted); }
 
-    #diatonic-chords-section { margin-top: 14px; }
-    .abacus-controls-row { margin-top: 14px; }
+    .quickbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 14px; }
+    /* Setup goes last, after the Instrument button that app.js parks into
+       this row (parkNodes appends, so Instrument always lands at the end of
+       the DOM order). Ordering it here rather than reordering the markup
+       keeps the swap correct no matter when that parking happens — and
+       leaves the source order as the reading order a screen reader gets.
+       #root-group's own order:-1 (landscape, see below) still sorts ahead
+       of these. */
+    .quickbar #synth-settings-btn { order: 1; }
 
     .hand-toggle { display: flex; flex-wrap: wrap; gap: 5px; }
+    /* The old min-width here existed because the label used to read "Drone
+       on"/"Drone off" — a one-character difference that was still enough to
+       resize the button and nudge every sibling along the row on each
+       toggle. The label is a fixed "Drone" now (see updateDroneButton), so
+       there's nothing left to jump and nothing to reserve width for. */
+    .drone-btn { display: inline-flex; align-items: center; gap: 6px; }
+    /* Lit = sounding. A lamp has exactly one reading, where a button whose
+       text flips between "on" and "off" has two (current state, or what
+       the press will do) — see updateDroneButton for the full note. Dim
+       grey ring when idle; filled and glowing when the drone is running. */
+    .drone-led {
+      width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
+      background: var(--panel-border); border: 1px solid var(--surface-border);
+      transition: background 0.12s ease, box-shadow 0.12s ease;
+    }
+    /* White, not the green a lit indicator would normally be: every colour
+       in this app already means a specific scale degree (the PAL palette in
+       app.js), and a green lamp reads as "perfect 4" to anyone who's been
+       looking at that palette all session. White is the one that stays
+       neutral — it's just a lamp that's on. */
+    .drone-btn.active .drone-led {
+      background: #ffffff; border-color: #ffffff;
+      box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.9);
+    }
     #piano { display: block; }
+    /* Keys are styled here (not inline) so a held key can show as pressed:
+       a shade darker, like a key pushed down into the keybed. touch-action
+       none so a finger can slide along the keys (a glissando) without the
+       page trying to scroll. */
+    #piano { touch-action: none; }
+    #piano .piano-key, #piano .piano-key-hit { cursor: pointer; }
+    #piano .piano-key-white { fill: #f4f2ee; stroke: #8a8a8a; stroke-width: 1; }
+    #piano .piano-key-black { fill: #1c1c1c; stroke: #000000; stroke-width: 1; }
+    #piano .piano-key-white.pressed { fill: #cfc9bc; }
+    #piano .piano-key-black.pressed { fill: #4a4a4a; }
 
     .mode-controls { display: flex; align-items: center; gap: 8px; outline: none; margin-top: 10px; }
-    .arm-btn { min-width: 28px; padding: 4px 8px; font-size: 12px; }
-    .mode-label { font-size: 0.7rem; opacity: 0.78; min-width: 60px; text-align: center; }
+    .arm-btn { min-width: 28px; padding: 4px 8px; font-size: var(--ui-font); }
+    .mode-label { font-size: var(--ui-font); opacity: 0.9; min-width: 60px; text-align: center; }
+    /* Chord-only (see the HTML comment) — syncChordModeUI hides this in
+       scale mode via [hidden] rather than a class, so no extra selector is
+       needed here for that. Custom dropdown, not a native <select> — see
+       .root-select-mobile's comment above for why. */
+    .voicing-select { position: relative; }
+    .voicing-select .dropdown-btn { padding: 4px 6px; font-size: var(--ui-font); }
 
     .ref-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 12px; margin-bottom: 10px; }
-    .ref-controls .sep { opacity: 0.7; }
+    .ref-controls .sep { opacity: 0.85; }
     .ref-controls label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+    /* The rule above sets display on every .ref-controls label — an author
+       rule, which always beats the UA-default [hidden]{display:none} no
+       matter its specificity. Without this, setChordMode()'s .hidden=true
+       on the Families/Modes labels (meaningless for chords — no modal
+       rotations to group by) had no visual effect at all. */
+    .ref-controls label[hidden] { display: none; }
+    /* Same fix, same reasoning, now that Families/Modes is a .hand-toggle
+       pill pair instead of two <label>s — .hand-toggle's own display:flex
+       (below) would otherwise just as silently defeat [hidden] on it. */
+    #rowmode-toggle[hidden] { display: none; }
     /* These two remaining controls only reformat how the table displays —
        unlike the note-count buttons (now up in the root row), neither
        changes which scale is actually loaded. */
-    .ref-controls-hint { opacity: 0.6; }
-    #ref-table-wrap { overflow-x: auto; }
-    table.ref-table { border-collapse: collapse; font-size: 11px; }
-    table.ref-table th, table.ref-table td {
-      border: 2px solid var(--line); padding: 4px 7px; text-align: center;
-    }
-    table.ref-table th { font-weight: 500; color: var(--surface-text); }
-    table.ref-table th.ref-row-label { text-align: left; white-space: nowrap; color: var(--text-muted); }
-    table.ref-table th.ref-group-header {
-      text-align: left; background: var(--surface); color: var(--text-muted);
-      text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px;
-    }
-    table.ref-table td.ref-cell.filled { color: var(--text); font-weight: 600; }
-    table.ref-table td.ref-cell.empty { background: transparent; opacity: 0.25; }
-    table.ref-table tr.ref-row { cursor: pointer; }
-    table.ref-table tr.ref-row:hover td, table.ref-table tr.ref-row:hover th.ref-row-label { filter: brightness(1.25); }
-    /* A bare ▶ reads as the chord-header's collapse/expand chevron (same
-       glyph, same size) — wrapping it in the universal circled-play-button
-       shape (as on any media player) makes its meaning unambiguous instead. */
+    .ref-controls-hint { opacity: 0.8; }
+    /* A bare ▶ reads as a collapse/expand chevron (same glyph, same size) —
+       wrapping it in the universal circled-play-button shape (as on any
+       media player) makes its meaning unambiguous instead. */
     .ref-play-btn {
       background: none; border: 1px solid currentColor; border-radius: 50%; color: inherit; cursor: pointer;
       width: 13px; height: 13px; display: inline-flex; align-items: center; justify-content: center;
@@ -164,9 +362,134 @@
     }
     .ref-play-btn:hover { opacity: 1; }
 
-    .chord-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
-    .chord-col { cursor: pointer; }
-    .chord-col:hover { filter: brightness(1.2); }
+    /* Phone app mode's own rendering of the scale/chord library (see
+       renderTable()'s mobile branch in app.js) — a plain scrollable list,
+       not the bordered grid table.ref-table above, since a 12+ column
+       matrix is a desktop-density pattern that no amount of font/column
+       tuning actually turns into something that feels native on a phone.
+       No borders anywhere here on purpose — a divider between rows is
+       enough structure; ruling every cell is exactly what read as "a 90s
+       HTML table." */
+    .ref-list { display: flex; flex-direction: column; }
+    .ref-card {
+      display: flex; align-items: center; gap: 12px;
+      /* 16px left (not 4px, matching the other 3 sides) reserves a gutter
+         for the ref-row-current bar below (::before, left:6px width:4px)
+         to sit in — reserved unconditionally, on every row whether
+         highlighted or not, so the play button doesn't shift position
+         depending on which row happens to be current. */
+      padding: 12px 4px 12px 16px; border-bottom: 1px solid var(--panel-border);
+      cursor: pointer;
+    }
+    .ref-list .ref-card:last-child { border-bottom: none; }
+    .ref-card:active { background: var(--surface-hover-bg); }
+    /* Same "this is what's currently loaded" highlight as the desktop
+       table (see the matching table.ref-table rule and addRow's own
+       ref-row-current check) — a left accent bar, an outline around the
+       whole row, and a tinted name. No background tint (color-mix() isn't
+       safely universal in every WKWebView version this might run in).
+       Position:relative is just so the bar (::before below) has something
+       to anchor its absolute position to.
+       Originally a 3px inset box-shadow bar in --accent-border (a muted
+       gray-blue in this theme, #7c869a) sitting flush against the card's
+       own edge — a user found that too low-contrast against the dark
+       background to read as a real highlight, and (since it sat right at
+       the padding edge, a few px from the play button) close enough to
+       read as touching it. Switched to a real, absolutely-positioned bar
+       instead of the box-shadow trick specifically so it can sit with a
+       genuine gap from the edge — an inset box-shadow has no way to do
+       that; it always starts exactly at the border edge. */
+    .ref-card { position: relative; }
+    .ref-card.ref-row-current {
+      outline: 1px solid rgba(255, 255, 255, 0.7);
+      outline-offset: -1px;
+      border-radius: 4px;
+    }
+    .ref-card.ref-row-current::before {
+      content: ''; position: absolute; left: 6px; top: 8px; bottom: 8px;
+      width: 4px; border-radius: 2px; background: #ffffff;
+    }
+    .ref-card.ref-row-current .ref-card-name { color: #ffffff; font-weight: 700; }
+    /* Bigger than the desktop table's own .ref-play-btn (13px/7px) — this
+       is a primary tap target in a touch list, not a small inline glyph
+       next to dense text. */
+    .ref-card .ref-play-btn {
+      width: 30px; height: 30px; font-size: 12px; margin-right: 0; flex: 0 0 auto;
+      opacity: 0.9;
+    }
+    .ref-card-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    /* Normal reading size (matching the app's own baseline text, not the
+       compact 9-13px this used to be squeezed down to inside a table
+       cell) — legible at a glance is the entire point of dropping the grid. */
+    .ref-card-name { font-size: 14px; color: var(--text); }
+    /* The dot strip stands in for the whole 12-column grid: one dot per
+       semitone, filled and colored (colorOf — the exact same palette the
+       abacus/fretboard/piano already use) at the scale's own notes, a
+       small dim tick at the rest — reads as "a tiny abacus," which is
+       exactly the point: this app's own established visual language,
+       reused, rather than an unrelated new one. */
+    .ref-card-dots { display: flex; gap: 3px; }
+    .ref-card-dots > .ref-dot { flex: 1 1 0; min-width: 0; }
+    .ref-card-dots > .ref-dot.empty { align-self: center; }
+    .ref-dot { height: 10px; border-radius: 2px; transition: transform 0.1s ease, box-shadow 0.1s ease; }
+    .ref-dot.empty { height: 4px; background: var(--panel-border); }
+
+    /* ── the list's own sticky column header ────────────────────────────
+       Built from the same classes as a real row (see the comment at its
+       construction in app.js) so its 12 label columns sit on exactly the
+       same flex tracks as the 12 dots beneath them. The two spacers stand
+       in for the play button and the name, which is what gets the labels
+       to start where the dots start.
+       Sticky against the POPUP's own scroll box — see the
+       dialog.mobile-popup #ref-table-wrap rule further down, which had to
+       stop being a scroll container itself for this to pin to the right
+       thing. Opaque background, or rows would show through it as they
+       scroll underneath. */
+    .ref-head {
+      /* Pins BELOW the close button rather than at the very top of the
+         scroll box: .mobile-popup-close is itself sticky at top:0 and is
+         36px tall (plus its own -6px top margin), so a header pinned to 0
+         parks itself right underneath the X. 42px clears it with a bit of
+         air rather than sitting flush against it; the X's own raised
+         z-index keeps it on top for the moment they overlap during the
+         scroll. */
+      position: sticky; top: 42px; z-index: 5;
+      background: var(--dialog-bg);
+      border-bottom: 1px solid var(--surface-border);
+      cursor: default;
+      /* Much tighter than the .ref-card padding it would otherwise inherit
+         (12px top and bottom): this row is a single line of small labels,
+         not a tappable row needing a touch target, and every pixel of its
+         height is a pixel further the labels sit from the dot columns they
+         name once a row scrolls up beneath it. */
+      padding-top: 3px; padding-bottom: 3px;
+    }
+    .ref-head:active { background: var(--dialog-bg); } /* not a tappable row */
+    .ref-head-btn-spacer { width: 30px; flex: 0 0 auto; }
+    /* Portrait stacks name over dots, so the name spacer would just add an
+       empty line; landscape puts them side by side, where it has to hold
+       the name column's own 45% open. Shown there, in that block. */
+    .ref-head-name-spacer { display: none; }
+    .ref-head-label {
+      flex: 1 1 0; min-width: 0;
+      font-size: 11px; line-height: 1; text-align: center;
+      color: var(--text-muted); opacity: 0.95;
+    }
+    /* Briefly enlarges + outlines whichever dot just sounded during this
+       row's own preview (see pulseDot in app.js) — same "this one just
+       played" flourish as the abacus's own pulseBead, applied to a plain
+       div instead of an SVG circle. */
+    .ref-dot.ref-dot-pulse { transform: scaleY(1.8); box-shadow: 0 0 0 2px #ffffff; }
+    /* Small-caps section label — the mobile equivalent of the desktop
+       table's th.ref-group-header, minus a grid cell to sit inside. Modes
+       view (the default — see refRowMode in app.js) uses this to keep
+       each mode's family clear even without the family itself being its
+       own row. */
+    .ref-list-group-header {
+      padding: 14px 4px 4px; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--ui-font-sm);
+    }
+    .ref-list .ref-list-group-header:first-child { padding-top: 4px; }
 
     #color-legend { margin: 36px 0 12px; }
     .legend-swatch {
@@ -209,8 +532,8 @@
     }
     /* Every section inside a group reads as the same kind of thing — a
        divider plus a small-caps label, whether its content is a button
-       row, a diagram, or (Diatonic chords) a collapsible one — rather than
-       just a bare stack of unrelated widgets with no visual rhythm. */
+       row or a diagram — rather than just a bare stack of unrelated
+       widgets with no visual rhythm. */
     .group .section:not(:first-child) { border-top: 1px solid var(--panel-border); padding-top: 22px; }
 
     .setup-row { display: flex; flex-wrap: wrap; gap: 20px 32px; }
@@ -221,6 +544,8 @@
        size to its unwrapped (max-content) width. */
     .setup-group { flex: 0 0 auto; max-width: 100%; }
     .sub-toggle { margin-top: 6px; }
+    #piano-keys-field { margin-top: 12px; }
+    #piano-keys-field[hidden] { display: none; }
     /* Tuning preset lives right next to the string-count buttons — string
        count and tuning are both "how is this instrument strung/tuned"
        choices, so keeping them on one row reads as a single related group
@@ -228,78 +553,355 @@
        the control it's most relevant to. */
     .string-tuning-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
-    .root-select-mobile { display: none; width: 100%; padding: 6px; background: var(--surface);
-      border: 1px solid var(--surface-border); border-radius: 3px; color: var(--surface-text); font-size: 13px; }
+    /* Generic custom-dropdown building blocks — used by BOTH the root
+       picker (.root-select-mobile) and the chord-voicing picker
+       (.voicing-select), each just a small wrapper around these plus its
+       own sizing. Neither is a native <select> any more: color-scheme:dark
+       (for the native open picker) plus -webkit-appearance:none + a
+       background-image arrow (for the closed box) were both tried on the
+       root picker and BOTH still left it light gray on-device, twice
+       reported. iOS/WKWebView's native form-control chrome is a
+       well-documented dead end for this kind of custom dark styling — no
+       combination of standard CSS reliably overrides it across iOS
+       versions. Rebuilt as a plain button + an absolutely positioned
+       custom list instead (wired up in app.js — see
+       wireDropdown), which is 100% author-styled
+       with no native chrome to fight at all. */
+    .dropdown-btn {
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--surface-border); border-radius: 3px; color: var(--surface-text);
+      font-family: inherit; text-align: left; cursor: pointer;
+    }
+    .dropdown-btn:active { background: var(--surface-hover-bg); }
+    /* Plain chevron, hardcoded to slate's own --surface-text (#c7ccd6)
+       rather than tracking the variable via mask-image — THEME is a
+       fixed, code-level constant here, not a runtime toggle, so building
+       for every theme variant isn't needed yet. */
+    .dropdown-arrow {
+      width: 10px; height: 6px; flex: 0 0 auto;
+      background: currentColor;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23000' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23000' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+    }
+    /* Dropdown panel — an author-styled list, POSITIONED FROM JS (see
+       openDropdown in app.js): position:fixed with real viewport
+       coordinates, not the position:absolute this started as. Both
+       dropdowns sit in a control row that sets overflow-x:auto as a
+       narrow-screen safety net, and an overflow:auto ancestor clips
+       absolutely-positioned descendants outside its box — which this panel
+       always is, because it opens UPWARD out of a row at the bottom of the
+       screen. That clipping is what made the landscape root picker look
+       completely dead on tap. Fixed positioning is the one thing that
+       escapes a clipping ancestor; z-index cannot.
+       Opening upward is itself deliberate: these rows are at the very
+       bottom in both orientations, so a downward list (what a native
+       <select> would do) ran off the bottom of the viewport.
+       The left/bottom/min-width/max-height below are all overwritten by
+       openDropdown on each open — kept here so the panel is still sanely
+       placed if it's ever shown before that runs. */
+    .dropdown-list {
+      position: fixed; z-index: 20;
+      /* width:max-content (with a min-width floor set from the button's own
+         measured width at open time) — the root picker's button is narrow,
+         which was wrapping "C♯/D♭"-style option text onto two lines.
+         max-content lets the list grow to whatever its longest option
+         actually needs. */
+      width: max-content;
+      max-height: 50vh; overflow-y: auto;
+      background: var(--dialog-bg); border: 1px solid var(--surface-border); border-radius: 6px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      padding: 4px;
+    }
+    .dropdown-option {
+      padding: 8px 10px; border-radius: 4px; font-size: 14px; color: var(--text); cursor: pointer;
+    }
+    .dropdown-option:active { background: var(--surface-hover-bg); }
+    .dropdown-option.active { background: var(--accent-border); color: #ffffff; font-weight: 700; }
 
-    #tuning-preset { padding: 4px 6px; background: var(--surface); border: 1px solid var(--surface-border);
-      border-radius: 3px; color: var(--surface-text); font-size: 12px; }
+    .root-select-mobile { display: none; position: relative; }
+    /* min-width (not 100%, and not a bare width either) — a fixed floor
+       sized to comfortably fit the widest option ("C♯/D♭" and friends) on
+       ONE line, rather than the CURRENTLY selected root's own text width.
+       #root-group (this button's ancestor, a .setup-group — flex:0 0 auto,
+       shrink-to-fit) was sizing itself off whatever root happened to be
+       selected when it was 100%/auto, which pushed the mode-stepper/
+       voicing button next to it left and right as the root changed — a
+       user caught this as "the last two items jump when a shorter-named
+       root is selected." min-width (not width) plus nowrap on the value
+       span below is what actually fixes that AND keeps "C♯/D♭" from
+       wrapping onto two lines — a first attempt at 6.5ch was too tight for
+       that specific label; min-width instead of a hard width means this
+       can never be too tight again even if some option is wider still, it
+       would just grow past the floor instead of wrapping. ch scales with
+       font-size on its own, so the landscape override below (smaller
+       font) doesn't need its own separate number. */
+    .root-select-mobile .dropdown-btn { min-width: 10ch; padding: 6px; font-size: var(--ui-font); }
+    .root-select-mobile #root-select-value { white-space: nowrap; }
+
+    /* A caption sitting BESIDE its control rather than above it — for the
+       handful of selects that live inline in a row of buttons, where the
+       stacked .synth-row label treatment would break the row. */
+    .inline-field {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: var(--ui-font-sm); color: var(--text-muted);
+    }
 
     /* Shown only while the currently-selected instrument's samples are still
        fetching (see refreshSampleLoadingIndicator in app.js) — a quiet pulse
        rather than a spinner/progress bar, since there's no reliable per-file
        progress signal to drive a real percentage off of. */
-    .sample-loading { font-size: 11px; color: var(--text-muted); animation: sample-loading-pulse 1.4s ease-in-out infinite; }
+    .sample-loading { font-size: var(--ui-font-sm); color: var(--text-muted); animation: sample-loading-pulse 1.4s ease-in-out infinite; }
     @keyframes sample-loading-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
 
-    @media (max-width: 699px) {
-      #root-selector { display: none; }
-      .root-select-mobile { display: block; }
-    }
+    /* The 12-button root strip is the old desktop control; both app
+       layouts use the compact dropdown instead (lay-h's own copy of this
+       lives in its block below). */
+    html.lay-v #root-selector { display: none; }
+    html.lay-v .root-select-mobile { display: block; }
 
-    /* Portrait "app mode": on a phone-width screen, the Sound,
-       Instrument/Handedness, mode-stepper, diatonic-chords, and
-       labels/notes controls otherwise sit between the abacus and the
-       fretboard, pushing the fretboard below the fold even though it, the
-       abacus, and the scale name are the three things worth seeing
-       together at a glance. All of them share the .mobile-collapsible
-       marker (see the matching class on each in index.html), and — along
-       with the color legend and scale library — are hidden here and
-       reached instead through two small fixed buttons (gear = settings,
-       book = scale library) that each pop open a <dialog>
-       (#settings-popup / #reflib-popup, styled further below), mirroring
-       the landscape "app mode" further down. The header (title +
-       Beginner/Advanced toggle) stays on screen, unlike in landscape —
-       portrait phones have much more vertical room, so there's budget for
-       it and losing quick access to that toggle isn't worth the space it
-       would save. Untouched at any wider breakpoint, where there's room
-       for everything already, and superseded by the landscape "app mode"
-       below on short/wide phone screens. */
-    .mobile-settings-toggle, .mobile-reflib-toggle { display: none; }
-    @media (max-width: 699px) {
-      html, body { height: 100dvh; height: 100lvh; overflow-y: auto; overflow-x: hidden; }
-      body { min-height: 0; display: flex; flex-direction: column; padding: 16px 16px 12px; }
-
-      #color-legend, .col-ref, .mobile-collapsible { display: none; }
-
-      .header-row { flex: 0 0 auto; margin-bottom: 14px; }
-
-      .mobile-settings-toggle, .mobile-reflib-toggle {
-        display: flex; align-items: center; justify-content: center;
-        position: fixed; top: 10px; z-index: 10;
-        width: 34px; height: 34px; margin: 0; padding: 0; border-radius: 50%;
-        background: var(--surface); border: 1px solid var(--surface-border);
-        font-size: 0; /* the button's own JS-set label is replaced by the glyph below */
+    /* ── the two layouts ─────────────────────────────────────────────────
+       Every screen size uses the same app-style chrome: the scale-name row
+       on top, the abacus and instrument, then the root/mode and
+       Drone/Play/Instrument/Setup toolbar rows at the bottom, with the
+       instrument setup and scale library behind popups (or the library in
+       a sidebar when there's room — see html.lib-side further down).
+       Which of the two arrangements below applies is an html class set by
+       index.html/app.js (spicemapLayout/applyLayout), not a media query,
+       so a tablet or desktop can switch between them with the Rotate
+       button:
+         html.lay-v — the instrument and abacus stand upright, side by side
+                      (a portrait phone's layout);
+         html.lay-h — they lie down, stacked (a landscape phone's layout).
+       Displays on top, controls at the bottom in both: with controls
+       above, the hand and forearm would cover the fretboard at the exact
+       moment a tap changes it. */
+    /* Browse: shown in both layouts (see their .reflib-open-btn rules
+       below), hidden while the library is a sidebar. Sits at the end of
+       the scale-name row, reading as "the library control, right next to
+       what it's a library OF." Replaces an earlier
+       persistent right-edge drag tab — dropped after review: it needed its
+       own reserved gutter, its own camera-side margin math (on top of the
+       margin math the content itself already needed), and a below-Apple's-
+       guideline touch target, all to reach roughly the same reachability a
+       plain button already gets for free. */
+    /* white-space:nowrap matters once this sits in a tight flex row (the
+       root/mode row in app mode) alongside several other buttons — "📖
+       Browse" is the one label in that row with a breakable space in it,
+       and once the row got tight enough to squeeze it below its own
+       natural width, the text wrapped onto a second line under the icon,
+       which grew the button taller than its siblings and made it sit
+       visibly higher than them (the row's own align-items:center then had
+       more height to center within, on this button alone). */
+    .reflib-open-btn { display: none; white-space: nowrap; }
+    /* ── vertical layout (html.lay-v) ─────── */
+    html.lay-v, html.lay-v body { height: 100dvh; height: 100lvh; overflow-y: auto; overflow-x: hidden; }
+      /* Same reasoning as landscape: inside the wrapped app there's no
+         browser chrome for a scroll to collapse, so any scrollable slack is
+         just a page that drifts under the finger. Everything is sized to
+         fit, so pin it. */
+      html.lay-v.native-app, html.lay-v.native-app body { overflow-y: hidden; }
+      /* In portrait the status bar (clock/battery) — and on notched/Dynamic
+         Island phones, the sensor housing beneath it — always sits at the
+         top center, unlike landscape where it can land on either the left
+         or right edge depending on which way the phone is rotated. So
+         there's no "which side" ambiguity here: env(safe-area-inset-top)
+         alone covers it, and covers it correctly on every model without
+         per-device logic — the OS reports 0 on a home-button phone, ~44-47px
+         on a notched one, ~59px behind a Dynamic Island, etc. Unlike the
+         landscape left/right insets (capped — see there for why), the full
+         value is used here: this space has real content in it (the status
+         bar), not just a rounding-corner safety margin, and reserving it
+         doesn't cost the fretboard/abacus any width. Left/right/bottom still
+         get the capped treatment for the same reason as landscape. */
+      html.lay-v body {
+        min-height: 0; display: flex; flex-direction: column;
+        padding: max(16px, env(safe-area-inset-top))
+                 clamp(16px, env(safe-area-inset-right), 22px)
+                 max(12px, env(safe-area-inset-bottom))
+                 clamp(16px, env(safe-area-inset-left), 22px);
       }
-      .mobile-settings-toggle { right: 14px; }
-      .mobile-settings-toggle::after { content: '\2699'; font-size: 18px; }
-      .mobile-reflib-toggle { right: 54px; }
-      .mobile-reflib-toggle::after { content: '\1F4D6'; font-size: 17px; }
 
-      .layout { flex: 1 1 auto; min-height: 0; }
-      .col-main { height: 100%; gap: 12px; }
-      /* Flatten both .group panels so their sections become direct flex
-         children of .col-main — same technique as landscape app mode. */
-      .group { display: contents; }
+      html.lay-v #color-legend, html.lay-v .col-ref, html.lay-v .mobile-collapsible { display: none; }
 
-      #root-row { flex: 0 0 auto; }
-      #abacus-section { flex: 0 0 auto; padding-top: 0; border-top: none; }
-      .scale-name { margin-bottom: 6px; }
+      /* "SpiceMap"/Beginner-Advanced move into .scale-name-row-left (see
+         app.js) — the header row that used to hold them would otherwise
+         sit here mostly empty, still claiming its margin. */
+      html.lay-v .header-row { display: none; }
+      html.lay-v .scale-name-row-left {
+        /* No margin-right:auto here — .scale-name-actions' own margin-left:
+           auto (see there) is what pushes things right now, so this and
+           #scale-name just sit adjacent at their natural size. */
+        display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+      }
+      html.lay-v .scale-name-row-left h1 { font-size: 15px; margin: 0; line-height: 1.1; }
+      /* min-width:24px overrides the shared .hand-btn rule's 36px — at
+         36px, 5 buttons (Scale mode's 5/6/7/8/12) came to 204px, well past
+         #ref-notecount-wrap's 148px min-width above, so Scale mode was
+         still wider than Chord mode's 4 buttons and the row visibly jumped
+         switching between them. 24px is still enough for "12" (the widest
+         label) at this font-size. */
+      html.lay-v .scale-name-actions #notecount-group .hand-btn { padding: 4px 5px; font-size: var(--ui-font); min-width: 24px; }
+      /* The note-count buttons stay tight together (4px) — they're one
+         control, read as a strip — while the gaps BETWEEN the groups get
+         the room instead. What pays for that is Browse no longer sitting
+         immediately after the counts with dead space to its right:
+         margin-left:auto pushes it to the row's own right edge, which is
+         the same edge Setup lines up with in the row below (both rows end
+         at the body's padding, with nothing of their own on the right).
+         So the slack that used to pool at the end of the row is now
+         spread between the groups, and the two rows end flush. */
+      html.lay-v .scale-name-actions { gap: 10px; }
+      html.lay-v .scale-name-actions #notecount-group { gap: 10px; }
+      html.lay-v .scale-name-actions .hand-toggle { gap: 4px; }
+      html.lay-v .scale-name-actions .reflib-open-btn { margin-left: auto; }
+      /* #ref-notecount-wrap's own 148px min-width (base rule, above) was
+         tuned to stop THIS row's own width from jumping when Browse (or
+         whatever else shared the row) had to shift to make room — but
+         now that Mode/note-count has its own dedicated line (see the
+         flex-basis:100% rule below), nothing else shares this row's
+         space for a width change to disrupt. Resetting it here
+         specifically (not in the shared base rule, which may still
+         matter at a width where this row DOES share space with
+         something) trades a small, harmless shift in Browse's own
+         position when switching Scale/Chord for not permanently
+         reserving ~35-40px of dead space every time Chord mode (fewer,
+         narrower buttons) is active. */
+      html.lay-v #ref-notecount-wrap { min-width: 0; }
+      /* Now a plain sibling of #notecount-group (not nested inside it —
+         see the HTML comment on #reflib-open-btn for why), so it no
+         longer matches the rule just above; matching its padding/size
+         explicitly instead keeps it visually consistent with its
+         neighbors in the same row rather than reverting to the bigger
+         desktop-default .hand-btn size. */
+      html.lay-v .reflib-open-btn { display: inline-block; padding: 4px 6px; font-size: var(--ui-font); }
+      /* Title (+ Beginner/Advanced) and the scale/chord name share the
+         first line; the Mode/Chord toggle + note-count "knobs" (parked
+         into .scale-name-actions — see applyNotecountPlacement in app.js)
+         go on their own line below. flex-wrap:wrap plus giving
+         .scale-name-actions flex-basis:100% forces exactly that one break.
+         margin-left:auto (the shared, non-portrait rule) would otherwise
+         push actions to the right edge of that now-solo line — left-
+         aligned instead reads more like an ordinary control row and less
+         like a stray floating button. */
+      html.lay-v .scale-name-row { flex-wrap: wrap; }
+      html.lay-v .scale-name-actions { flex: 1 1 100%; margin-left: 0; }
+      /* The name's own text still shouldn't wrap word-by-word (e.g. "C
+         Neapolitan Major" breaking into "C" / "Neapolitan" / "Major") —
+         nowrap keeps it one line, and since it now shares a line with the
+         title (tight quarters), giving #scale-name its own horizontal
+         scroll contains an unusually long name without pushing the title
+         itself around. min-width:0 is what lets it shrink to make room for
+         the title in the first place (a flex item's default refuses to
+         shrink below its text's natural width). */
+      html.lay-v #scale-name { min-width: 0; flex: 1 1 auto; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      html.lay-v .scale-name .name { white-space: nowrap; }
+      /* Same story for the bottom row: flex-wrap:wrap is the site-wide
+         default, which let the mode stepper and the drone/play/setup
+         buttons spill onto a 2nd/3rd line on a ~330px-wide phone. Landscape
+         app mode already solved this exact problem the same way (see
+         .quickbar further below) — nowrap plus a horizontal-scroll safety
+         net, not a design compromise so much as one toolbar that's wider
+         than the screen and scrolls, same as any other. */
+      html.lay-v .quickbar {
+        flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+        /* 10px, down from the site-wide 24px column gap: at 24px the four
+           buttons in this row needed ~72px of pure whitespace between them,
+           which is what was pushing Setup off the right edge of a ~360px
+           phone once the type got bigger. Same gap landscape already uses,
+           so the two rows now space identically as well. */
+        gap: 10px;
+      }
+      html.lay-v .quickbar > * { flex: 0 0 auto; }
+      html.lay-v .quickbar .hand-btn { white-space: nowrap; }
+      html.lay-v #mode-label { white-space: nowrap; }
+
+      /* align-items:start (the site-wide .layout rule) leaves .col-main's
+         grid area content-sized, which makes its height:100% indefinite and
+         lets the instrument row collapse to nothing. Stretch it so the row
+         sizing below has a real height to divide up. */
+      html.lay-v .layout { flex: 1 1 auto; min-height: 0; align-items: stretch; }
+      /* A grid item's automatic minimum size defaults to its content's
+         min-content size, same trap as a flex item's default min-height:
+         auto. Without overriding it here, .col-main refuses to shrink
+         below the fretboard SVG's own unconstrained natural size, forcing
+         .layout's row to grow to match — which is what was pushing root
+         row/quickbar off the bottom of the screen and leaving only a few
+         frets' worth of an oversized neck visible. */
+      html.lay-v .col-main { min-width: 0; min-height: 0; }
+      /* Flatten the .group panels — and #abacus-section with them — so the
+         scale name, abacus, quickbar and fretboard all become direct grid
+         children of .col-main, placeable independently of the DOM (which
+         stays in its desktop-sensible order). */
+      html.lay-v .group, html.lay-v #abacus-section { display: contents; }
+
+      /* Displays on top, controls at the bottom: with controls above, the
+         hand and forearm cover the fretboard at the exact moment a tap
+         changes it. Below, every tap redraws something still visible.
+         The abacus stands upright (see setVertical in app.js) in a narrow
+         column beside the instrument rather than costing a full row of
+         height — which both frees vertical space and leaves the instrument
+         a taller, narrower window to fill, closer to a real upright neck. */
+      /* The abacus column is a fixed width rather than auto: the <svg> keeps
+         its width="760" attribute as an intrinsic size, so an auto track
+         sizes to 760px and leaves the instrument column nothing at all.
+         Upright the abacus is 80×760 (a 1:9.5 aspect ratio) — sized here a
+         little wider than that ratio strictly needs against a typical
+         available row height, so the column is never itself the tighter
+         constraint and preserveAspectRatio's letterboxing is governed by
+         height (matching landscape's scale) rather than by this column
+         being too narrow. A few points of empty gutter beside a
+         full-height abacus beats a slightly shrunk one either way. */
+      html.lay-v .col-main {
+        height: 100%; gap: 10px;
+        display: grid;
+        /* 78px on a phone; on taller screens the upright abacus grows with
+           the row (it's ~0.105 as wide as it is tall, plus room for its
+           note labels, which sit outside its viewBox), or it would hit the
+           column's width first and clip those labels. */
+        grid-template-columns: clamp(78px, calc(13vh - 32px), 200px) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr) auto auto;
+        grid-template-areas:
+          "title      title"
+          "abacus     instrument"
+          "root       root"
+          "quickbar   quickbar";
+      }
+      html.lay-v .scale-name-row { grid-area: title; margin-bottom: 0; }
+      html.lay-v #abacus { grid-area: abacus; width: 100%; height: 100%; max-width: 100%; min-width: 0; min-height: 0; }
+      html.lay-v #fretboard-wrap { grid-area: instrument; min-width: 0; min-height: 0; }
+      html.lay-v #root-row { grid-area: root; }
+      /* #mode-controls is parked in here (see applyModeControlsPlacement
+         in app.js) alongside the Root picker — its own margin-top (for
+         when it normally sits in .quickbar) would otherwise misalign it
+         against #root-group's own items here. */
+      html.lay-v #root-row #mode-controls { margin-top: 0; }
+      /* Same fix landscape already has, for the same reason: without this,
+         "Root" sits stacked ABOVE the C/C#/D… buttons (the default
+         .setup-group layout), pushing #root-group's own content down a
+         line — which then throws off vertical alignment against
+         #mode-controls (parked in the same row, with no such label above
+         it), so "Mode 1/7" and its arrows visibly sat higher than "C".
+         Hiding the redundant label (self-explanatory buttons, same call
+         landscape already made) fixes both the wasted line and the
+         misalignment in one move. */
+      html.lay-v #root-row .label { display: none; }
+      html.lay-v .quickbar { grid-area: quickbar; margin-top: 0; }
 
       /* The fretboard/piano gets whatever height is left after the root
-         row and abacus take theirs — same technique as landscape app mode. */
-      #fretboard-wrap { flex: 1 1 auto; min-height: 0; padding-top: 0; border-top: none; display: flex; flex-direction: column; }
-      #fretboard-wrap .label-row { flex: 0 0 auto; margin-bottom: 6px; }
-      #fretboard, #piano { flex: 1 1 auto; min-height: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
+         row and abacus take theirs — same technique as landscape app mode.
+         This element's OWN outer sizing here is actually governed by the
+         grid's `minmax(0, 1fr)` instrument row (see .col-main above),
+         which is immune to the flex-basis/aspect-ratio quirk described in
+         the landscape copy of this rule — flex-basis:0 isn't needed here,
+         only the inner flex-direction:column (for #fretboard/#piano) and
+         the overflow:hidden backstop for THAT nested case. */
+      html.lay-v #fretboard-wrap { flex: 1 1 auto; min-height: 0; padding-top: 0; border-top: none; display: flex; flex-direction: column; overflow: hidden; }
+      /* #instrument-label and #sample-loading (this row's only two
+         children) are moved into .quickbar in app mode (see app.js) —
+         hide the now-empty row rather than leave its margin behind. */
+      html.lay-v #fretboard-wrap .label-row { display: none; }
+      html.lay-v #fretboard, html.lay-v #piano { flex: 1 1 auto; min-height: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
 
       /* The abacus/fretboard's own SVG font sizes are tuned for the
          desktop-scale artwork; shrunk to fit a ~350px-wide phone screen
@@ -307,24 +909,38 @@
          (see #fretboard, #piano, #abacus max-width/height:auto above), so
          bumping the font-size numbers here makes the text bigger relative
          to the beads/fretboard itself, not just bigger on screen. */
-      #abacus text { font-size: 14px; }
-      #fretboard text.fret-num { font-size: 15px; }
-    }
+      /* The abacus is deliberately NOT bumped along with the rest: a user
+         confirmed this size specifically reads right as-is. */
+      html.lay-v #abacus text { font-size: 17px; }
+      html.lay-v #fretboard text.fret-num { font-size: 17px; }
+      /* The per-string tuner label (E, A, D…) — same reasoning as the
+         other two rules just above: legible at this screen size means
+         bigger than the desktop-tuned inline value, not just "however big
+         the SVG happens to scale down to." */
+      html.lay-v #fretboard text.tuner-note-name { font-size: 22px; }
+      /* Piano key labels, same reasoning again — and unified white/black
+         (12px/9px desktop) up to the bead-label size specifically, since a
+         user asked for these to read as legibly as the abacus's own
+         labels. 19px (up from 17) in the same "everything a bit bigger"
+         pass as the page chrome — held just under the 27-unit black-key
+         width so a two-character label like "C♯" still sits inside its own
+         key rather than spilling onto its neighbours. */
+      html.lay-v #piano text.piano-white-label, html.lay-v #piano text.piano-black-label { font-size: 19px; }
+    
 
-    /* Landscape "app mode" — a phone turned sideways (short viewport
-       height, not just narrow width) gets a dedicated no-scroll layout:
-       only the root picker, scale name, abacus, and fretboard/piano are
-       ever on screen, sized to fill the viewport exactly. Everything else
-       (Sound, Instrument/Handedness, mode stepper, diatonic chords,
-       labels/notes, the header, the reference table, the color legend) is
-       reachable through two small fixed buttons (gear = settings, book =
-       scale library) that each pop open a <dialog> (#settings-popup /
-       #reflib-popup, styled below) rather than expanding this layout in
-       place — the popup has its own scroll/stacking context, so the base
-       view here never needs to grow or scroll to make room for it.
-       max-height (not max-width) is the trigger, since a tablet in
-       landscape has plenty of room and shouldn't collapse to this. */
-    @media (orientation: landscape) and (max-height: 500px) {
+
+    /* (html.lay-h: the whole screen is one no-scroll column — title row,
+       abacus, instrument, and a single toolbar row that also carries the
+       root picker and mode stepper. Sized for a phone turned sideways,
+       where it's barely 400px tall.) */
+    /* ── horizontal layout (html.lay-h) ─────── */
+    /* One step smaller than portrait's own scale (see the --ui-font
+         comment up top): this layout fits the title row, abacus,
+         instrument, root row AND the quickbar into ~400px of height, with
+         every control row set to nowrap, so text that grows here costs
+         either the instrument's height or a horizontal scroll. Every rule
+         that used to hardcode 11px in this block now just inherits this. */
+      html.lay-h { --ui-font: 13px; --ui-font-sm: 12px; }
       /* height is pinned to lvh (the viewport size assuming Safari's
          address/tab chrome has collapsed), not dvh, and overflow stays
          scrollable rather than hidden. While the chrome is still showing,
@@ -339,56 +955,310 @@
          bottom of the abacus/fretboard, since dvh itself only updates in
          response to a scroll that this design was preventing. Falls back
          to dvh (declared first) on browsers without lvh support. */
-      html, body { height: 100dvh; height: 100lvh; overflow-y: auto; overflow-x: hidden; padding: 6px 10px; }
-
-      .header-row, #color-legend, .col-ref, .mobile-collapsible { display: none; }
-
-      .mobile-settings-toggle, .mobile-reflib-toggle {
-        display: flex; align-items: center; justify-content: center;
-        position: fixed; top: 6px; z-index: 10;
-        width: 30px; height: 30px; margin: 0; padding: 0; border-radius: 50%;
-        font-size: 0; /* the button's own JS-set label is replaced by the glyph below */
+      /* clamp(min, env(), max) — not max(fixed, env()) — since the raw
+         safe-area-inset value (~44pt on a notched phone, regardless of
+         orientation side) is Apple's conservative UI-comfort figure, not
+         the notch's actual footprint (measured on an iPhone 12 mini: ~4mm
+         of a 125mm-wide screen, i.e. a few px). Taking the full env() value
+         was costing the abacus/fretboard far more width than the hardware
+         actually requires; capping it keeps just enough clearance to avoid
+         the rounded corner/sensor housing without needlessly shrinking
+         everything else.
+         Which physical side (left/right) actually gets this margin is
+         decided by the html.cam-left/cam-right class (see
+         updateCameraSideClass() in app.js), NOT by reading
+         env(safe-area-inset-left) vs -right directly — on-device
+         measurement (iPhone 13 mini) found those two report the SAME value
+         regardless of which side the camera is actually on for the current
+         rotation, so CSS alone can't tell the sides apart here; only
+         screen.orientation.type can. Top/bottom have no such ambiguity
+         (the status bar/home indicator are always top/bottom-center) so
+         those stay a plain clamp(). */
+      html.lay-h, html.lay-h body {
+        height: 100dvh; height: 100lvh; overflow-y: auto; overflow-x: hidden;
+        padding-top: clamp(6px, env(safe-area-inset-top), 16px);
+        padding-bottom: clamp(6px, env(safe-area-inset-bottom), 16px);
       }
-      .mobile-settings-toggle { right: 8px; }
-      .mobile-settings-toggle::after { content: '\2699'; font-size: 16px; }
-      .mobile-reflib-toggle { right: 44px; }
-      .mobile-reflib-toggle::after { content: '\1F4D6'; font-size: 15px; }
+      /* Whichever of these two is the true camera side (per
+         html.cam-left/cam-right) gets the FULL safe-area inset iOS reports
+         for this device — not a fixed cap. The old 30px cap was tuned on a
+         notched mini, where it was enough; a Dynamic Island Pro Max (inset
+         62px, island reaching ~50px in from the edge) had the fretboard's
+         far end and the tuning arrows running under the island. The inset
+         is Apple's own per-model number, so it's right on every device,
+         including ones that don't exist yet. The other side gets a flat
+         15px: nothing sticks into the screen there except the rounded
+         corners, which only the top and bottom rows reach (see below). */
+      /* Minus 6px: the inset includes some breathing room past the island
+         itself (it reaches ~50 of the 62px on a 17/17 Pro Max), and the
+         content brings a few px of its own spacing — on-device the full
+         value read as slightly too much. Still well clear on notched
+         models (notch ~30-34px deep vs 44-48px insets). */
+      html.lay-h.cam-right { --left-margin: 15px; --right-margin: max(15px, calc(env(safe-area-inset-right) - 6px)); }
+      html.lay-h.cam-left { --left-margin: max(15px, calc(env(safe-area-inset-left) - 6px)); --right-margin: 15px; }
+      html.lay-h body { padding-left: var(--left-margin, 7px); padding-right: var(--right-margin, 7px); }
+      /* Rounded corners: the top row (title, Browse) and bottom row (root
+         picker, Setup) sit right in them, so on the non-camera side those
+         two rows are indented to the full inset as well — the bigger the
+         phone's corner radius, the bigger its inset, so this scales per
+         device too. The abacus/fretboard in between are clear of the
+         corners and keep the narrow 15px margin, so they lose no width. */
+      html.lay-h.cam-right .scale-name-row, html.lay-h.cam-right .quickbar {
+        padding-left: max(0px, calc(env(safe-area-inset-left) - var(--left-margin)));
+      }
+      html.lay-h.cam-left .scale-name-row, html.lay-h.cam-left .quickbar {
+        padding-right: max(0px, calc(env(safe-area-inset-right) - var(--right-margin)));
+      }
+      /* ...and on the camera side, those two rows get back the 6px trimmed
+         above, so all four corners keep the exact clearance that tested
+         right on the non-camera side. */
+      html.lay-h.cam-right .scale-name-row, html.lay-h.cam-right .quickbar {
+        padding-right: max(0px, calc(env(safe-area-inset-right) - var(--right-margin)));
+      }
+      html.lay-h.cam-left .scale-name-row, html.lay-h.cam-left .quickbar {
+        padding-left: max(0px, calc(env(safe-area-inset-left) - var(--left-margin)));
+      }
+      /* The non-camera side went 7px -> 15px because 7 read as almost no
+         margin at all next to the notch side's own clearance. The abacus
+         and fretboard claim those 8px straight back with a negative margin
+         on that same side, so THEY stay exactly where (and as big as) they
+         were — the extra air is for the text and buttons, which are what
+         looked cramped against the edge. Keyed off the same cam-left/
+         cam-right class that decides the padding, so the two can't drift
+         apart. */
+      html.lay-h.cam-right #abacus, html.lay-h.cam-right #fretboard-wrap { margin-left: -8px; }
+      html.lay-h.cam-left #abacus, html.lay-h.cam-left #fretboard-wrap { margin-right: -8px; }
+      /* Inside the wrapped native app there's no browser chrome to collapse,
+         so the dvh/lvh gap above has nothing to do except sit there as a
+         scrollbar that moves a pixel or two and goes nowhere — cut it. */
+      html.lay-h.native-app, html.lay-h.native-app body { overflow-y: hidden; }
 
-      .layout { height: 100%; gap: 6px; }
-      .col-main { height: 100%; gap: 6px; }
-      /* Flatten both .group panels so their sections become direct flex
-         children of .col-main, in DOM order: Root row, abacus section,
-         (hidden) Sound, (hidden) Instrument/Handedness, fretboard — i.e.
-         the exact three visible blocks stack with no wrapper padding or
-         borders eating into the tight vertical budget. */
-      .group { display: contents; }
+      html.lay-h .header-row, html.lay-h #color-legend, html.lay-h .col-ref, html.lay-h .mobile-collapsible { display: none; }
 
-      #root-row { flex: 0 0 auto; gap: 8px 20px; }
-      #root-row .label { display: none; }
+      /* "SpiceMap"/Beginner-Advanced move into .scale-name-row-left (see
+         app.js) rather than staying lost inside the now-hidden .header-row
+         — this is what makes Beginner/Advanced reachable in landscape at
+         all, where there was previously no substitute for it. */
+      html.lay-h .scale-name-row-left {
+        /* No margin-right:auto here — .scale-name-actions' own margin-left:
+           auto (see there) is what pushes things right now, so this and
+           #scale-name just sit adjacent at their natural size, immune to
+           how long the scale/chord name is (see comment there for why that
+           matters — the root note used to visibly jump position). */
+        display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+      }
+      html.lay-h .scale-name-row-left h1 { font-size: 13px; margin: 0; line-height: 1.1; }
+      /* min-width:24px overrides the shared .hand-btn rule's 36px — at
+         36px, 5 buttons (Scale mode's 5/6/7/8/12) came to 204px, well past
+         #ref-notecount-wrap's 148px min-width above, so Scale mode was
+         still wider than Chord mode's 4 buttons and the row visibly jumped
+         switching between them. 24px is still enough for "12" (the widest
+         label) at this font-size. */
+      html.lay-h .scale-name-actions #notecount-group .hand-btn { padding: 4px 7px; font-size: var(--ui-font); min-width: 24px; }
+      /* See the matching comment in the portrait block above — NOT
+         resetting #ref-notecount-wrap's min-width here, unlike there:
+         landscape never gives Mode/note-count its own dedicated line (the
+         screen's wide enough that title+name+Mode+Browse all share one
+         row here — see the lack of a flex-basis:100% override in this
+         block), so a width change on Scale/Chord switch WOULD still be
+         sharing space with other things it could visibly jostle. */
+      html.lay-h .reflib-open-btn { display: inline-block; padding: 4px 7px; font-size: var(--ui-font); }
+      /* Same horizontal-scroll safety net as portrait — see there for why. */
+      html.lay-h .scale-name-row { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-      #abacus-section { flex: 0 0 auto; padding-top: 0; border-top: none; }
-      .scale-name { margin-bottom: 4px; }
-      .scale-name .name { font-size: 0.9rem; }
+      html.lay-h .layout { height: 100%; gap: 6px; }
+      html.lay-h .col-main { height: 100%; gap: 4px; }
+      /* Flatten the .group panels — and #abacus-section with them — so the
+         scale name, abacus, quickbar and fretboard all become direct flex
+         children of .col-main, orderable independently of the DOM. Only
+         Instrument/Handedness stays hidden: it alone is too big (6
+         instrument buttons + string/tuning row + handedness) for the tight
+         vertical budget here, and is reached through the Instrument button
+         in the quickbar instead; everything else is a single compact row,
+         so it stays on screen rather than costing an extra tap. */
+      html.lay-h .group, html.lay-h #abacus-section { display: contents; }
 
-      /* The fretboard/piano gets whatever height is left after the root
-         row and abacus take theirs — width:100%/height:100% (rather than
-         the site-wide height:auto rule) lets it actually grow to fill that
+      /* Displays on top, controls at the bottom — same reasoning as
+         portrait above: occlusion by the hand applies in any orientation. */
+      html.lay-h .scale-name-row { order: 1; margin-bottom: 0; }
+      html.lay-h #abacus { order: 2; flex: 0 0 auto; }
+      html.lay-h #fretboard-wrap { order: 3; }
+      html.lay-h #root-row { order: 4; }
+      html.lay-h .quickbar { order: 5; }
+
+      /* #root-row itself is left empty by applyRootSelectorPlacement in
+         app.js (its only content, #root-group, gets parked into .quickbar
+         below) — hidden rather than left as a stray empty row. */
+      html.lay-h #root-row { display: none; }
+      /* Same swap portrait already makes (see the shared max-width:699px
+         rule above) — the 12-button strip doesn't fit as one compact
+         item in a shared row of buttons the way the custom dropdown
+         does. #root-group itself (not just the dropdown inside it) is
+         what moves into .quickbar, so style it to match the other
+         buttons there rather than the full-width block it was as its
+         own row. */
+      html.lay-h #root-selector { display: none; }
+      html.lay-h .root-select-mobile { display: block; }
+      html.lay-h .root-select-mobile .dropdown-btn { padding: 4px 7px; }
+      html.lay-h .quickbar #root-group { order: -1; flex: 0 0 auto; }
+      /* Same reasoning as the old #root-row .label rule this replaces —
+         moving #root-group into .quickbar (see above) took its "Root"
+         label out from under that selector's reach, since it no longer
+         has #root-row as an ancestor. */
+      html.lay-h .quickbar #root-group .label { display: none; }
+
+      html.lay-h .scale-name .name { font-size: 0.9rem; }
+      /* Tapping the scale name itself (not just the small icon beside it)
+         also opens the scale library — see app.js — so give it an obvious
+         "tappable" affordance. (#instrument-label gets the same treatment
+         via the .quickbar #instrument-label rule near .label-row above.) */
+      html.lay-h #scale-name { cursor: pointer; }
+      /* A flex item's default min-width:auto refuses to shrink below its
+         text's own width, which is exactly what let a long/crowded row
+         push the name onto a second line instead of just taking less of
+         it. min-width:0 allows the shrink; the ellipsis makes "less of it"
+         a truncation instead of a wrap. */
+      html.lay-h #scale-name { min-width: 0; overflow: hidden; }
+      html.lay-h .scale-name .name { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+
+      /* flex-wrap: nowrap is the point — mode stepper, labels toggle, and
+         sound controls must all fit on the ONE line this row occupies, so
+         they never eat into the abacus/fretboard's share of the height.
+         overflow-x is a safety net for an unusually narrow phone, not the
+         intended path (unlike the ref-table below, a horizontally
+         scrollable button toolbar is a normal, expected pattern). */
+      html.lay-h .quickbar {
+        display: flex; flex-wrap: nowrap; align-items: center; gap: 10px;
+        flex: 0 0 auto; margin-top: 0; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      }
+      html.lay-h .quickbar > * { flex: 0 0 auto; }
+      html.lay-h .quickbar .hand-btn { padding: 4px 7px; white-space: nowrap; }
+      html.lay-h #mode-controls { margin-top: 0; gap: 4px; }
+      html.lay-h #mode-label { min-width: 0; white-space: nowrap; }
+      
+
+      /* The fretboard/piano gets whatever height is left after everything
+         above takes its share — width:100%/height:100% (rather than the
+         site-wide height:auto rule) lets it actually grow to fill that
          space, letterboxed by the SVG's own preserveAspectRatio so it
          never distorts or overflows. */
-      #fretboard-wrap { flex: 1 1 auto; min-height: 0; padding-top: 0; border-top: none; display: flex; flex-direction: column; }
-      #fretboard-wrap .label-row { flex: 0 0 auto; margin-bottom: 4px; }
-      #fretboard-wrap .label { font-size: 9px; }
-      #fretboard, #piano { flex: 1 1 auto; min-height: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
+      /* flex-basis:0 (not auto) here is load-bearing, not stylistic — and
+         unlike the portrait copy of this rule, THIS one really does govern
+         #fretboard-wrap's own outer size: .col-main here is a plain flex
+         column (no grid `minmax(0, 1fr)` safety net to fall back on). With
+         flex-basis:auto, this element's basis is computed from its
+         content's size first, and a replaced SVG child with an intrinsic
+         aspect ratio can keep feeding an aspect-ratio-based size into that
+         computation in some browsers even with min-height:0 set
+         everywhere — confirmed on-device: dragging Neck taper (Setup… >
+         Fretboard) makes that ratio taller, which grew this element
+         enough to push #root-row/.quickbar off the bottom of the screen.
+         Starting the basis at 0 removes content size from the calculation
+         entirely, so growth only ever comes from flex-grow sharing
+         .col-main's actual remaining space. overflow:hidden stays too, as
+         a visual backstop for the (now unreachable in practice) cropped-
+         neck-not-pushed-content case. */
+      html.lay-h #fretboard-wrap { flex: 1 1 0; min-height: 0; padding-top: 0; border-top: none; display: flex; flex-direction: column; overflow: hidden; }
+      /* #instrument-label and #sample-loading (this row's only two
+         children) are moved into .quickbar in app mode (see app.js) —
+         hide the now-empty row rather than leave its margin behind, and
+         size the label down to match the rest of the compact quickbar. */
+      html.lay-h #fretboard-wrap .label-row { display: none; }
+      html.lay-h .quickbar #instrument-label { padding: 4px 7px; }
+      html.lay-h #fretboard, html.lay-h #piano { flex: 1 1 auto; min-height: 0; width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
 
       /* Same font-size bump as portrait app mode above, and for the same
          reason — see the comment there. */
-      #abacus text { font-size: 14px; }
-      #fretboard text.fret-num { font-size: 15px; }
-    }
+      html.lay-h #abacus text { font-size: 14px; }
+      html.lay-h #fretboard text.fret-num { font-size: 16px; }
+      /* Both key labels, kept equal to each other (black used to sit at a
+         weaker 9px default beside white's 12px) and bumped together from
+         12 to 14 — same "everything a bit bigger" pass as the page chrome
+         got. Left below portrait's own 19px: a landscape key is the same
+         drawn width but the whole keyboard is scaled down to fit a ~400px
+         viewport height, so the same number reads larger here. */
+      html.lay-h #piano text.piano-white-label, html.lay-h #piano text.piano-black-label { font-size: 14px; }
 
-    @media (min-width: 1100px) {
-      .layout { grid-template-columns: minmax(0, 2.4fr) minmax(260px, 1fr); }
+      /* The library's own card list (see .ref-card above — used here too,
+         since phoneAppModeMQ covers this breakpoint as well) stacks name
+         above dot-strip by default, sized for a narrow portrait screen.
+         Landscape has width to spare and height at a premium instead —
+         putting the name beside the dots (not above) uses that width and
+         lets each row be shorter, fitting more of the list on screen at
+         once without scrolling as much. */
+      html.lay-h dialog.mobile-popup .ref-card-info { flex-direction: row; align-items: center; gap: 10px; }
+      /* flex-basis a fixed 45% (not 0 0 auto + max-width) is the point: an
+         auto basis sizes each row's name box to ITS OWN text width up to
+         the cap, so a short name's box was narrower than a long name's —
+         .ref-card-dots (flex:1 1 auto, filling whatever's left) then
+         started at a different x on every row instead of lining up like a
+         table column, which a user found made the dot-strips read as
+         "drawn right next to the label" rather than aligned across rows. */
+      html.lay-h dialog.mobile-popup .ref-card-name {
+        flex: 0 0 45%;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      html.lay-h dialog.mobile-popup .ref-card-dots { flex: 1 1 auto; }
+      /* Left stays the shared 16px gutter (see the base .ref-card rule)
+         for the highlight bar — only top/bottom/right shrink here for
+         landscape's shorter rows. */
+      html.lay-h dialog.mobile-popup .ref-card { padding: 6px 4px 6px 16px; }
+      /* Here the name sits BESIDE the dots rather than above them, so the
+         sticky header needs its own name-width spacer to keep its labels
+         lined up with the dot columns (it's display:none in portrait,
+         where a spacer would only add an empty line). */
+      html.lay-h dialog.mobile-popup .ref-head-name-spacer { display: block; }
+    
+
+
+
+    /* Lying down on a tablet/desktop, the fretboard runs out of width long
+       before height. Rather than a tall empty band between it and the
+       controls, the instrument block (abacus, instrument, controls) sits
+       at its natural height, centered in the space under the title row;
+       the abacus stretches to the same width as the fretboard. */
+    html.lay-h:not(.phone) #fretboard-wrap { flex: 0 1 auto; }
+    html.lay-h:not(.phone) #fretboard, html.lay-h:not(.phone) #piano { flex: 0 1 auto; height: auto; }
+    html.lay-h:not(.phone) #abacus { width: 100%; height: auto; margin-top: auto; }
+    html.lay-h:not(.phone) .quickbar { margin-bottom: auto; }
+    html.lay-h:not(.phone) .col-main { gap: 14px; }
+
+    /* Upright on a tablet/desktop the instrument's column can be narrower
+       than the phone's full-width toolbar — let it wrap rather than
+       scroll sideways. */
+    html.lay-v:not(.phone) .quickbar, html.lay-v:not(.phone) #root-row { flex-wrap: wrap; }
+
+    /* ── library sidebar (html.lib-side) ───────────────────────────────
+       On a tablet or desktop there's room to keep the scale/chord library
+       open beside the instrument instead of behind the Browse button.
+       app.js (applyLayout) decides when, and sets .layout's column sizes:
+       lying down (lay-h) the fretboard is width-hungry, so the library
+       gets a fixed column; standing up (lay-v) the instrument only needs
+       a narrow column, so the library takes whatever is left over. */
+    html.lib-side .layout { gap: 16px; align-items: stretch; }
+    html.lib-side .layout > .col-ref {
+      display: flex; flex-direction: column; order: -1;
+      min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding: 12px 12px 0; background: var(--dialog-bg);
     }
+    html.lib-side .layout > .col-ref .section { margin-bottom: 0; }
+    html.lib-side .reflib-open-btn { display: none !important; }
+    html.lib-side #ref-library-label {
+      font-size: 1.05rem; text-transform: none; letter-spacing: normal;
+      opacity: 1; font-weight: 700; margin-bottom: 10px;
+    }
+    /* The sticky column header pins to the top of the sidebar itself (in
+       the popup it sits below the close button instead). */
+    html.lib-side .layout > .col-ref .ref-head { top: -12px; }
+
+    /* Rotate: flips the instrument between standing up and lying down on
+       screens big enough for either (hidden on phones — there, turning the
+       phone does the same thing). */
+    .rotate-btn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .rotate-btn svg { width: 15px; height: 15px; flex: 0 0 auto; }
+    html.phone .rotate-btn { display: none; }
+    .quickbar .rotate-btn { order: 2; }
 
     /* Popups the mobile-landscape settings/scale-library buttons open (see
        @media (orientation: landscape) above) — .mobile-collapsible sections
@@ -400,7 +1270,42 @@
       padding: 16px 18px; width: min(420px, 92vw);
       max-height: calc(100dvh - 32px); max-height: calc(100lvh - 32px);
       overflow-y: auto;
+      /* -webkit-overflow-scrolling: touch is what actually makes a
+         touch-drag scroll this in a WKWebView (Capacitor's iOS runtime) —
+         overflow-y: auto alone is enough for mouse-wheel/programmatic
+         scroll and even for Safari-the-browser, but WKWebView's embedded
+         content needs this explicit opt-in for a finger-drag to register
+         as scrolling a nested element rather than doing nothing. This was
+         the actual cause of "scrolling doesn't work" in the library
+         drawer — the drawer's own height/overflow were already correct.
+         overscroll-behavior: contain stops a scroll that reaches the top/
+         bottom of this list from "leaking" into scrolling the page
+         underneath once this run out of its own room to scroll. */
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      /* A native <dialog> centers itself within the raw viewport by
+         default, with no idea the notch/sensor housing eats an asymmetric
+         chunk out of one side of it — so "centered on the viewport" isn't
+         actually centered on the *usable* screen when that side is bigger
+         than the other, and the dialog can end up overlapping it. Setting
+         left/right explicitly to the safe-area insets (rather than the
+         default 0/0) redefines "centered" to mean centered within the safe
+         area instead — margin-left/right stay their default auto, which is
+         what actually does the centering once left and right are pinned. */
+      position: fixed;
+      left: env(safe-area-inset-left); right: env(safe-area-inset-right);
+      /* The auto margins ARE the centering — a <dialog>'s UA stylesheet
+         gives it margin:auto, but the global `* { margin: 0 }` reset at the
+         top of this file was wiping that out, so every popup sat pinned
+         to the left edge with all the spare width on its right (measured:
+         0px left, 38px right on a 390px-wide phone). That is also what the
+         reflib popup's "lopsided on-device" note below was really seeing. */
+      margin: auto;
     }
+    /* No focus ring on the popup box itself — iOS draws one when focus
+       falls back to the dialog (e.g. after closing the colors popup opened
+       from Setup), and on a touch screen it only reads as a stray border. */
+    dialog.mobile-popup:focus, dialog.mobile-popup:focus-visible { outline: none; }
     dialog.mobile-popup::backdrop { background: var(--backdrop); }
     dialog.mobile-popup .mobile-collapsible,
     dialog.mobile-popup .col-ref { display: revert; }
@@ -410,29 +1315,313 @@
     dialog.mobile-popup .mobile-collapsible + .mobile-collapsible {
       margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--panel-border);
     }
+    /* overflow:visible, NOT the overflow-x:hidden this used to carry. That
+       rule was a leftover safety net from when a wide .ref-table rendered
+       in here; phones get .ref-list now (see renderTable()'s mobile
+       branch), which has nothing to overflow horizontally. Worse, it was
+       actively harmful: overflow-x:hidden computes overflow-y to auto,
+       which silently makes this element a scroll container — and a sticky
+       header sticks to its nearest scroll container, so .ref-head would
+       have stuck to this never-scrolling box and slid away with the list
+       instead of pinning to the dialog that actually scrolls. */
+    dialog.mobile-popup #ref-table-wrap { overflow: visible; }
+    /* Common shorthand (addRow's 3rd arg, chord mode only — "m7" for
+       "Minor 7th") — dim and a touch smaller so it reads as a lookup aid
+       alongside the name, not a second name competing with it. Shared by
+       both the desktop table's row-label column and the mobile card's name. */
+    .ref-row-symbol { opacity: 0.6; font-size: 0.85em; }
     .mobile-popup-close {
-      float: right; position: sticky; top: 0; margin: -4px -4px 8px 8px;
-      width: 26px; height: 26px; border-radius: 50%; line-height: 1;
+      /* 26px (was) is well under Apple's 44pt touch-target guideline and
+         was reported hard to actually hit — 36px, with the icon itself
+         staying visually modest via font-size rather than filling the
+         whole circle, plus align-items/justify-content centering it since
+         a bigger box needs that instead of an implicit centered baseline. */
+      float: right; position: sticky; top: 0; margin: -6px -6px 8px 8px;
+      width: 36px; height: 36px; border-radius: 50%; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
       background: var(--surface); border: 1px solid var(--surface-border); color: var(--surface-text);
-      font-size: 16px; cursor: pointer;
+      font-size: 18px; cursor: pointer;
+      /* The scale library's own table can ALSO have a sticky element
+         pinned to top:0 once scrolled (its "which column is which note"
+         header row — see table.ref-table tr.ref-table-head th). Two
+         sticky elements at the same offset paint in DOM order by default,
+         and the table header comes later in the document than this
+         button — so without an explicit z-index, scrolling the library
+         far enough could visually cover this close button with the table
+         header, with no indication it's still there underneath. This
+         keeps it on top regardless of scroll position. Raised to 6 when
+         .ref-head arrived — that one also pins to the top of this same
+         scroll box, and at an equal z-index the later element in the
+         document wins, which had the column header sliding over the X. */
+      z-index: 6;
     }
     .mobile-popup-close:hover { background: var(--surface-hover-bg); color: var(--surface-hover-text); }
 
-    dialog#synth-dialog {
-      background: var(--dialog-bg); color: var(--text); border: 1px solid var(--surface-border); border-radius: 6px;
-      padding: 18px 22px; width: min(460px, 90vw);
+    /* The scale/chord library gets more room than settings/synth (it's
+       worth pinning open and skimming at length, not a one-off settings
+       tweak): wider horizontally (left/right stay the shared rule's
+       safe-area-aware centering), and — unlike settings/synth, which are
+       short enough to always sit comfortably clear of the top/bottom
+       edges with real margin either way — explicitly inset vertically
+       instead of just capped with max-height. A scrollable list of 20-30+
+       rows is essentially ALWAYS at least as tall as the screen, so this
+       dialog behaves, in practice, as "fill the available height" no
+       matter what a max-height cap says; leaving it to a max-height +
+       auto-margin-centering guess (as first tried here, and as
+       settings/synth still safely do, being genuinely short) put only a
+       few pixels of the viewport's leftover slack on the TOP specifically
+       — nowhere near enough to clear a notch/Dynamic Island — which is
+       exactly the "camera occludes it" bug reported twice now. top/bottom
+       here are real safe-area minimums, not a guess, so this can't
+       reoccur regardless of how tall the content is. */
+    dialog#reflib-popup {
+      width: min(94vw, 640px);
+      top: max(16px, env(safe-area-inset-top));
+      bottom: max(16px, env(safe-area-inset-bottom));
+      height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+      height: calc(100lvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+      max-height: none;
     }
-    dialog#synth-dialog::backdrop { background: var(--backdrop); }
+    /* Full width in portrait (per explicit, repeated request) — pinning
+       left/right directly and dropping `width` entirely, rather than
+       computing a width from vw/%, is deliberate: a computed width
+       combined with the shared rule's own env()-based left/right can
+       overshoot or undershoot depending on what 100vw/100% actually
+       resolves to relative to those insets on a given WebView (this was
+       already tried and DIDN'T reach the true edge, which is exactly why
+       it's pinned outright here instead). Direct left/right can't drift
+       regardless. 4px each side (not edge-to-edge) still reads as a
+       floating panel with its rounded corners visible, matching every
+       other edge margin on the page.
+       Vertically this deliberately stops SHORT of the full-height
+       treatment above: full width plus full height together read as a
+       full-screen takeover rather than a floating window, which is what
+       prompted this — top stays a real, guaranteed safe-area minimum
+       (never a guess), but bottom/height are left to the dialog's own
+       centering instead of being pinned edge to edge, and max-height caps
+       well short of the full screen so a visible gap remains below it —
+       a bounded, centered card rather than a full-bleed sheet, the way
+       the settings/synth popups already read, just wider. */
+    @media (max-width: 699px) {
+      dialog#reflib-popup {
+        /* left:0; right:0; width:<fixed>; margin:auto — not left:4px;
+           right:4px; width:auto — for the same 4px each side. The
+           previous version measured out lopsided on-device (~2mm left,
+           ~6mm right) despite the two being equivalent on paper (CSS2.1
+           §10.3.7: left+right given, width auto → margins resolve to 0
+           and width fills the gap, which SHOULD be symmetric) — so
+           something in this WebView isn't resolving that case the way
+           the spec says. This is the other standard way to express
+           "centered, fixed-width, with your own margin" — an
+           over-constrained system (all of left/width/right given) with
+           auto margins, which browsers handle far more consistently
+           since it's the exact same mechanism `margin: 0 auto` centering
+           has always relied on for ordinary (non-positioned) elements too. */
+        left: 0; right: 0; width: calc(100% - 8px);
+        margin-left: auto; margin-right: auto;
+        top: max(16px, env(safe-area-inset-top)); bottom: auto;
+        height: auto;
+        max-height: min(72vh, calc(100dvh - max(16px, env(safe-area-inset-top)) - 24px));
+      }
+      /* Settings/synth never got the same treatment as reflib just above —
+         the assumption at the time (see the comment further up) was that
+         these two are short enough to always self-center clear of the
+         notch/Dynamic Island on their own. A user found that's not
+         actually true in portrait (landscape is fine: the shared
+         left/right: env(safe-area-inset-*) on dialog.mobile-popup already
+         covers a SIDE notch there). Same guaranteed minimum, applied the
+         same way — top pinned to a real safe-area floor rather than left
+         to native <dialog> centering, which has no notion of a notch at
+         all. Left at natural/content height and horizontal centering,
+         unlike reflib's own full vertical fill above: these stay small,
+         floating cards, just never closer to the top than is safe. */
+      /* max-height accounts for the pushed-down top too — the shared
+         100dvh - 32px assumed a 16px top, so a tall popup (Setup, the
+         colors table) ran off the bottom by the safe-area inset. */
+      #settings-popup, #synth-dialog, #colors-popup {
+        top: max(16px, env(safe-area-inset-top));
+        bottom: auto;
+        max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+      }
+    }
+    /* "Browse scales"/"Browse chords" reads as a real screen title now
+       that this is a big, dedicated panel rather than a small caption —
+       .label's own site-wide style (10px, uppercase, dim) was sized for a
+       section divider, not for the one thing identifying what this whole
+       popup is. overflow:hidden gives it its own block formatting context
+       so it sits neatly to the LEFT of the floated, sticky close button
+       (same idea as a classic clearfix) instead of wrapping its text
+       narrowly underneath the circle the way plain flow would. */
+    dialog.mobile-popup #ref-library-label {
+      font-size: 1.3rem; text-transform: none; letter-spacing: normal;
+      opacity: 1; font-weight: 700; margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    /* Background/border/radius/width/max-height/::backdrop all now come
+       from .mobile-popup (added to #synth-dialog in the HTML) instead of
+       being redeclared here — same look as the settings/library popups,
+       not a separately-styled dialog. An id selector would have outranked
+       .mobile-popup's class selector regardless of source order, so this
+       used to silently win over it before the redundant properties here
+       were removed. Only the still-dialog-specific h2 styling is left. */
     dialog#synth-dialog h2 {
       font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em;
-      opacity: 0.78; margin-bottom: 14px;
+      opacity: 0.9; margin-bottom: 14px;
     }
+    /* Section headings inside BOTH popups (Setup and Instrument). .label's
+       own site-wide style is a 0.62rem/0.85-opacity caption, sized for
+       captioning one control in a dense settings row — in a popup that's a
+       stack of five or six named sections, it left them reading as faint
+       small print with the sliders running together between them. Bigger,
+       full-strength, and with real air above each one (and none above the
+       first, which already has the dialog's own h2 over it) so the groups
+       actually read as groups. */
+    dialog.mobile-popup .label {
+      font-size: 0.72rem; opacity: 1; color: var(--text);
+      margin-top: 22px; margin-bottom: 8px;
+    }
+    /* Top-level section (Instrument / Colours / Audio), one step up from
+       the .label sub-headings that sit inside it — mixed case and a glyph
+       rather than more small-caps, so the two levels don't read as the
+       same thing at two sizes. The rule above it is what separates the
+       sections; it's cheaper visually than more whitespace in a dialog
+       this tall. */
+    .synth-section-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 1rem; font-weight: 700; color: var(--text);
+      margin: 26px 0 12px; padding-top: 16px;
+      border-top: 1px solid var(--panel-border);
+    }
+    .synth-section-title:first-of-type { margin-top: 10px; padding-top: 0; border-top: none; }
+    /* With the fretboard section hidden (piano), Colors becomes the first
+       section and drops the divider above it like the first one does. */
+    #perspective-section[hidden] + .synth-section-title { margin-top: 10px; padding-top: 0; border-top: none; }
+    .synth-section-title + .label { margin-top: 0; }
+    /* A checkbox drawn as the same lamp the Drone button uses — the native
+       box is kept (it's the real control, and it keeps keyboard/VoiceOver
+       behaviour for free) but hidden behind the lamp. */
+    .led-toggle {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      font-size: var(--ui-font); color: var(--text); margin-bottom: 10px;
+    }
+    .led-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .led-toggle input:checked + .drone-led {
+      background: #ffffff; border-color: #ffffff;
+      box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.9);
+    }
+    .synth-row.palette-row { align-items: center; gap: 10px; }
+    .info-btn { display: inline-flex; align-items: center; gap: 6px; }
+    .info-icon { width: 15px; height: 15px; flex: 0 0 auto; }
+    .colors-popup-intro { font-size: var(--ui-font); opacity: 0.85; margin-bottom: 12px; }
+    .palette-swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .palette-swatch { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .palette-swatch > span { font-size: 10px; color: var(--text-muted); }
+    /* appearance:none + a fixed box, or iOS draws its own chunky bordered
+       control around the colour well. */
+    .palette-swatch input[type="color"] {
+      -webkit-appearance: none; appearance: none;
+      width: 30px; height: 26px; padding: 0; cursor: pointer;
+      background: none; border: 1px solid var(--surface-border); border-radius: 4px;
+    }
+    .palette-swatch input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+    .palette-swatch input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
+    /* Tighter cells than the desktop legend, and the Note/Color columns
+       never wrap ("♭2 / ♭9", "blood red") — the Meaning column takes
+       whatever width is left and wraps instead. */
+    #colors-popup-body table.legend-table { margin-top: 0; width: 100%; }
+    #colors-popup-body th, #colors-popup-body td { padding: 5px 6px; }
+    #colors-popup-body td:nth-child(-n+2), #colors-popup-body th:nth-child(-n+2) { white-space: nowrap; }
+    #colors-popup-body .legend-swatch { margin-right: 4px; }
+    .colors-full-explainer { margin-top: 14px; font-size: var(--ui-font); }
+    .colors-full-explainer summary { cursor: pointer; padding: 6px 0; }
+    .explainer-degree { padding: 10px 0; border-top: 1px solid var(--line); }
+    .explainer-head { font-weight: 600; margin-bottom: 4px; }
+    .explainer-degree p { margin-top: 3px; opacity: 0.9; line-height: 1.35; }
+    .explainer-degree p.explainer-use { opacity: 0.7; }
+    /* Custom sits apart from the three presets, under the info button —
+       the color meanings are about the presets, not your own colors. */
+    .palette-custom-toggle { margin-bottom: 10px; }
+    /* Only the heading directly under the dialog's own title loses the top
+       margin. A :first-of-type clause used to sit here too and was the
+       reason "Handedness" had no space above it in the Instrument popup:
+       :first-of-type matches the first .label within EACH parent, and every
+       section there is its own .setup-group, so it was zeroing the margin
+       on all of them rather than just the first on screen. */
+    dialog.mobile-popup h2 + .label { margin-top: 0; }
+    /* The synth disclosure is a section heading in its own right (see
+       .synth-details), so it gets the same spacing as the .label headings
+       it sits among. */
+    .synth-details > summary { margin-top: 22px; }
+    /* The Relative/Absolute toggle this used to hide is gone from the DOM
+       entirely now (index.html + setLabelMode in app.js) — the abacus's own
+       axis row always shows the OTHER of the two alongside whichever the
+       beads themselves show, so the switch had nothing left to control and
+       its "Labels" heading was captioning an empty gap at the top of this
+       dialog. */
     .synth-row { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; }
+    /* Collapsed-by-default disclosure for the synth's own oscillator
+       internals — see the matching comment in index.html. Styled to read
+       as one of this dialog's own section headings (same small-caps .label
+       treatment) rather than a raw browser <summary>. */
+    .synth-details { margin-bottom: 14px; }
+    .synth-details > summary {
+      cursor: pointer; list-style: none;
+      /* Same size/weight/strength as the .label section headings it sits
+         among in this dialog (see dialog.mobile-popup .label) — it IS one
+         of them, just a collapsible one. */
+      font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase;
+      opacity: 1; color: var(--text); font-weight: 600; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .synth-details > summary::-webkit-details-marker { display: none; }
+    /* Own triangle, since list-style/::marker is unreliable across
+       WebKit versions — rotates to point down when the section is open. */
+    .synth-details > summary::before {
+      content: "\25B8"; display: inline-block; transition: transform 0.15s ease;
+    }
+    .synth-details[open] > summary::before { transform: rotate(90deg); }
     .synth-row label {
-      display: flex; flex-direction: column; gap: 4px; font-size: 11px;
+      display: flex; flex-direction: column; gap: 4px; font-size: var(--ui-font-sm);
       opacity: 0.85; flex: 1; min-width: 100px;
     }
     .synth-row select, .synth-row input[type="range"] { width: 100%; }
-    .synth-val { opacity: 0.6; font-weight: normal; }
-    .synth-hint { font-size: 10px; opacity: 0.55; margin: -4px 0 12px; line-height: 1.4; }
+    /* These are still real <select>s (unlike the root/voicing pickers, which
+       had to be rebuilt as custom dropdowns — see .dropdown-btn above), and
+       they were completely unstyled: a native iOS select draws itself
+       WHITE, which is what a user reported seeing for the drone instrument
+       sitting in an otherwise dark dialog. appearance:none is the part that
+       gets the box to accept author colors at all on iOS; color-scheme
+       covers the picker the OS opens on tap, which CSS can't reach
+       directly. Same treatment #tuning-preset already carries. Rebuilding
+       these as custom dropdowns too would be the belt-and-braces version,
+       but these sit inside a scrolling dialog rather than a clipped
+       control row, so there's no reason to expect the same failure. */
+    .synth-row select, #tuning-preset {
+      padding: 5px 22px 5px 7px; background: var(--surface);
+      border: 1px solid var(--surface-border); border-radius: 3px;
+      color: var(--surface-text); font-size: var(--ui-font);
+      color-scheme: dark; -webkit-appearance: none; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23c7ccd6' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center;
+    }
+    .synth-val { opacity: 0.8; font-weight: normal; }
+    /* Was two inline style="flex-direction: row; align-items: center; gap:
+       6px;" attributes on the checkbox labels specifically, the only rows
+       that broke from .synth-row label's column layout above — a real
+       class instead, for the same look with no per-element repetition.
+       ".synth-row label.synth-checkbox" (not just ".synth-checkbox") to
+       outrank .synth-row label's own flex-direction without !important. */
+    .synth-row label.synth-checkbox { flex-direction: row; align-items: center; gap: 6px; }
+    .sync-detected { font-size: 0.8rem; opacity: 0.75; margin-bottom: 8px; }
+    /* Big, plain target for the tap test — deliberately never flashes on
+       the clicks (see runSyncTest), so taps follow the sound alone. */
+    .sync-test-pad {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 110px; margin-bottom: 10px; padding: 12px;
+      border: 1px dashed var(--panel-border); border-radius: 10px;
+      text-align: center; user-select: none; -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    .sync-test-pad[hidden] { display: none; }
     .synth-actions { justify-content: flex-end; margin-top: 4px; }

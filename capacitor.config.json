@@ -1,0 +1,12 @@
+{
+  "appId": "com.10keyz.spicemap",
+  "appName": "SpiceMap",
+  "webDir": "www",
+  "server": {
+    "hostname": "spicemap.10keyz.com"
+  },
+  "backgroundColor": "#1e2126",
+  "ios": {
+    "backgroundColor": "#1e2126"
+  }
+}

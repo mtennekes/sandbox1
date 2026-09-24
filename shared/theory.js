@@ -33,12 +33,54 @@ const PAL = [
   '#FFFFFF', '#F51D2C', '#377EB8', '#BF5B17', '#FF7F00', '#4DAF4A',
   '#8A0303', '#a0a0a0', '#006906', '#F781BF', '#E9C81C', '#AB4EF3',
 ];
-const BLACK_TEXT_FUNCTIONS = new Set([0, 4, 5, 7, 9, 10]);
+// What colorOf actually reads. PAL above stays the shipped default (and
+// the "Sentiment12" preset in spicemap's own palette picker); this is the
+// one that swaps when a different palette is chosen. Separate, rather than
+// mutating PAL in place, so the default is always still there to reset to.
+// A host that never calls setPalette — masalamap, fusionmap — just gets PAL
+// forever, exactly as before.
+let ACTIVE_PAL = PAL.slice();
+function setPalette(colors) {
+  ACTIVE_PAL = colors.slice();
+}
+function activePalette() { return ACTIVE_PAL.slice(); }
 
 function mod12(x) { return ((x % 12) + 12) % 12; }
-function colorOf(fn) { return PAL[mod12(fn)]; }
+function colorOf(fn) { return ACTIVE_PAL[mod12(fn)]; }
+
+// Relative luminance (WCAG), used to decide black-vs-white label text.
+// This replaced a hardcoded BLACK_TEXT_FUNCTIONS set of degree numbers,
+// which only ever worked because it was hand-matched to PAL's exact
+// colors — the moment the palette can change (let alone be user-defined),
+// "degree 4 takes black text" stops being a fact about degrees at all and
+// becomes one about whatever color is sitting there now. Computing it is
+// also simply more correct: a custom palette can't pick an unreadable
+// combination by accident.
+function relativeLuminance(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  if (!m) return 0;
+  const chan = v => {
+    const c = parseInt(v, 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * chan(m[1]) + 0.7152 * chan(m[2]) + 0.0722 * chan(m[3]);
+}
 function textColorFor(interval) {
-  return BLACK_TEXT_FUNCTIONS.has(mod12(interval)) ? '#000000' : 'rgba(255,255,255,0.92)';
+  // 0.25. The pure-contrast crossover — the luminance where black and
+  // white are equally readable — is 0.179 (√(1.05×0.05) − 0.05), so
+  // anything above that technically reads better in black. But the four
+  // colors sitting just above it (♭2 #F51D2C, 2 #377EB8, ♭3 #BF5B17,
+  // 7 #AB4EF3, all L≈0.19-0.21) are near enough to the line that black
+  // only wins ~5.1:1 vs ~4.1:1, and this palette was hand-tuned to use
+  // white on them. 0.25 sits in the gap between that cluster and the next
+  // one up (4 #4DAF4A at L=0.327), so it reproduces the original
+  // hand-picked mapping exactly while still deriving it from the color.
+  //
+  // A first pass used 0.4, which was simply too high: it flipped 3, 4, 5
+  // AND 6 to white text, and 6 (#F781BF, pink) is the one a user caught —
+  // white on it is 2.37:1 where black is 8.85:1. Worth keeping the number
+  // honest rather than nudging it by eye again.
+  return relativeLuminance(colorOf(interval)) > 0.25 ? '#000000' : 'rgba(255,255,255,0.92)';
 }
 
 function rotateToDegree(set, k) {
@@ -192,18 +234,52 @@ function modeSet(familyKey, modeIndex) {
   return rotateToDegree(FAMILIES[familyKey].base, modeIndex);
 }
 
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+// A handful of non-7-note scales worth offering alongside the 4 tertian
+// families, picked specifically because they harmonize *cleanly* (every
+// degree resolves to an exact, non-approximate chord via buildTriad/
+// buildSeventhChord below) rather than needing the approximate fallback
+// path most non-7-note collections do:
+//  - Octatonic (half-whole/"dominant diminished"): alternates a full
+//    dominant 7th with a full diminished 7th a half-step above it — the
+//    scale jazz altered-dominant vocabulary is built on.
+//  - Octatonic (whole-half/"diminished scale"): every degree is one of just
+//    two diminished-7th shapes (it's literally the union of two °7 chords a
+//    whole step apart), the scale played over diminished chords.
+//  - Whole-tone: every degree is the same augmented-7th (♯5) shape,
+//    transposed — the symmetric-6-note counterpart.
+// Deliberately NOT the rest of spicemap's dictionary (pentatonic,
+// composite/bebop/flamenco scales) — those need the approximate fallback at
+// most/every degree, per spicemap's own comments, so they don't share these
+// three's "clean" property.
+const EXTRA_SCALES = [
+  { label: 'Octatonic (half-whole)', set: [0, 1, 3, 4, 6, 7, 9, 10] },
+  { label: 'Octatonic (whole-half)', set: [0, 2, 3, 5, 6, 8, 9, 11] },
+  { label: 'Whole-tone',             set: [0, 2, 4, 6, 8, 10] },
+];
 
-// Chord-quality lookup by pitch-class set relative to root (triads + 7th
-// chords only — the set of shapes a 7-note diatonic scale's tertian stack
-// can actually produce). 9th/11th/13th chords are named by extending the
-// underlying 7th-chord symbol (see diatonicChords below), not looked up
-// here directly.
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+
+// Chord-quality lookup by pitch-class set relative to root. Originally just
+// the triad/7th shapes a 7-note diatonic scale's tertian stack can produce;
+// now also the shared home for sus2/sus4 (see buildTriad below) now that
+// this table backs chord generation for non-7-note scales too — spicemap
+// used to keep its own separate copy of this table with sus2/sus4 added,
+// on the reasoning that masalamap's old pure-tertian-stacking algorithm
+// could never produce a suspended triad so there was nothing to add them
+// for. That's no longer true once buildTriad (ported from spicemap) is in
+// the general path below, and for the existing 7-note families it changes
+// nothing (that path's exact-degree-skipping never needed buildTriad to
+// begin with — verified against every mode in the catalog) — so there's
+// nothing standing in the way of one shared table. 9th/11th/13th chords are
+// named by extending the underlying 7th-chord symbol (see diatonicChords
+// below), not looked up here directly.
 const CHORD_QUALITY = {
   '0,4,7':    { symbol: '',      name: 'major' },
   '0,3,7':    { symbol: 'm',     name: 'minor' },
   '0,3,6':    { symbol: '°',     name: 'diminished' },
   '0,4,8':    { symbol: '+',     name: 'augmented' },
+  '0,2,7':    { symbol: 'sus2',  name: 'suspended 2nd' },
+  '0,5,7':    { symbol: 'sus4',  name: 'suspended 4th' },
   '0,4,7,11': { symbol: 'maj7',  name: 'major 7th' },
   '0,4,7,10': { symbol: '7',     name: 'dominant 7th' },
   '0,3,7,10': { symbol: 'm7',    name: 'minor 7th' },
@@ -348,33 +424,176 @@ function romanNumeralFor(degreeIndex, triadTonesRelRoot) {
 
 const DEGREE_TAGS = ['R', '3', '5', '7', '9', '11', '13'];
 
-// Tertian-stack diatonic chords for a 7-note `set` (ascending pitch-class
-// offsets from the scale root), at every degree, extended to `depth` tones
-// (3 = triad .. 7 = 13th chord — a 7-note scale's stacked-3rds tower uses
-// each scale tone exactly once, so depth can't meaningfully exceed 7).
+// ── chord construction for non-7-note scales ─────────────────────────────
+// Ported from spicemap's original chordsInScale/buildTriad/buildSeventhChord
+// (before diatonic chords moved to masalamap) — ordinary 7-note scales don't
+// need any of this (see the `byPosition` fast path in diatonicChords below,
+// which exact-degree-skips instead and is strictly more reliable for n=7),
+// but a scale that isn't a 1-to-1 match against 7 reference degrees — the 3
+// EXTRA_SCALES above, or any future addition — has no such fixed skip
+// pattern to lean on, so each chord tone has to be picked by what's actually
+// closest to "a third above the previous tone."
+//
+// 3rd slot: 3 > ♭3 > sus4 > sus2 (first available wins; sus2/sus4 only
+// offered when a real 5th backs them up — a suspended chord with no 5th at
+// all isn't really "suspending" anything).
+// 5th slot: a real 5th if present; otherwise an altered 5th that actually
+// resolves to a *named* triad given the 3rd already chosen (♯5 with a major
+// 3rd -> augmented; ♭5 with a minor 3rd -> diminished); otherwise borrow a
+// 6th/♭7/7th and drop the notion of a 5th entirely (flagged `approximate`,
+// since it's a stand-in rather than a textbook triad); last resort,
+// whichever altered 5th is left.
+function buildTriad(set, root) {
+  const hasInterval = iv => set.some(pc => mod12(pc - root) === iv);
+
+  let third;
+  if (hasInterval(4)) third = 4;
+  else if (hasInterval(3)) third = 3;
+  else if (hasInterval(7) && hasInterval(5)) return { tones: [0, 5, 7], approximate: false };
+  else if (hasInterval(7) && hasInterval(2)) return { tones: [0, 2, 7], approximate: false };
+  else return { tones: null, approximate: false };
+
+  if (hasInterval(7)) return { tones: [0, third, 7], approximate: false };
+  const matchingAltered5 = third === 4 ? 8 : 6;
+  if (hasInterval(matchingAltered5)) return { tones: [0, third, matchingAltered5], approximate: false };
+  if (hasInterval(9))  return { tones: [0, third, 9],  approximate: true }; // borrow 6, omit the 5th
+  if (hasInterval(10)) return { tones: [0, third, 10], approximate: true }; // borrow ♭7
+  if (hasInterval(11)) return { tones: [0, third, 11], approximate: true }; // borrow 7
+  const otherAltered5 = third === 4 ? 6 : 8;
+  if (hasInterval(otherAltered5)) return { tones: [0, third, otherAltered5], approximate: true };
+  return { tones: null, approximate: false };
+}
+
+// 4-note extension of buildTriad — always the triad plus one more note,
+// never an independent recomputation. Clean triad (a real or
+// matching-altered 5th): extend with a 7th, preferring ♭7 > 7 > 6 *among
+// whichever of those actually names a recognized tetrad* — plain ♭7>7>6 by
+// itself (spicemap's original priority, tuned for major/minor triads where
+// ♭7/7 always do name one) picks the wrong note for a diminished triad: a
+// °7's defining tone is the "6th slot" (interval 9), but ♭7/7 rank above it
+// in the fixed order, and when the scale happens to also contain a 7 (as
+// octatonic's half-whole scale does) that fixed order lands on "diminished
+// triad + major 7th" — not a recognized shape — instead of the °7 sitting
+// right there. Falls back to the first available candidate if none of them
+// name anything (e.g. an already-unusual triad where nothing will).
+// A triad that already had to borrow a 6th/♭7/7th for its "5th slot" reads
+// as "1 (♭)3 (♭)7" with no true 5th — whatever's added on top of THAT is an
+// upper extension (9th/11th/13th), not a plain 6th, hence `extended: true`.
+function buildSeventhChord(set, root) {
+  const triad = buildTriad(set, root);
+  if (!triad.tones) return null;
+  const hasInterval = iv => set.some(pc => mod12(pc - root) === iv);
+  const used = new Set(triad.tones);
+
+  if (!triad.approximate) {
+    const candidates = [10, 11, 9].filter(iv => hasInterval(iv) && !used.has(iv));
+    if (candidates.length === 0) return null;
+    const named = candidates.find(iv => !qualityOf([...triad.tones, iv]).fallback);
+    const iv = named != null ? named : candidates[0];
+    return { tones: [...triad.tones, iv], approximate: false, extended: false };
+  }
+
+  for (const iv of [5, 2, 9, 10, 11]) {
+    if (hasInterval(iv) && !used.has(iv)) {
+      return { tones: [...triad.tones, iv], approximate: true, extended: true };
+    }
+  }
+  return null;
+}
+
+// Extends a chord past its 7th (9th/11th/13th) by walking the scale and
+// picking whichever member sits closest to a "plausible third" above the
+// previous tone (2-5 semitones, a window wide enough to admit the 4ths that
+// thirds through a sparse scale usually turn out to be). Degenerate case (no
+// scale member within that window, e.g. a genuinely large gap) widens the
+// search to the whole scale and flags the result `approximate`.
+function pickStackTone(set, prevAbs) {
+  function gather() {
+    const out = [];
+    for (const pc of set) {
+      let cand = pc;
+      while (cand <= prevAbs) cand += 12;
+      const interval = cand - prevAbs;
+      if (interval >= 2 && interval <= 5) out.push({ cand, interval, score: Math.abs(interval - 3.5) });
+    }
+    return out;
+  }
+  let cands = gather();
+  let approximate = false;
+  if (cands.length === 0) {
+    approximate = true;
+    for (const pc of set) {
+      let cand = pc;
+      while (cand <= prevAbs) cand += 12;
+      cands.push({ cand, interval: cand - prevAbs, score: Math.abs(cand - prevAbs - 3.5) });
+    }
+  }
+  let best = cands[0];
+  for (const c of cands.slice(1)) {
+    const better = c.score < best.score - 1e-9;
+    const tied = Math.abs(c.score - best.score) < 1e-9;
+    if (better || (tied && c.interval < best.interval)) best = c;
+  }
+  return { tone: best.cand, approximate };
+}
+
+// Tertian-stack diatonic chords for `set` (ascending pitch-class offsets
+// from the scale root, any length n >= 3), at every degree, extended to
+// `depth` tones.
+//
+// With exactly 7 notes, exact-degree-skipping (every other of the 7
+// reference degrees) is mathematically the textbook stacked-thirds
+// definition, with no searching or tie-breaking needed — verified against
+// every mode in the catalog, including harmonic-minor/major, where a naive
+// "closest third" search can pick the wrong one of two simultaneously
+// available 3rds. For any other length, that guarantee doesn't hold, so
+// each degree instead goes through buildTriad/buildSeventhChord (exact
+// where the scale supports it) and, past the 7th, pickStackTone.
 function diatonicChords(set, depth) {
-  const n = 7;
+  const n = set.length;
+  const byPosition = n === MAJOR_REF.length;
+
   return Array.from({ length: n }, (_, i) => {
-    const stackOffsets = Array.from({ length: depth }, (_, k) => 2 * k); // scale-step skips: 0,2,4,6,8,10,12
-    const absTones = stackOffsets.map(s => { const idx = i + s; return set[idx % n] + 12 * Math.floor(idx / n); });
-    const rootOffset = absTones[0];
-    const tones = absTones.map(t => t - rootOffset); // relative to chord root, ascending
+    let tones, approximate = false, extended = false;
+    if (byPosition) {
+      const stackOffsets = Array.from({ length: depth }, (_, k) => 2 * k); // scale-step skips: 0,2,4,6,8,10,12
+      const absTones = stackOffsets.map(s => { const idx = i + s; return set[idx % n] + 12 * Math.floor(idx / n); });
+      tones = absTones.map(t => t - absTones[0]);
+    } else {
+      const built = depth >= 4 ? buildSeventhChord(set, set[i]) : buildTriad(set, set[i]);
+      tones = built && built.tones ? built.tones.slice() : null;
+      if (built) { approximate = built.approximate; extended = built.extended || false; }
+      if (!tones) tones = [0];
+      for (let k = tones.length; k < depth; k++) {
+        const picked = pickStackTone(set, set[i] + tones[k - 1]);
+        tones.push(picked.tone - set[i]);
+        approximate = approximate || picked.approximate;
+      }
+    }
     const triadTones = tones.slice(0, 3);
     const tetradTones = tones.slice(0, Math.min(4, tones.length));
     const baseQ = qualityOf(tetradTones.length >= 3 ? tetradTones : triadTones);
     let symbol = baseQ.symbol;
     if (depth >= 5 && !baseQ.fallback) {
+      // A tertian stack always includes every lower extension by
+      // construction (depth 7 necessarily passed through the 9th and 11th
+      // to get there) — list all of them present, not just the highest, to
+      // match nameExtendedChord's convention for a hand-built freeform
+      // selection with the same note content (e.g. "9/11/13", not "13").
       const stripped = symbol.replace(/7$/, '');
-      symbol = stripped + (depth === 5 ? '9' : depth === 6 ? '11' : '13');
+      const extLabels = ['9', '11', '13'].slice(0, depth - 4);
+      symbol = stripped + extLabels.join('/');
     }
     return {
       degreeIndex: i,
       roman: romanNumeralFor(i, triadTones),
-      rootOffset,       // this chord's root, as a semitone offset from the scale root
-      tones,            // ascending, relative to chord root: [0, 3rd, 5th, 7th?, 9th?, 11th?, 13th?]
+      rootOffset: set[i],  // this chord's root, as a semitone offset from the scale root
+      tones,               // ascending, relative to chord root: [0, 3rd, 5th, 7th?, 9th?, 11th?, 13th?]
       tags: DEGREE_TAGS.slice(0, tones.length),
       quality: baseQ,
       symbol,
+      approximate,
+      extended,
     };
   });
 }
@@ -438,20 +657,54 @@ function noteLabel(midi) {
 
 // ── free-build chord naming (masalamap) ──────────────────────────────────
 
+// A CHORD_QUALITY/EXTRA_QUALITY exact-key lookup only ever covers up to a
+// plain 7th chord (4 distinct tones) or a couple of hand-picked 5-tone
+// shapes — a genuine 9/11/13 stack (5-7 tones) has no literal table entry at
+// all, so a note-set like "every note of the scale" used to come back with
+// no name whatsoever even though it's a completely ordinary extended chord.
+// Named the same way diatonicChords itself builds one: a recognized
+// triad/7th base PLUS whichever of the 9th/11th/13th (semitones 2/5/9 from
+// root) are present — listing exactly the ones present (not just the
+// highest, the way "G13" implies 9/11 for free) since a hand-built freeform
+// selection may deliberately include some and not others.
+const EXTENSION_INTERVAL = [2, 5, 9];
+const EXTENSION_NAME = { 2: '9', 5: '11', 9: '13' };
+function nameExtendedChord(rel) {
+  const present = new Set(rel);
+  const extPresent = EXTENSION_INTERVAL.filter(iv => present.has(iv));
+  if (extPresent.length === 0) return null; // nothing extended — the plain exact-key lookup already covers this
+  const base = rel.filter(iv => !EXTENSION_INTERVAL.includes(iv));
+  const baseQ = CHORD_QUALITY[base.join(',')];
+  if (!baseQ || baseQ.fallback) return null;
+  const extLabels = extPresent.map(iv => EXTENSION_NAME[iv]);
+  if (base.length === 4) {
+    // has its own 7th — standard extension naming: strip the bare "7", append whichever of 9/11/13 are present
+    return { symbol: baseQ.symbol.replace(/7$/, '') + extLabels.join('/'), name: `${baseQ.name}, extended (${extLabels.join('/')})` };
+  }
+  if (base.length === 3) {
+    // triad only, no 7th — each extension reads as its own "add" (an "add9"
+    // implies nothing about a 7th; a bare "9" does)
+    return { symbol: baseQ.symbol + extLabels.map(l => `add${l}`).join(''), name: `${baseQ.name}, ${extLabels.map(l => 'added ' + l).join('/')}` };
+  }
+  return null;
+}
+
 // Name an arbitrary absolute pitch-class set by trying EVERY note in it as
-// a candidate root and checking for an exact tertian-table match (no
-// partial/subset fallback here, unlike reinterpretFromRoot — free-build is
-// about naming exactly what the user built, not approximating it). Returns
-// every match found; a note-set can legitimately match under more than one
-// assumed root (e.g. C-E-G-A = Cadd6 rooted on C, or Am7 rooted on A) —
-// that ambiguity is surfaced as a list, never silently resolved to one.
+// a candidate root and checking for an exact tertian-table match, then
+// nameExtendedChord for anything with 9/11/13-range tones on top of a
+// recognized base (no partial/subset fallback beyond that, unlike
+// reinterpretFromRoot — free-build is about naming exactly what the user
+// built, not approximating it). Returns every match found; a note-set can
+// legitimately match under more than one assumed root (e.g. C-E-G-A =
+// Cadd6 rooted on C, or Am7 rooted on A) — that ambiguity is surfaced as a
+// list, never silently resolved to one.
 function nameNoteSet(pcSet) {
   const pcs = Array.from(pcSet);
   const matches = [];
   for (const rootPc of pcs) {
     const rel = pcs.map(pc => mod12(pc - rootPc)).sort((a, b) => a - b);
     const key = rel.join(',');
-    const q = CHORD_QUALITY[key] || EXTRA_QUALITY[key];
+    const q = CHORD_QUALITY[key] || EXTRA_QUALITY[key] || nameExtendedChord(rel);
     if (q) matches.push({ rootPc, symbol: q.symbol, name: q.name });
   }
   return matches;

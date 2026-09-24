@@ -8,3 +8,6 @@
 full-sample-packs/
 local/
 .wrangler/
+
+node_modules/
+www/
