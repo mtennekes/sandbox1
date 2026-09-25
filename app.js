@@ -60,8 +60,16 @@ const PALETTES = {
     // among the dimmed notes here).
     colors: ['#FFFFFF', DIM, DIM, PAL[3], PAL[4], DIM, DIM, PAL[2], DIM, DIM, DIM, DIM],
   },
+  rainbow: {
+    label: 'Rainbow',
+    // A color wheel run once round the octave: neighbouring notes get
+    // neighbouring hues, so shapes read as smooth or jumpy, with no
+    // meaning attached to any one color.
+    colors: ['#2791B7', '#109789', '#259A50', '#768D12', '#A8780D', '#A8780D',
+             '#C65F33', '#D94261', '#DD26A4', '#C53BE0', '#9A61F4', '#5F80E3'],
+  },
   custom: {
-    label: 'Custom',
+    label: 'Choose your own colors!',
     // Seeded from Sentiment12 the first time, then whatever the user edits
     // (see the swatch row in the Setup dialog). Persisted separately from
     // the choice of palette, so switching away and back doesn't lose it.
@@ -431,8 +439,8 @@ const CHORD_SYMBOL = {
   'Minor-major 9th': 'mMaj9', 'Minor-major 13th': 'mMaj13', 'Minor-major 11th (full)': 'mMaj11',
 };
 
-// Note-count 12 (Scale mode only — see ref-notecount-wrap) replaces what
-// used to be a separate "Chromatic" toggle with its own on/off state; this
+// The 12-note row in the library replaces what used to be a separate
+// "Chromatic" toggle with its own on/off state; this
 // is the same SCALE_DICT mechanism as everything else, so nameScale() names
 // it "<root> Chromatic" for free.
 addDictEntry('Chromatic', 'chromatic', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 'core');
@@ -826,13 +834,9 @@ function setViewMode(mode) {
   modeSwitch.setAttribute('aria-checked', mode === 'beginner' ? 'true' : 'false');
   modeSwitch.querySelectorAll('.mode-switch-opt').forEach(o => o.classList.toggle('active', o.dataset.mode === mode));
   document.getElementById('mode-controls').style.display = mode === 'beginner' ? 'none' : '';
-  // Beginner keeps #notecount-group itself (it's what holds the
-  // Scale/Chord toggle, which Beginner now needs too — see the split in
-  // renderTable's beginner branch) and hides only the note-count buttons
-  // inside it, which ARE Advanced-only: Beginner's list is curated, so
-  // "how many notes" isn't a choice it offers.
+  // Beginner keeps #notecount-group (the Scale/Chord toggle, which
+  // Beginner needs too — see the split in renderTable's beginner branch).
   document.getElementById('notecount-group').style.display = '';
-  document.getElementById('ref-notecount-wrap').style.display = mode === 'beginner' ? 'none' : '';
   document.querySelector('.ref-controls').style.display = mode === 'beginner' ? 'none' : '';
   // The Relative/Absolute group this used to show/hide per view mode no
   // longer exists at all — nothing left to toggle here either way.
@@ -875,6 +879,10 @@ const abacusController = createAbacus(document.getElementById('abacus'), {
   scaleOffsets, rootPitchClass, labelMode,
   left: AB_L, right: AB_R, y: AB_TY, beadRadius: AB_BR, width: 760,
   tickInactiveColor: getComputedStyle(document.documentElement).getPropertyValue('--panel-solid').trim(),
+  // Tap an empty spot to add a note, drag a bead off the track to remove
+  // it — how the number of notes is changed now (the old 5/6/7/8/12
+  // buttons became the library's filter).
+  resizable: true,
   onChange(newOffsets) { scaleOffsets = newOffsets; render(); },
   onBeadPlay(offset, hypotheticalSet) { playScaleDegree(offset, hypotheticalSet); },
   labelFn: chordAwareBeadLabel,
@@ -903,12 +911,6 @@ function renderName() {
   // redundant.
   el.innerHTML = `<span class="name${r.exact ? '' : ' fallback'}">${label}</span>`;
 }
-
-// "See all 12 notes" used to be a separate toggle with its own on/off
-// state and a remembered "scale before chromatic" to restore. Now that it's
-// just note-count 12 (see setRefNoteCount/NOTE_COUNT_DEFAULT below), that
-// machinery is unnecessary — picking any other count already loads that
-// count's own default, exactly like switching between 5/6/7/8 always has.
 
 // ── §1 root cycling — animated mode stepping on the abacus itself ───────────
 //
@@ -1901,7 +1903,6 @@ function setOrientation(o) {
 // ── instrument switching (guitar / bass / piano) ─────────────────────────────
 
 function setInstrument(instr) {
-  if (INSTRUMENT_FAMILY[instr] !== 'piano' && pedalDown) setPedal(false); // the pedal belongs to the keyboard
   instrument = instr;
   localStorage.setItem('n4a-instrument', instr);
   if (instr !== 'piano') {
@@ -2010,7 +2011,8 @@ function updateInstrumentUI() {
   const organBtn = document.getElementById('instr-organ');
   organBtn.classList.toggle('active', family === 'piano' && keyboardSound === 'organ');
   organBtn.style.display = tier === 'free' ? 'none' : '';
-  document.getElementById('pedal-btn').hidden = family !== 'piano';
+  document.getElementById('pedals').hidden = family !== 'piano';
+  document.getElementById('fretboard-wrap').classList.toggle('keys', family === 'piano');
 
   document.getElementById('guitar-strings-wrap').style.display = family === 'guitar' ? 'flex' : 'none';
   document.getElementById('bass-strings-wrap').style.display = family === 'bass' ? 'flex' : 'none';
@@ -2352,57 +2354,31 @@ function pianoLift(pointerId) {
 // ── §2 scale reference table ─────────────────────────────────────────────────
 
 let refRowMode = 'modes';   // 'families' | 'modes' — Modes is the default: it shows a scale's own character, with the family it belongs to still labeled via each group's own header
-let refNoteCount = 7;          // scale mode: 5|6|7|8 — chord mode: 3|4|5 (Increment 3 §8)
+// The library's note-count filter: 'all', or one count (scales 5/6/7/8/12,
+// chords 3/4/5/6). Only filters the list — see #lib-count-toggle.
+let libCount = 'all';
+const LIB_SCALE_COUNTS = [5, 6, 7, 8, 12], LIB_CHORD_COUNTS = [3, 4, 5, 6];
+const LIB_COUNT_NAMES = {
+  scale: { 5: 'pentatonic', 6: 'hexatonic', 7: 'heptatonic', 8: 'octatonic', 12: 'chromatic' },
+  chord: { 3: 'triads', 4: 'sevenths & sixths', 5: 'ninths', 6: 'elevenths & thirteenths' },
+};
 // "A three-note scale is just a chord" — chordMode swaps which catalog the
-// note-count buttons/reference table offer, reusing every other mechanism
-// (abacus, fretboard highlighting, nameScale) completely unchanged.
+// library offers, reusing every other mechanism (abacus, fretboard
+// highlighting, nameScale) completely unchanged.
 // (chordMode itself is declared near the top of the file — see the comment
 // there — since the abacus's own labelFn also reads it, and that first
 // runs during createAbacus()'s own construction-time render(), well before
 // this point in the file would otherwise run.)
 
-// Sensible default scale/chord to load when switching the note-count
-// selector — picked once per count rather than left at whatever the abacus
-// happened to hold before.
-const NOTE_COUNT_DEFAULT = {
-  5: () => dictEntryByName('Gong (Major pentatonic)').set,
-  6: () => dictEntryByName('Whole-tone').set,
-  7: () => [0, 2, 4, 5, 7, 9, 11], // major / Ionian
-  8: () => dictEntryByName('Octatonic (half-whole)').set,
-  12: () => dictEntryByName('Chromatic').set,
-};
-const CHORD_NOTE_COUNT_DEFAULT = {
-  3: () => dictEntryByName('Major triad').set,
-  4: () => dictEntryByName('Dominant 7th').set,
-  5: () => dictEntryByName('Dominant 9th').set,
-  6: () => dictEntryByName('Dominant 13th').set,
-};
-
 // Updates every control that reflects chordMode's *current* value — split
 // out from setChordMode so a view-mode switch (see setViewMode) can re-sync
 // the UI to whatever chordMode already is (e.g. after clicking a triad in
 // Beginner) without also resetting the currently-loaded scale/chord the way
-// setChordMode's own setRefNoteCount(...) call does.
+// setChordMode itself does.
 function syncChordModeUI() {
   const on = chordMode;
   document.getElementById('mode-scale-btn').classList.toggle('active', !on);
   document.getElementById('mode-chord-btn').classList.toggle('active', on);
-  // Each mode's own note-count buttons are shown/hidden rather than kept as
-  // one shared 3-8 row, since a bare number ("5") only reads as "pentatonic
-  // scale" or "9th chord" once you already know which mode you're in.
-  //
-  // Tried visibility:hidden here instead of actually removing them, to stop
-  // the row's width jumping when the button count changes — but the two
-  // sets are interleaved in the DOM (matching count value, e.g. the two "5"
-  // buttons sit next to each other), so the reserved-but-invisible buttons
-  // ended up wedged BETWEEN the visible ones, opening gaps in the middle of
-  // the row instead of at one predictable edge. Reverted to actually
-  // removing the inactive set from flow — #ref-notecount-wrap gets a fixed
-  // min-width instead (see style.css), so the row's own footprint still
-  // doesn't jump, but the buttons that *are* showing sit flush together
-  // with no gaps, whichever set they are.
-  document.querySelectorAll('#ref-notecount-wrap [data-scale-count]').forEach(b => b.hidden = on);
-  document.querySelectorAll('#ref-notecount-wrap [data-chord-count]').forEach(b => b.hidden = !on);
 
   // Both views now list one kind at a time, so this title is accurate in
   // both (it used to say a neutral "Browse" in Beginner, back when that
@@ -2417,19 +2393,14 @@ function syncChordModeUI() {
   document.getElementById('voicing-select').hidden = !on;
 }
 
+// Switching Scale/Chord loads a sensible starting point for that kind —
+// the major scale, or a dominant 7th — and resets the library filter.
 function setChordMode(on) {
   chordMode = on;
   localStorage.setItem('n4a-chord-mode', chordMode);
   syncChordModeUI();
-  setRefNoteCount(on ? 4 : 7);
-}
-
-function setRefNoteCount(n) {
-  refNoteCount = n;
-  document.querySelectorAll('#ref-notecount-wrap button').forEach(b => {
-    b.classList.toggle('active', Number(b.dataset.count) === n);
-  });
-  scaleOffsets = (chordMode ? CHORD_NOTE_COUNT_DEFAULT : NOTE_COUNT_DEFAULT)[n]().slice();
+  libCount = 'all';
+  scaleOffsets = on ? dictEntryByName('Dominant 7th').set.slice() : [0, 2, 4, 5, 7, 9, 11];
   render();
   renderTable();
 }
@@ -2437,6 +2408,16 @@ function setRefNoteCount(n) {
 function renderTable() {
   const wrap = document.getElementById('ref-table-wrap');
   wrap.innerHTML = '';
+
+  const countToggle = document.getElementById('lib-count-toggle');
+  countToggle.replaceChildren(...['all', ...(chordMode ? LIB_CHORD_COUNTS : LIB_SCALE_COUNTS)].map(n => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'hand-btn' + (n === libCount ? ' active' : '');
+    b.textContent = n === 'all' ? 'All' : n;
+    b.addEventListener('click', () => { libCount = n; renderTable(); });
+    return b;
+  }));
 
   // A plain scrollable list, one card per scale/chord, each showing its
   // shape as a compact strip of colored dots — the exact same per-interval
@@ -2587,8 +2568,8 @@ function renderTable() {
 
   // Beginner view: skip the whole family/mode/note-count catalog entirely
   // and render exactly the curated rows (scales and, per two of them being
-  // tagged chord:true, a couple of triads), regardless of refNoteCount/
-  // refRowMode (that control is hidden in this view).
+  // tagged chord:true, a couple of triads), regardless of the Notes filter
+  // and refRowMode (those controls are hidden in this view).
   if (viewMode === 'beginner') {
     // Split by the Scale/Chord toggle, exactly as Advanced is. As one
     // undivided list it was genuinely ambiguous which kind a row was — a
@@ -2619,88 +2600,115 @@ function renderTable() {
     list.appendChild(h);
   }
 
-  // Chord mode: one flat list per note-count, same addRow() every scale row
-  // above uses — a chord type has no modal rotations to group by the way a
+  // Everything else: the whole catalog, in one section per note count —
+  // "5 notes · pentatonic", "7 notes · heptatonic", … — narrowed to one
+  // count by the Notes filter at the top (#lib-count-toggle). Seeing the
+  // counts side by side is what explains why, say, a pentatonic isn't in
+  // among the seven-note modes.
+  function addCountHeader(n) {
+    const h = document.createElement('div');
+    h.className = 'ref-list-count-header';
+    h.textContent = `${n} notes · ${LIB_COUNT_NAMES[chordMode ? 'chord' : 'scale'][n]}`;
+    list.appendChild(h);
+  }
+
+  // Chords: a chord type has no modal rotations to group by the way a
   // scale family does, so refRowMode (Families/Modes) doesn't apply here and
   // is ignored (see the ref-controls hand-toggle, hidden in chord mode).
-  if (chordMode) {
-    const names = {
-      3: ['Major triad', 'Minor triad', 'Diminished triad', 'Augmented triad', 'Suspended 2nd', 'Suspended 4th'],
-      4: ['Major 7th', 'Dominant 7th', 'Minor 7th', 'Half-diminished 7th', 'Diminished 7th', 'Minor-major 7th',
-          'Augmented major 7th', 'Dominant 7♯5', 'Dominant 7♭5', 'Major 6th', 'Minor 6th', 'Major add9', 'Minor add9'],
-      5: ['Major 9th', 'Dominant 9th', 'Dominant 7♭9', 'Dominant 7♯9', 'Minor 9th', 'Minor 11th', 'Major 6/9', 'Minor 6/9', 'Minor-major 9th'],
-      6: ['Major 13th', 'Dominant 13th', 'Minor 13th', 'Minor 11th (full)',
-          'Dominant 9♯11', 'Dominant 13♭9', 'Minor-major 13th', 'Minor-major 11th (full)'],
-    }[refNoteCount] || [];
-    names.forEach(name => { const e = dictEntryByName(name); addRow(e.name, e.set, CHORD_SYMBOL[name]); });
-    wrap.appendChild(container);
-    return;
+  const CHORDS_BY_COUNT = {
+    3: ['Major triad', 'Minor triad', 'Diminished triad', 'Augmented triad', 'Suspended 2nd', 'Suspended 4th'],
+    4: ['Major 7th', 'Dominant 7th', 'Minor 7th', 'Half-diminished 7th', 'Diminished 7th', 'Minor-major 7th',
+        'Augmented major 7th', 'Dominant 7♯5', 'Dominant 7♭5', 'Major 6th', 'Minor 6th', 'Major add9', 'Minor add9'],
+    5: ['Major 9th', 'Dominant 9th', 'Dominant 7♭9', 'Dominant 7♯9', 'Minor 9th', 'Minor 11th', 'Major 6/9', 'Minor 6/9', 'Minor-major 9th'],
+    6: ['Major 13th', 'Dominant 13th', 'Minor 13th', 'Minor 11th (full)',
+        'Dominant 9♯11', 'Dominant 13♭9', 'Minor-major 13th', 'Minor-major 11th (full)'],
+  };
+
+  function addScaleCount(n) {
+    if (n === 7) {
+      if (refRowMode === 'families') {
+        Object.entries(FAMILIES).forEach(([key, fam]) => addRow(FAMILY_LABEL[key], fam.base, null, true));
+        Object.entries(EXOTIC).forEach(([key, fam]) => addRow(FAMILY_LABEL[key], fam.base, null, true));
+        Object.entries(EXTRA_SINGLE).forEach(([name, set]) => addRow(name, set, null, true));
+      } else {
+        Object.entries(FAMILIES).forEach(([key, fam]) => {
+          addGroupHeader(FAMILY_LABEL[key]);
+          fam.modes.forEach((name, k) => addRow(name, rotateToDegree(fam.base, k)));
+        });
+        Object.entries(EXOTIC).forEach(([key, fam]) => {
+          addGroupHeader(FAMILY_LABEL[key]);
+          fam.modes.forEach((name, k) => addRow(name, rotateToDegree(fam.base, k)));
+        });
+        addGroupHeader('Other exotic scales');
+        Object.entries(EXTRA_SINGLE).forEach(([name, set]) => addRow(name, set));
+      }
+    } else if (n === 5) {
+      if (refRowMode === 'families') {
+        addRow('Major pentatonic (Gong family)', PENTATONIC.base);
+      } else {
+        addGroupHeader('Pentatonic (Gong family)');
+        PENTATONIC.modes.forEach((name, k) => addRow(name, rotateToDegree(PENTATONIC.base, k)));
+      }
+    } else if (n === 6) {
+      // Symmetric scales (whole-tone, augmented) are the headline rows at this
+      // count — they're the ones with real identity here — with blues (an
+      // ordinary stepwise hexatonic) listed separately (Increment 3 §8).
+      const wholeTone = dictEntryByName('Whole-tone');
+      const augA = dictEntryByName('Augmented');
+      const augB = dictEntryByName('Augmented (inverse)');
+      const blues = dictEntryByName('Blues');
+      if (refRowMode === 'families') {
+        addRow(wholeTone.name, wholeTone.set);
+        addRow(augA.name, augA.set);
+        addRow(blues.name, blues.set);
+      } else {
+        addGroupHeader('Whole-tone');
+        addRow(wholeTone.name, wholeTone.set);
+        addGroupHeader('Augmented');
+        addRow(augA.name, augA.set);
+        addRow(augB.name, augB.set);
+        addGroupHeader('Other hexatonic scales');
+        addRow(blues.name, blues.set);
+      }
+    } else if (n === 8) {
+      // Octatonic (symmetric) as headline rows; composite scales listed
+      // separately, described as "parent + added tone" rather than peers of
+      // the symmetric families (Increment 3 §8).
+      const octHW = dictEntryByName('Octatonic (half-whole)');
+      const octWH = dictEntryByName('Octatonic (whole-half)');
+      addRow(octHW.name, octHW.set);
+      addRow(octWH.name, octWH.set);
+      addGroupHeader('Composite (parent + added tone)');
+      ['Bebop dominant', 'Bebop major', 'Flamenco fusion'].forEach(name => {
+        const e = dictEntryByName(name);
+        addRow(`${e.name} (${e.parentName} + added tone)`, e.set);
+      });
+    } else if (n === 12) {
+      const chromatic = dictEntryByName('Chromatic');
+      addRow(chromatic.name, chromatic.set);
+    }
   }
 
-  if (refNoteCount === 7) {
-    if (refRowMode === 'families') {
-      Object.entries(FAMILIES).forEach(([key, fam]) => addRow(FAMILY_LABEL[key], fam.base, null, true));
-      Object.entries(EXOTIC).forEach(([key, fam]) => addRow(FAMILY_LABEL[key], fam.base, null, true));
-      Object.entries(EXTRA_SINGLE).forEach(([name, set]) => addRow(name, set, null, true));
+  const counts = (chordMode ? LIB_CHORD_COUNTS : LIB_SCALE_COUNTS).filter(n => libCount === 'all' || n === libCount);
+  counts.forEach(n => {
+    addCountHeader(n);
+    if (chordMode) {
+      CHORDS_BY_COUNT[n].forEach(name => { const e = dictEntryByName(name); addRow(e.name, e.set, CHORD_SYMBOL[name]); });
     } else {
-      Object.entries(FAMILIES).forEach(([key, fam]) => {
-        addGroupHeader(FAMILY_LABEL[key]);
-        fam.modes.forEach((name, k) => addRow(name, rotateToDegree(fam.base, k)));
-      });
-      Object.entries(EXOTIC).forEach(([key, fam]) => {
-        addGroupHeader(FAMILY_LABEL[key]);
-        fam.modes.forEach((name, k) => addRow(name, rotateToDegree(fam.base, k)));
-      });
-      addGroupHeader('Other exotic scales');
-      Object.entries(EXTRA_SINGLE).forEach(([name, set]) => addRow(name, set));
+      addScaleCount(n);
     }
-  } else if (refNoteCount === 5) {
-    if (refRowMode === 'families') {
-      addRow('Major pentatonic (Gong family)', PENTATONIC.base);
-    } else {
-      addGroupHeader('Pentatonic (Gong family)');
-      PENTATONIC.modes.forEach((name, k) => addRow(name, rotateToDegree(PENTATONIC.base, k)));
-    }
-  } else if (refNoteCount === 6) {
-    // Symmetric scales (whole-tone, augmented) are the headline rows at this
-    // count — they're the ones with real identity here — with blues (an
-    // ordinary stepwise hexatonic) listed separately (Increment 3 §8).
-    const wholeTone = dictEntryByName('Whole-tone');
-    const augA = dictEntryByName('Augmented');
-    const augB = dictEntryByName('Augmented (inverse)');
-    const blues = dictEntryByName('Blues');
-    if (refRowMode === 'families') {
-      addRow(wholeTone.name, wholeTone.set);
-      addRow(augA.name, augA.set);
-      addRow(blues.name, blues.set);
-    } else {
-      addGroupHeader('Whole-tone');
-      addRow(wholeTone.name, wholeTone.set);
-      addGroupHeader('Augmented');
-      addRow(augA.name, augA.set);
-      addRow(augB.name, augB.set);
-      addGroupHeader('Other hexatonic scales');
-      addRow(blues.name, blues.set);
-    }
-  } else if (refNoteCount === 8) {
-    // Octatonic (symmetric) as headline rows; composite scales listed
-    // separately, described as "parent + added tone" rather than peers of
-    // the symmetric families (Increment 3 §8).
-    const octHW = dictEntryByName('Octatonic (half-whole)');
-    const octWH = dictEntryByName('Octatonic (whole-half)');
-    addRow(octHW.name, octHW.set);
-    addRow(octWH.name, octWH.set);
-    addGroupHeader('Composite (parent + added tone)');
-    ['Bebop dominant', 'Bebop major', 'Flamenco fusion'].forEach(name => {
-      const e = dictEntryByName(name);
-      addRow(`${e.name} (${e.parentName} + added tone)`, e.set);
-    });
-  } else if (refNoteCount === 12) {
-    const chromatic = dictEntryByName('Chromatic');
-    addRow(chromatic.name, chromatic.set);
-  }
+  });
 
   wrap.appendChild(container);
+  scrollLibraryToCurrent();
+}
+
+// Brings the row for what's loaded into view (with "All", a 7-note scale
+// sits below the 5- and 6-note sections). 'nearest' leaves it alone if
+// it's already visible, so tapping rows while browsing never jumps.
+function scrollLibraryToCurrent() {
+  const cur = document.querySelector('#ref-table-wrap .ref-row-current');
+  if (cur && cur.offsetParent) requestAnimationFrame(() => cur.scrollIntoView({ block: 'nearest' }));
 }
 
 // ── §7 audio (Tone.js) ────────────────────────────────────────────────────────
@@ -3539,10 +3547,14 @@ function currentNoteSampler() {
   return getSampler(soundSourceKey());
 }
 // Bass sits an octave below the other instruments (a real bass guitar
-// sounds an octave down from a regular guitar) — everything else plays at
-// the shared MIDI-60-centered register the app has always used.
+// sounds an octave down from a regular guitar), and so does the organ —
+// everything else plays at the shared MIDI-60-centered register.
 function samplerOctaveShift() {
-  return INSTRUMENT_FAMILY[instrument] === 'bass' ? -12 : 0;
+  if (INSTRUMENT_FAMILY[instrument] === 'bass') return -12;
+  // The organ sounds an octave down too: its recordings are bright, and an
+  // octave lower is where it sits comfortably as an organ.
+  if (INSTRUMENT_FAMILY[instrument] === 'piano' && keyboardSound === 'organ') return -12;
+  return 0;
 }
 
 // A pitch class of E (4) or above sits noticeably higher than the C-rooted
@@ -3619,20 +3631,38 @@ function updateDroneButton() {
 // note short. pendingNoteRelease tracks those timers per sounding pitch.
 const pendingNoteRelease = new Map(); // shifted midi -> timeout id
 
-// Sustain pedal (keyboard instruments, the Pedal button): latching — tap to
-// press it down, tap again to lift it. While down, notes released by
-// noteOn wait here; lifting the pedal lets them all go (each still no
-// sooner than the Sustain setting after it was struck).
-let pedalDown = false;
+// Pedals (piano/organ — drawn beside the keys, see #pedals). A real grand
+// piano has three:
+//   left   — soft (una corda): shifts the hammers so fewer strings are
+//            struck; quieter and a little softer in tone
+//   middle — sostenuto: sustains only the notes already held when it goes
+//            down (rarely used; left out here)
+//   right  — sustain (damper): lifts every damper, so notes ring on after
+//            the keys come up — by far the most used
+// Soft and sustain are here, held down like the real thing (no toggling):
+// while sustain is held, notes released by noteOn wait here, and letting
+// the pedal up lets them all go (each still no sooner than the Sustain
+// setting after it was struck). While soft is held, new notes are struck
+// at lower velocity.
+let pedalDown = false, softDown = false;
 const pedalHeldNotes = [];
-function setPedal(on) {
-  pedalDown = on;
-  const b = document.getElementById('pedal-btn');
-  b.classList.toggle('active', on);
-  b.setAttribute('aria-pressed', on ? 'true' : 'false');
-  if (!on) pedalHeldNotes.splice(0).forEach(release => release());
+function setPedal(which, down) {
+  document.querySelector(`#pedals [data-pedal="${which}"]`).classList.toggle('down', down);
+  if (which === 'soft') { softDown = down; return; }
+  pedalDown = down;
+  if (!down) pedalHeldNotes.splice(0).forEach(release => release());
 }
-document.getElementById('pedal-btn').addEventListener('click', () => setPedal(!pedalDown));
+document.querySelectorAll('#pedals [data-pedal]').forEach(p => {
+  const which = p.dataset.pedal;
+  p.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    try { p.setPointerCapture(e.pointerId); } catch (_) { /* not a live pointer */ }
+    setPedal(which, true);
+  });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type =>
+    p.addEventListener(type, () => { if (p.classList.contains('down')) setPedal(which, false); }));
+  p.addEventListener('contextmenu', e => e.preventDefault()); // long-press menu
+});
 function noteOn(midi) {
   const pressedAt = performance.now();
   let started = null, released = false;
@@ -3654,7 +3684,7 @@ function noteOn(midi) {
     const freq = midiToFreq(shifted);
     clearTimeout(pendingNoteRelease.get(shifted));
     pendingNoteRelease.delete(shifted);
-    sampler.triggerAttack(freq, tapNoteTime());
+    sampler.triggerAttack(freq, tapNoteTime(), softDown ? 0.45 : 1);
     started = { sampler, shifted, freq };
     if (released) releaseNow();
   }).catch(() => {});
@@ -4008,7 +4038,12 @@ function syncPaletteUI() {
       b.className = 'hand-btn';
       b.setAttribute('role', 'radio');
       b.dataset.palette = key;
-      b.textContent = p.label;
+      if (key === 'custom') {
+        b.classList.add('custom-palette-btn');
+        b.innerHTML = '<span aria-hidden="true">🎨</span> ' + p.label;
+      } else {
+        b.textContent = p.label;
+      }
       b.addEventListener('click', () => { applyPalette(key); syncPaletteUI(); renderColorsPopup(); });
       (key === 'custom' ? customGroup : group).appendChild(b);
     });
@@ -4018,32 +4053,6 @@ function syncPaletteUI() {
     b.classList.toggle('active', on);
     b.setAttribute('aria-checked', on ? 'true' : 'false');
   });
-  const row = document.getElementById('palette-custom-row');
-  row.style.display = paletteName === 'custom' ? '' : 'none';
-  if (paletteName === 'custom' && !row.children.length) {
-    // TABLE_LABELS is the same R/♭2/2/♭3… sequence used everywhere else a
-    // degree is named by position rather than by scale membership.
-    TABLE_LABELS.forEach((lbl, i) => {
-      const cell = document.createElement('label');
-      cell.className = 'palette-swatch';
-      const input = document.createElement('input');
-      input.type = 'color';
-      input.value = PALETTES.custom.colors[i];
-      input.setAttribute('aria-label', `Colour for ${lbl}`);
-      input.addEventListener('input', e => setCustomPaletteColor(i, e.target.value));
-      const cap = document.createElement('span');
-      cap.textContent = lbl;
-      cell.appendChild(input);
-      cell.appendChild(cap);
-      row.appendChild(cell);
-    });
-  } else if (paletteName === 'custom') {
-    // Keep the wells showing the current values after an external change
-    // (switching palettes, a fresh load).
-    row.querySelectorAll('input[type="color"]').forEach((input, i) => {
-      input.value = PALETTES.custom.colors[i];
-    });
-  }
 }
 
 function wireSynthDialog() {
@@ -4218,9 +4227,6 @@ document.querySelectorAll('#rowmode-toggle button').forEach(b => {
     renderTable();
   };
 });
-document.querySelectorAll('#ref-notecount-wrap button').forEach(b => {
-  b.onclick = () => setRefNoteCount(Number(b.dataset.count));
-});
 document.getElementById('mode-scale-btn').onclick = () => setChordMode(false);
 document.getElementById('mode-chord-btn').onclick = () => setChordMode(true);
 setChordMode(chordMode); // syncs button/hidden states to the persisted mode and loads a matching default
@@ -4392,6 +4398,7 @@ function openReflibPopup() {
   restoreReflibNodes = parkNodes([document.querySelector('.col-ref')], reflibPopupBody);
   reflibPopup.showModal();
   document.getElementById('reflib-open-btn').setAttribute('aria-expanded', 'true');
+  scrollLibraryToCurrent();
 }
 document.getElementById('reflib-open-btn').addEventListener('click', openReflibPopup);
 
@@ -4437,9 +4444,7 @@ let restoreModeControlsNodes = null;
 function applyModeControlsPlacement() {
   if (verticalInstrumentMode()) {
     if (!restoreModeControlsNodes) {
-      // The keyboard's Pedal comes along: the bottom toolbar is already
-      // full on a portrait phone.
-      restoreModeControlsNodes = parkNodes([modeControls, document.getElementById('pedal-btn')], rootRow);
+      restoreModeControlsNodes = parkNodes([modeControls], rootRow);
     }
   } else if (restoreModeControlsNodes) {
     restoreModeControlsNodes();
@@ -4529,7 +4534,9 @@ function sizeLibrarySidebar() {
   const wrap = document.getElementById('fretboard-wrap');
   const svg = document.getElementById(instrument === 'piano' ? 'piano' : 'fretboard');
   const vb = svg.viewBox.baseVal;
-  const abacusCol = document.getElementById('abacus').getBoundingClientRect().width, gaps = 10 + 16;
+  const pedals = document.getElementById('pedals');
+  const abacusCol = document.getElementById('abacus').getBoundingClientRect().width;
+  const gaps = 10 + 16 + (pedals.hidden ? 0 : pedals.getBoundingClientRect().width + 8);
   const needed = abacusCol + gaps + (vb && vb.height ? wrap.clientHeight * vb.width / vb.height : 300);
   const avail = layout.clientWidth;
   // At least wide enough for the title and control rows; past a readable
@@ -4569,12 +4576,12 @@ function renderLegendSwatches() {
   });
 }
 
-// "What do the colors mean?" popup (Setup → Colors) — explains whichever
-// palette is active. Rows come from the desktop legend's short table
-// (cloned, not written out twice), so the meanings can't drift apart.
-// The reduced palettes show just the degrees they color plus one row for
-// everything they leave gray; Custom shows Sentiment12's table, since
-// that's what the meanings (and color names) actually describe.
+// The Colors popup — explains whichever palette is active. Rows come from
+// the desktop legend's short table (cloned, not written out twice), so the
+// meanings can't drift apart. The reduced palettes show just the degrees
+// they color plus one row for everything they leave gray. Rainbow has no
+// meanings, just its colors. Custom is the user's own: a color picker and
+// a blank "what it means to you" field per note (see customPaletteTable).
 const PALETTE_INFO = {
   sentiment12: { intro: 'Every scale degree has its own color, chosen for how it feels.' },
   rootonly: {
@@ -4585,12 +4592,80 @@ const PALETTE_INFO = {
     intro: 'The skeleton of a triad: the root, the 3rd that makes it minor or major, and the 5th.',
     degrees: [0, 3, 4, 7], colorNames: { 7: 'blue' },
   },
-  custom: { intro: 'Your own colors. The meanings below are for Sentiment12, which Custom started from.' },
+  rainbow: { intro: 'A color wheel run once around the octave: neighbouring notes get neighbouring colors. No meanings attached — it shows a shape, not a mood.' },
+  custom: { intro: 'Pick a color for each note, and write down what it means to you.' },
 };
+
+// Your own words for your own colors (Custom), one per degree.
+let customMeanings = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('n4a-custom-meanings') || 'null');
+    if (Array.isArray(saved) && saved.length === 12) return saved;
+  } catch (_) { /* fall through */ }
+  return new Array(12).fill('');
+})();
+
+// Note | color | meaning, for the palettes that have their own colors
+// rather than Sentiment12's (Rainbow, Custom). Custom's color column is a
+// live color picker and its meaning column a text field, prefilled with
+// Sentiment12's meaning as a greyed-out example.
+function ownPaletteTable(editable) {
+  const colors = PALETTES[paletteName].colors;
+  const table = document.createElement('table');
+  table.className = 'legend-table';
+  table.innerHTML = `<thead><tr><th>Note</th><th>Color</th>${editable ? '<th>Means to you</th>' : ''}</tr></thead>`;
+  const tbody = document.createElement('tbody');
+  TABLE_LABELS.forEach((lbl, i) => {
+    const tr = document.createElement('tr');
+    const note = document.createElement('td');
+    note.textContent = lbl;
+    const color = document.createElement('td');
+    if (editable) {
+      const cell = document.createElement('label');
+      cell.className = 'palette-swatch';
+      const well = document.createElement('input');
+      well.type = 'color';
+      well.value = colors[i];
+      well.setAttribute('aria-label', `Color for ${lbl}`);
+      well.addEventListener('input', e => setCustomPaletteColor(i, e.target.value));
+      cell.appendChild(well);
+      color.appendChild(cell);
+    } else {
+      const sw = document.createElement('span');
+      sw.className = 'legend-swatch';
+      sw.style.background = colors[i];
+      color.appendChild(sw);
+    }
+    tr.append(note, color);
+    if (editable) {
+      const meaning = document.createElement('td');
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'custom-meaning';
+      input.value = customMeanings[i];
+      const example = document.querySelector(`#color-legend .legend-swatch[data-degree="${i}"]`);
+      input.placeholder = example ? example.closest('tr').lastElementChild.textContent : '';
+      input.setAttribute('aria-label', `What ${lbl} means to you`);
+      input.addEventListener('input', e => {
+        customMeanings[i] = e.target.value;
+        localStorage.setItem('n4a-custom-meanings', JSON.stringify(customMeanings));
+      });
+      meaning.appendChild(input);
+      tr.appendChild(meaning);
+    }
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  return table;
+}
 const legendTable = document.querySelector('#color-legend .legend-table');
 function renderColorsPopup() {
   const info = PALETTE_INFO[paletteName];
   document.getElementById('colors-popup-intro').textContent = info.intro;
+  if (paletteName === 'rainbow' || paletteName === 'custom') {
+    document.getElementById('colors-popup-body').replaceChildren(ownPaletteTable(paletteName === 'custom'));
+    return;
+  }
   const table = legendTable.cloneNode(true);
   const tbody = table.querySelector('tbody');
   if (info.degrees) {

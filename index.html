@@ -100,26 +100,6 @@
             <button id="mode-scale-btn" class="hand-btn active">Scale</button>
             <button id="mode-chord-btn" class="hand-btn">Chord</button>
           </div>
-          <!-- "Scale size" for Scale mode, "Chord size" for Chord mode — see
-               setChordMode() in app.js, which shows/hides these two sets via
-               visibility (not hidden/display:none — Scale's 5 buttons and
-               Chord's 3 take different total width, and removing the
-               inactive set from layout made the row visibly jump on every
-               switch; visibility:hidden keeps its space reserved instead).
-               Initial visibility is set by setChordMode() at load, not here. -->
-          <div class="hand-toggle" id="ref-notecount-wrap">
-            <button class="hand-btn" data-count="3" data-chord-count>3</button>
-            <button class="hand-btn" data-count="4" data-chord-count>4</button>
-            <button class="hand-btn" data-count="5" data-scale-count>5</button>
-            <button class="hand-btn" data-count="5" data-chord-count>5</button>
-            <button class="hand-btn" data-count="6" data-scale-count>6</button>
-            <button class="hand-btn" data-count="6" data-chord-count>6</button>
-            <button class="hand-btn active" data-count="7" data-scale-count>7</button>
-            <button class="hand-btn" data-count="8" data-scale-count>8</button>
-            <!-- Replaces the old standalone Chromatic toggle — see
-                 addDictEntry('Chromatic', ...) in app.js. -->
-            <button class="hand-btn" data-count="12" data-scale-count title="Chromatic (all 12 notes)">12</button>
-          </div>
         </div>
       </div>
 
@@ -198,12 +178,6 @@
                As plain children of .quickbar they all share that one gap
                value, so every button in the row is evenly spaced by
                construction rather than by keeping two numbers in sync. -->
-          <!-- Keyboard instruments only: a latching sustain pedal — while
-               lit, keys keep sounding after you lift your finger, until
-               it's switched off again (see setPedal in app.js). -->
-          <button id="pedal-btn" class="hand-btn drone-btn" aria-pressed="false" title="Sustain pedal">
-            <span class="drone-led" aria-hidden="true"></span>Pedal
-          </button>
           <button id="drone-toggle" class="hand-btn drone-btn" aria-pressed="false">
             <span class="drone-led" aria-hidden="true"></span>Drone
           </button>
@@ -287,6 +261,13 @@
         </div>
         <svg id="fretboard" viewBox="0 0 1110 250" width="1110" height="250"></svg>
         <svg id="piano" style="display:none;"></svg>
+        <!-- Piano/organ pedals, drawn beside the keys on the right where a
+             thumb can hold one down while the fingers play. Held, not
+             toggled — like a real pedal. See "pedals" in app.js. -->
+        <div id="pedals" class="pedals" hidden>
+          <button type="button" class="pedal pedal-soft" data-pedal="soft" aria-label="Soft pedal — hold to play quieter">Soft</button>
+          <button type="button" class="pedal pedal-sustain" data-pedal="sustain" aria-label="Sustain pedal — hold to let notes ring">Sustain</button>
+        </div>
       </div>
 
     </div>
@@ -308,12 +289,21 @@
              actually shows a scale's own flavor/character, with the
              family it belongs to still labeled via each group's own
              header (see addGroupHeader in app.js) rather than lost. -->
+        <!-- How many notes: a filter on this list (All by default), not a
+             setting of the abacus — the abacus changes its own number of
+             beads by tapping an empty spot / dragging a bead off. Filled
+             in by renderTable, since the choices differ for chords. -->
+        <div class="ref-controls-line">
+          <span class="ref-controls-hint">Notes:</span>
+          <div class="hand-toggle" id="lib-count-toggle"></div>
+        </div>
         <span class="ref-controls-hint" id="rowmode-hint">Display:</span>
         <div class="hand-toggle" id="rowmode-toggle">
           <button type="button" id="rowmode-families-btn" class="hand-btn" data-rowmode="families">Families</button>
           <button type="button" id="rowmode-modes-btn" class="hand-btn active" data-rowmode="modes">Modes</button>
         </div>
       </div>
+      <p class="lib-tip">Tip: tap an empty spot on the abacus to add a note, or drag a bead off it to remove one.</p>
       <div id="ref-table-wrap"></div>
     </div>
   </div>
@@ -450,11 +440,6 @@
   <div id="palette-controls">
     <div class="hand-toggle" id="palette-toggle" role="radiogroup" aria-label="Palette"></div>
     <div class="hand-toggle palette-custom-toggle" id="palette-custom-toggle"></div>
-    <!-- Twelve swatches, one per degree, shown only for the Custom
-         palette. <input type="color"> hands the whole job to the OS
-         picker, which is both less code and a better picker than anything
-         hand-rolled here would be. -->
-    <div id="palette-custom-row" class="palette-swatches"></div>
   </div>
   <p id="colors-popup-intro" class="colors-popup-intro"></p>
   <div id="colors-popup-body"></div>

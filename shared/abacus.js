@@ -27,7 +27,8 @@
 //   editable       — draggable beads? (default true; false = display-only, still clickable for playback)
 //   left, right, y, beadRadius, width — track geometry in the SVG's own coordinate space (defaults match spicemap's: 40, 720, 42, 15, 760)
 //   tickInactiveColor — background-matching color for the empty tick marks (default a neutral dark gray; pass your panel's own solid color for a seamless look)
-//   onChange(offsets)   — fired when a drag commits a new scale (bead released at a new position)
+//   resizable      — also let the user change HOW MANY notes: tap an empty spot on the track to add one there, drag a bead well off the track to remove it (default false; needs editable)
+//   onChange(offsets)   — fired when a drag commits a new scale (bead released at a new position, or a note added/removed)
 //   onBeadPlay(offset)  — fired on bead press, and on each new semitone a drag passes through — hand this to your own audio code; this module has none
 function createAbacus(svgEl, options) {
   options = options || {};
@@ -39,6 +40,7 @@ function createAbacus(svgEl, options) {
     width: options.width != null ? options.width : 760,
     hitCap: options.hitCap != null ? options.hitCap : 40,
     editable: options.editable !== false,
+    resizable: !!options.resizable,
     tickInactiveColor: options.tickInactiveColor || '#2a2f3a',
     onChange: typeof options.onChange === 'function' ? options.onChange : null,
     onBeadPlay: typeof options.onBeadPlay === 'function' ? options.onBeadPlay : null,
@@ -175,6 +177,21 @@ function createAbacus(svgEl, options) {
       }
     }
 
+    // Empty spots are tap targets for adding a note there (resizable only).
+    // Drawn before the beads, so a bead's own (bigger) hit area wins where
+    // the two overlap.
+    if (cfg.editable && cfg.resizable) {
+      for (let i = 1; i < 12; i++) {
+        if (scaleOffsets.includes(i)) continue;
+        const add = mk('circle', {
+          cx: atX(i), cy: cfg.y, r: step * 0.45, fill: 'transparent', cursor: 'copy',
+          class: 'abacus-add-spot',
+        });
+        add.addEventListener('click', () => addNote(i));
+        svgEl.appendChild(add);
+      }
+    }
+
     scaleOffsets.forEach((pos, idx) => {
       const x = atX(pos);
       const color = colorOf(pos);
@@ -243,11 +260,24 @@ function createAbacus(svgEl, options) {
     ? flatViewBox.width / rect.height
     : flatViewBox.width / rect.width);
 
+  function addNote(pos) {
+    scaleOffsets = scaleOffsets.concat(pos).sort((a, b) => a - b);
+    render();
+    if (cfg.onChange) cfg.onChange(scaleOffsets.slice());
+    if (cfg.onBeadPlay) cfg.onBeadPlay(pos, scaleOffsets.slice());
+  }
+
+  // How far across the track (in drawing units) a bead has to be pulled
+  // before letting go removes it — well clear of an ordinary sloppy drag
+  // along the track.
+  const removeDistance = () => cfg.beadRadius * 2.6;
+  const crossAxis = e => (cfg.vertical ? e.clientX : e.clientY);
+
   function beadDown(e, idx) {
     e.preventDefault();
     const rect = svgEl.getBoundingClientRect();
     const startPos = scaleOffsets[idx];
-    drag = { idx, rect, scale: axisScale(rect), startX: dragAxis(e), moved: false, lastPlayedPos: startPos };
+    drag = { idx, rect, scale: axisScale(rect), startX: dragAxis(e), startCross: crossAxis(e), moved: false, removing: false, lastPlayedPos: startPos };
     svgEl.setPointerCapture(e.pointerId);
     if (cfg.onBeadPlay) cfg.onBeadPlay(startPos);
   }
@@ -299,10 +329,28 @@ function createAbacus(svgEl, options) {
       drag.lastPlayedPos = pos;
       if (cfg.onBeadPlay) cfg.onBeadPlay(pos, hypothetical);
     }
+
+    // Pulled well off the track: letting go now removes the note (never
+    // below two notes — the root plus one). Shown as a faded bead.
+    if (cfg.resizable) {
+      const off = Math.abs(crossAxis(e) - drag.startCross) * scale > removeDistance() && scaleOffsets.length > 2;
+      if (off !== drag.removing) {
+        drag.removing = off;
+        beads[idx].circle.setAttribute('opacity', off ? 0.3 : 1);
+        beads[idx].lbl.setAttribute('opacity', off ? 0.3 : 1);
+      }
+    }
   }
 
   function beadUp(e) {
     if (!drag) return;
+    if (drag.removing) {
+      scaleOffsets.splice(drag.idx, 1);
+      drag = null;
+      render();
+      if (cfg.onChange) cfg.onChange(scaleOffsets.slice());
+      return;
+    }
     const { idx, rect, scale } = drag;
     const svgX = (dragAxis(e) - axisOrigin(rect)) * scale;
     const minP = idx > 1 ? scaleOffsets[idx - 1] + 1 : 1;

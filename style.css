@@ -279,16 +279,6 @@
        row of buttons. */
     .scale-name-actions #notecount-group { display: flex; align-items: center; gap: 12px; order: -1; }
     .scale-name-actions #notecount-group .label { display: none; }
-    /* Scale mode shows 5 buttons (5/6/7/8/12), Chord mode 4 (3/4/5/6) —
-       a fixed min-width (sized to the wider, Scale, case: 5 * 24px buttons
-       + 4 * 6px gaps = 144px, rounded up) keeps the row's own footprint
-       from jumping when you switch, without the buttons themselves needing
-       to stay in the layout while hidden (that approach left gaps in the
-       middle of the row — see setChordMode() in app.js). Needs the
-       .hand-btn min-width override just below — the shared .hand-btn rule
-       sets min-width:36px, which alone would make Scale's actual content
-       204px, not the 144px this min-width assumes. */
-    #ref-notecount-wrap { min-width: 148px; }
     .scale-name { line-height: 1.5; margin-bottom: 10px; }
     /* Plain bright text, not --accent-text — that token is about to become
        a foreground-on-accent-fill color (see .root-btn.active), a
@@ -345,13 +335,32 @@
     #piano .piano-key-black.pressed { fill: #4a4a4a; }
     /* Organ (see renderPiano): key colors swapped — dark naturals, light
        sharps — and the key names recolored to stay readable on them. */
-    #piano.organ .piano-key-white { fill: #2b2420; stroke: #0e0b09; }
+    #piano.organ .piano-key-white { fill: #2b2420; stroke: #f4efe4; } /* light outlines, so the dark keys read as separate keys */
     #piano.organ .piano-key-black { fill: #ece5d3; stroke: #8a8272; }
     #piano.organ .piano-key-white.pressed { fill: #4a3f37; }
     #piano.organ .piano-key-black.pressed { fill: #cbc2ab; }
     #piano.organ text.piano-white-label { fill: #f4efe4; }
     #piano.organ text.piano-black-label { fill: #1c1c1c; }
-    #pedal-btn[hidden] { display: none; }
+    /* Piano/organ pedals, in a narrow column to the right of the keys
+       (#fretboard-wrap.keys lays the keyboard and pedals side by side).
+       Brass, the lower edge thicker like a pedal's foot plate; pushed
+       down while held. */
+    html.lay-h #fretboard-wrap.keys, html.lay-v #fretboard-wrap.keys { flex-direction: row; align-items: stretch; gap: 8px; }
+    html #fretboard-wrap.keys #piano { min-width: 0; }
+    .pedals { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 10px; flex: 0 0 48px; padding-bottom: 4px; }
+    .pedals[hidden] { display: none; }
+    .pedal {
+      width: 44px; border-radius: 6px 6px 12px 12px; cursor: pointer;
+      background: linear-gradient(180deg, #f0d98a 0%, #c9a54a 55%, #9b7a2c 100%);
+      border: 1px solid #5d4712; box-shadow: 0 4px 0 #4a380c, 0 5px 8px rgba(0,0,0,0.45);
+      color: #3b2c08; font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
+      display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px;
+      touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+      transition: transform 0.05s ease, box-shadow 0.05s ease, filter 0.05s ease;
+    }
+    .pedal-soft { height: 56px; }
+    .pedal-sustain { height: 84px; }
+    .pedal.down { transform: translateY(4px); box-shadow: 0 0 0 #4a380c, 0 1px 3px rgba(0,0,0,0.45); filter: brightness(0.85); }
 
     .mode-controls { display: flex; align-items: center; gap: 8px; outline: none; margin-top: 10px; }
     .arm-btn { min-width: 28px; padding: 4px 8px; font-size: var(--ui-font); }
@@ -518,6 +527,15 @@
       text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--ui-font-sm);
     }
     .ref-list .ref-list-group-header:first-child { padding-top: 4px; }
+    /* One per note count ("7 notes · heptatonic") — a level above the
+       family headings inside it. */
+    .ref-list-count-header {
+      padding: 18px 4px 2px; font-size: var(--title-font); font-weight: 700; color: var(--text);
+    }
+    .ref-list .ref-list-count-header:first-child { padding-top: 6px; }
+    .ref-list-count-header + .ref-list-group-header { padding-top: 6px; }
+    .ref-controls-line { display: flex; align-items: center; gap: 8px; flex-basis: 100%; }
+    #lib-count-toggle .hand-btn { min-width: 30px; padding: 4px 7px; }
 
     #color-legend { margin: 36px 0 12px; }
     .legend-swatch {
@@ -763,39 +781,11 @@
         display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
       }
       html.lay-v .scale-name-row-left h1 { font-size: var(--title-font); margin: 0; line-height: 1.1; }
-      /* min-width:24px overrides the shared .hand-btn rule's 36px — at
-         36px, 5 buttons (Scale mode's 5/6/7/8/12) came to 204px, well past
-         #ref-notecount-wrap's 148px min-width above, so Scale mode was
-         still wider than Chord mode's 4 buttons and the row visibly jumped
-         switching between them. 24px is still enough for "12" (the widest
-         label) at this font-size. */
       html.lay-v .scale-name-actions #notecount-group .hand-btn { padding: 4px 5px; font-size: var(--ui-font); min-width: 24px; }
-      /* The note-count buttons stay tight together (4px) — they're one
-         control, read as a strip — while the gaps BETWEEN the groups get
-         the room instead. What pays for that is Browse no longer sitting
-         immediately after the counts with dead space to its right:
-         margin-left:auto pushes it to the row's own right edge, which is
-         the same edge Setup lines up with in the row below (both rows end
-         at the body's padding, with nothing of their own on the right).
-         So the slack that used to pool at the end of the row is now
-         spread between the groups, and the two rows end flush. */
       html.lay-v .scale-name-actions { gap: 10px; }
       html.lay-v .scale-name-actions #notecount-group { gap: 10px; }
       html.lay-v .scale-name-actions .hand-toggle { gap: 4px; }
       html.lay-v .scale-name-actions .reflib-open-btn { margin-left: auto; }
-      /* #ref-notecount-wrap's own 148px min-width (base rule, above) was
-         tuned to stop THIS row's own width from jumping when Browse (or
-         whatever else shared the row) had to shift to make room — but
-         now that Mode/note-count has its own dedicated line (see the
-         flex-basis:100% rule below), nothing else shares this row's
-         space for a width change to disrupt. Resetting it here
-         specifically (not in the shared base rule, which may still
-         matter at a width where this row DOES share space with
-         something) trades a small, harmless shift in Browse's own
-         position when switching Scale/Chord for not permanently
-         reserving ~35-40px of dead space every time Chord mode (fewer,
-         narrower buttons) is active. */
-      html.lay-v #ref-notecount-wrap { min-width: 0; }
       /* Now a plain sibling of #notecount-group (not nested inside it —
          see the HTML comment on #reflib-open-btn for why), so it no
          longer matches the rule just above; matching its padding/size
@@ -1076,20 +1066,7 @@
         display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
       }
       html.lay-h .scale-name-row-left h1 { font-size: var(--title-font); margin: 0; line-height: 1.1; }
-      /* min-width:24px overrides the shared .hand-btn rule's 36px — at
-         36px, 5 buttons (Scale mode's 5/6/7/8/12) came to 204px, well past
-         #ref-notecount-wrap's 148px min-width above, so Scale mode was
-         still wider than Chord mode's 4 buttons and the row visibly jumped
-         switching between them. 24px is still enough for "12" (the widest
-         label) at this font-size. */
       html.lay-h .scale-name-actions #notecount-group .hand-btn { padding: 4px 7px; font-size: var(--ui-font); min-width: 24px; }
-      /* See the matching comment in the portrait block above — NOT
-         resetting #ref-notecount-wrap's min-width here, unlike there:
-         landscape never gives Mode/note-count its own dedicated line (the
-         screen's wide enough that title+name+Mode+Browse all share one
-         row here — see the lack of a flex-basis:100% override in this
-         block), so a width change on Scale/Chord switch WOULD still be
-         sharing space with other things it could visibly jostle. */
       html.lay-h .reflib-open-btn { display: inline-block; padding: 4px 7px; font-size: var(--ui-font); }
       /* Same horizontal-scroll safety net as portrait — see there for why. */
       html.lay-h .scale-name-row { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -1563,7 +1540,20 @@
     #palette-controls { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--panel-border); }
     #palette-controls[hidden] { display: none; }
     #palette-toggle { margin-bottom: 8px; }
-    #palette-custom-row { margin-top: 8px; margin-bottom: 0; }
+    /* Custom as an invitation rather than one more option name. */
+    .custom-palette-btn { font-weight: 600; }
+    #colors-popup-body td:has(.custom-meaning), #colors-popup-body td:has(.palette-swatch) { vertical-align: middle; }
+    #colors-popup-body tr:has(.custom-meaning) td:first-child { vertical-align: middle; }
+    /* Custom's table: a color well and a free-text field per note. */
+    #colors-popup-body .palette-swatch input[type="color"] { width: 34px; height: 24px; }
+    #colors-popup-body td:has(.custom-meaning) { width: 100%; }
+    .custom-meaning {
+      width: 100%; min-width: 0; padding: 4px 6px; font: inherit; font-size: var(--ui-font);
+      color: var(--text); background: var(--surface); border: 1px solid var(--surface-border); border-radius: 4px;
+      -webkit-user-select: text; user-select: text;
+    }
+    .custom-meaning::placeholder { color: var(--text-muted); opacity: 0.45; }
+    .lib-tip { font-size: var(--ui-font-sm); color: var(--text-muted); opacity: 0.8; margin: 0 0 8px; }
     dialog#colors-popup h2 {
       font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em;
       opacity: 0.9; margin-bottom: 14px;
