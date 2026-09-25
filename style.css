@@ -240,8 +240,12 @@
     .scale-name-row-left { display: none; }
     /* Parked into .scale-name-row-left in app mode only — see
        applyHeaderPlacement() in app.js — inert on desktop otherwise. */
-    #view-mode-switch { display: none; }
-    .scale-name-row-left #view-mode-switch { display: inline-flex; }
+    #view-mode-switch { display: inline-flex; flex: 0 0 auto; }
+    /* Library title with the Basic/Full switch at its right. */
+    .ref-lib-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    html .col-ref .ref-lib-head #ref-library-label { margin-bottom: 0; }
+    /* In the popup the close button floats top-right; keep clear of it. */
+    dialog.mobile-popup .ref-lib-head { margin-right: 44px; }
     /* Basic/Full switch: a small pill with both labels, the current one
        filled. Sized to sit under the title without making the row any
        taller than the buttons to its right already do. */
@@ -327,7 +331,25 @@
        a shade darker, like a key pushed down into the keybed. touch-action
        none so a finger can slide along the keys (a glissando) without the
        page trying to scroll. */
-    #piano { touch-action: none; }
+    #piano, #fretboard { touch-action: none; } /* glissando / strumming */
+    /* A fretboard bead that just sounded shivers across its string (see
+       shakeFretBead); in drawing units, so it scales with the neck. */
+    #fretboard .fb-bead.fb-shake {
+      animation: fb-shake 0.5s ease-out;
+      transform-box: fill-box; transform-origin: center; /* grow about its own centre */
+    }
+    /* Shivers across the string and pulses in size, dying away — big
+       enough to spot which note just sounded. */
+    @keyframes fb-shake {
+      0%   { transform: translateY(0) scale(1); }
+      12%  { transform: translateY(2px) scale(1.4); }
+      28%  { transform: translateY(-1.6px) scale(0.92); }
+      45%  { transform: translateY(1.1px) scale(1.22); }
+      62%  { transform: translateY(-0.6px) scale(0.97); }
+      80%  { transform: translateY(0.3px) scale(1.07); }
+      100% { transform: translateY(0) scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) { #fretboard .fb-bead.fb-shake { animation: none; } }
     #piano .piano-key, #piano .piano-key-hit { cursor: pointer; }
     #piano .piano-key-white { fill: #f4f2ee; stroke: #8a8a8a; stroke-width: 1; }
     #piano .piano-key-black { fill: #1c1c1c; stroke: #000000; stroke-width: 1; }
@@ -349,18 +371,22 @@
     html #fretboard-wrap.keys #piano { min-width: 0; }
     .pedals { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 10px; flex: 0 0 48px; padding-bottom: 4px; }
     .pedals[hidden] { display: none; }
+    /* A piano pedal: a brushed-metal plate with a straight, narrow neck at
+       the hinge, widening to a rounded toe, its name on it (index.html
+       draws it). Held down, it dips and darkens. */
     .pedal {
-      width: 44px; border-radius: 6px 6px 12px 12px; cursor: pointer;
-      background: linear-gradient(180deg, #f0d98a 0%, #c9a54a 55%, #9b7a2c 100%);
-      border: 1px solid #5d4712; box-shadow: 0 4px 0 #4a380c, 0 5px 8px rgba(0,0,0,0.45);
-      color: #3b2c08; font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
-      display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px;
+      width: 40px; padding: 0; border: none; background: none; cursor: pointer;
       touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
-      transition: transform 0.05s ease, box-shadow 0.05s ease, filter 0.05s ease;
+      filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.5));
     }
-    .pedal-soft { height: 56px; }
-    .pedal-sustain { height: 84px; }
-    .pedal.down { transform: translateY(4px); box-shadow: 0 0 0 #4a380c, 0 1px 3px rgba(0,0,0,0.45); filter: brightness(0.85); }
+    .pedal svg { display: block; width: 100%; height: 100%; overflow: visible; }
+    .pedal { height: 84px; }
+    .pedal .pedal-plate { stroke: #6a6a6e; stroke-width: 0.8; }
+    /* As big as the toe allows ("SUS-" is the widest line), and still a
+       step under the bead labels (13px). */
+    .pedal text { font-size: 11px; font-weight: 800; fill: #111; }
+    .pedal svg { transition: transform 0.05s ease, filter 0.05s ease; }
+    .pedal.down svg { transform: translateY(3px); filter: brightness(0.85); }
 
     .mode-controls { display: flex; align-items: center; gap: 8px; outline: none; margin-top: 10px; }
     .arm-btn { min-width: 28px; padding: 4px 8px; font-size: var(--ui-font); }
@@ -384,7 +410,8 @@
     /* Same fix, same reasoning, now that Families/Modes is a .hand-toggle
        pill pair instead of two <label>s — .hand-toggle's own display:flex
        (below) would otherwise just as silently defeat [hidden] on it. */
-    #rowmode-toggle[hidden] { display: none; }
+    #rowmode-switch[hidden] { display: none; }
+    .ref-controls .led-toggle { margin-bottom: 0; font-size: var(--ui-font-sm); }
     /* These two remaining controls only reformat how the table displays —
        unlike the note-count buttons (now up in the root row), neither
        changes which scale is actually loaded. */
@@ -1553,7 +1580,6 @@
       -webkit-user-select: text; user-select: text;
     }
     .custom-meaning::placeholder { color: var(--text-muted); opacity: 0.45; }
-    .lib-tip { font-size: var(--ui-font-sm); color: var(--text-muted); opacity: 0.8; margin: 0 0 8px; }
     dialog#colors-popup h2 {
       font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em;
       opacity: 0.9; margin-bottom: 14px;

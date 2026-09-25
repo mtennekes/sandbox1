@@ -17,20 +17,10 @@
 </head>
 <body>
 
-<!-- Source spot for the title and Basic/Full switch — app.js parks both
-     into the scale-name row (applyHeaderPlacement), so this row itself is
-     never shown. -->
+<!-- Source spot for the title — app.js parks it into the scale-name row,
+     so this row itself is never shown. -->
 <div class="header-row">
   <h1>SpiceMap</h1>
-  <!-- A small two-position switch that sits directly UNDER the "SpiceMap"
-       title, not beside it — beside it, the title+control block ate enough
-       of the portrait row that the scale name often no longer fit. Both
-       labels always showing, with the current one filled in, says what the
-       setting is and which way it's set in one glance. The whole switch is
-       the tap target. -->
-  <button type="button" id="view-mode-switch" class="mode-switch" role="switch" aria-checked="false" aria-label="Basic view">
-    <span class="mode-switch-opt" data-mode="beginner">Basic</span><span class="mode-switch-opt" data-mode="advanced">Full</span>
-  </button>
 </div>
 
 <script>
@@ -233,6 +223,28 @@
              octaves (and key length) for the piano. Remembered separately
              for the upright and lying-down layouts — see
              refreshInstrumentSizeControls in app.js. -->
+        <!-- Stringed instruments only (hidden for piano — see
+             updateInstrumentUI): how the fretboard responds to playing. -->
+        <div class="setup-group" id="playing-group">
+          <div class="label">Playing</div>
+          <!-- On: drag a bead along its string to change the scale. Off:
+               beads only play — for when you're playing, not editing. -->
+          <label class="led-toggle">
+            <input type="checkbox" id="move-beads-toggle">
+            <span class="drone-led" aria-hidden="true"></span>
+            <span>Move beads</span>
+          </label>
+          <!-- What a swipe across the strings plays on each string: the
+               scale/chord note nearest to where it crosses, or exactly the
+               fret it crosses at. -->
+          <div class="inline-field strum-field">Strum
+            <div class="hand-toggle" id="strum-mode-toggle">
+              <button type="button" class="hand-btn" data-strum="scale">Scale notes</button>
+              <button type="button" class="hand-btn" data-strum="exact">Exact frets</button>
+            </div>
+          </div>
+        </div>
+
         <div class="setup-group" id="instrument-size-group">
           <div class="label" id="instrument-size-label">Frets</div>
           <div class="hand-toggle" id="instrument-size-toggle"></div>
@@ -265,8 +277,32 @@
              thumb can hold one down while the fingers play. Held, not
              toggled — like a real pedal. See "pedals" in app.js. -->
         <div id="pedals" class="pedals" hidden>
-          <button type="button" class="pedal pedal-soft" data-pedal="soft" aria-label="Soft pedal — hold to play quieter">Soft</button>
-          <button type="button" class="pedal pedal-sustain" data-pedal="sustain" aria-label="Sustain pedal — hold to let notes ring">Sustain</button>
+          <button type="button" class="pedal" data-pedal="soft" aria-label="Soft pedal — hold to play quieter">
+            <svg viewBox="0 0 40 84" aria-hidden="true">
+              <defs>
+                <linearGradient id="pedal-metal-soft" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0" stop-color="#a9a9ac"/><stop offset="0.25" stop-color="#dcdcde"/>
+                  <stop offset="0.5" stop-color="#fafafa"/><stop offset="0.75" stop-color="#dcdcde"/>
+                  <stop offset="1" stop-color="#a4a4a7"/>
+                </linearGradient>
+              </defs>
+              <path class="pedal-plate" d="M12 2 Q20 -1 28 2 L28 26 Q36 32 36 52 Q37 82 20 83 Q3 82 4 52 Q4 32 12 26 Z" fill="url(#pedal-metal-soft)"/>
+              <text x="20" y="62" text-anchor="middle">SOFT</text>
+            </svg>
+          </button>
+          <button type="button" class="pedal" data-pedal="sustain" aria-label="Sustain pedal — hold to let notes ring">
+            <svg viewBox="0 0 40 84" aria-hidden="true">
+              <defs>
+                <linearGradient id="pedal-metal-sustain" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0" stop-color="#a9a9ac"/><stop offset="0.25" stop-color="#dcdcde"/>
+                  <stop offset="0.5" stop-color="#fafafa"/><stop offset="0.75" stop-color="#dcdcde"/>
+                  <stop offset="1" stop-color="#a4a4a7"/>
+                </linearGradient>
+              </defs>
+              <path class="pedal-plate" d="M12 2 Q20 -1 28 2 L28 26 Q36 32 36 52 Q37 82 20 83 Q3 82 4 52 Q4 32 12 26 Z" fill="url(#pedal-metal-sustain)"/>
+              <text x="20" y="57" text-anchor="middle">SUS-</text><text x="20" y="69" text-anchor="middle">TAIN</text>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -276,19 +312,17 @@
 
   <div class="col-ref">
     <div class="section">
-      <div class="label" id="ref-library-label">Browse scales</div>
+      <!-- Basic/Full is about what this list offers (a short curated list,
+           or the whole catalog), so it lives here, at the top of it, not
+           on the main screen. Both labels always showing, the current one
+           filled in; the whole switch is the tap target. -->
+      <div class="ref-lib-head">
+        <div class="label" id="ref-library-label">Browse scales</div>
+        <button type="button" id="view-mode-switch" class="mode-switch" role="switch" aria-checked="false" aria-label="Basic list">
+          <span class="mode-switch-opt" data-mode="beginner">Basic</span><span class="mode-switch-opt" data-mode="advanced">Full</span>
+        </button>
+      </div>
       <div class="ref-controls">
-        <!-- A chord type has no modal rotations to group by the way a scale
-             family does, so this pair is meaningless in chord mode — see
-             setChordMode() in app.js, which hides it there. Pill buttons
-             (matching the .hand-btn look used everywhere else — root
-             picker, note-count, instrument buttons) rather than native
-             radios, which were the one control left in this whole app
-             still using the browser's own default form-control styling.
-             Modes is the default (not Families) — it's the view that
-             actually shows a scale's own flavor/character, with the
-             family it belongs to still labeled via each group's own
-             header (see addGroupHeader in app.js) rather than lost. -->
         <!-- How many notes: a filter on this list (All by default), not a
              setting of the abacus — the abacus changes its own number of
              beads by tapping an empty spot / dragging a bead off. Filled
@@ -297,13 +331,16 @@
           <span class="ref-controls-hint">Notes:</span>
           <div class="hand-toggle" id="lib-count-toggle"></div>
         </div>
-        <span class="ref-controls-hint" id="rowmode-hint">Display:</span>
-        <div class="hand-toggle" id="rowmode-toggle">
-          <button type="button" id="rowmode-families-btn" class="hand-btn" data-rowmode="families">Families</button>
-          <button type="button" id="rowmode-modes-btn" class="hand-btn active" data-rowmode="modes">Modes</button>
-        </div>
+        <!-- On (the default): every mode of every family, under a family
+             heading. Off: one row per family — a compact overview. Same
+             lamp switch as Setup's Perspective. Scales only: a chord type
+             has no modes, so it's hidden in chord mode (syncChordModeUI). -->
+        <label class="led-toggle" id="rowmode-switch">
+          <input type="checkbox" id="rowmode-toggle" checked>
+          <span class="drone-led" aria-hidden="true"></span>
+          <span>Show modes</span>
+        </label>
       </div>
-      <p class="lib-tip">Tip: tap an empty spot on the abacus to add a note, or drag a bead off it to remove one.</p>
       <div id="ref-table-wrap"></div>
     </div>
   </div>

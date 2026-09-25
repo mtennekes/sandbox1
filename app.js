@@ -833,7 +833,8 @@ function setViewMode(mode) {
   const modeSwitch = document.getElementById('view-mode-switch');
   modeSwitch.setAttribute('aria-checked', mode === 'beginner' ? 'true' : 'false');
   modeSwitch.querySelectorAll('.mode-switch-opt').forEach(o => o.classList.toggle('active', o.dataset.mode === mode));
-  document.getElementById('mode-controls').style.display = mode === 'beginner' ? 'none' : '';
+  // Only the library changes — the mode stepper and voicing stay on the
+  // main screen in both, which is why the switch lives in the library.
   // Beginner keeps #notecount-group (the Scale/Chord toggle, which
   // Beginner needs too — see the split in renderTable's beginner branch).
   document.getElementById('notecount-group').style.display = '';
@@ -1446,16 +1447,193 @@ function wrapVertical(svg, rot) {
   });
 }
 
+// Every fretboard note goes through here: it sounds (noteOn), its bead
+// shivers, and its string visibly vibrates.
+function playFret(s, f) {
+  shakeFretBead(s, f);
+  vibrateString(s, f);
+  return noteOn(effectiveOpenMidi(s) + f);
+}
+function shakeFretBead(s, f) {
+  const bead = document.querySelector(`#fretboard .fb-bead[data-s="${s}"][data-f="${f}"]`);
+  if (!bead) return;
+  bead.classList.remove('fb-shake');
+  void bead.getBoundingClientRect(); // restart the animation if it's still running
+  bead.classList.add('fb-shake');
+}
+// A plucked string bends into a shallow triangle between the fret it's
+// stopped at and the far end, swinging back and forth and dying away. The
+// real line is hidden while a temporary polyline draws that shape.
+// Everything is in the drawing's own (pre-rotation) coordinates, where a
+// string runs along x — so the swing along y is across the string in both
+// layouts.
+const stringVibes = new Map(); // string index -> { frame, path, line }
+function vibrateString(s, f) {
+  const line = document.querySelector(`#fretboard .fb-string[data-s="${s}"]`);
+  if (!line || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const prev = stringVibes.get(s);
+  if (prev) { cancelAnimationFrame(prev.frame); prev.path.remove(); }
+  const x1 = +line.getAttribute('x1'), y1 = +line.getAttribute('y1');
+  const x2 = +line.getAttribute('x2'), y2 = +line.getAttribute('y2');
+  // Where the string is stopped: the fret wire (or the nut for an open string).
+  const xs = mirror(fbFXs(f, s));
+  const ts = Math.max(0, Math.min(1, (xs - x1) / (x2 - x1)));
+  const at = t => [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t];
+  const [sx, sy] = at(ts), [ax, ay] = at(ts + (1 - ts) / 2);
+  const path = mk('polyline', {
+    fill: 'none', stroke: line.getAttribute('stroke'), 'stroke-width': line.getAttribute('stroke-width'),
+    'pointer-events': 'none',
+  });
+  line.parentNode.insertBefore(path, line.nextSibling);
+  line.style.opacity = '0';
+  const start = performance.now();
+  const entry = { path, line, frame: 0 };
+  stringVibes.set(s, entry);
+  const amp = 3 + Number(line.getAttribute('stroke-width'));
+  const finish = () => {
+    cancelAnimationFrame(entry.frame);
+    path.remove();
+    if (stringVibes.get(s) === entry) { stringVibes.delete(s); line.style.opacity = ''; }
+  };
+  // Backstop: animation frames don't run while the app is in the
+  // background, and the real string must never be left hidden.
+  setTimeout(finish, 800);
+  (function frame(now) {
+    const t = (now - start) / 1000;
+    if (t > 0.7 || !path.isConnected) { finish(); return; }
+    const off = amp * Math.cos(2 * Math.PI * 11 * t) * Math.exp(-t / 0.2);
+    path.setAttribute('points', `${x1},${y1} ${sx},${sy} ${ax},${ay + off} ${x2},${y2}`);
+    entry.frame = requestAnimationFrame(frame);
+  })(start);
+}
+
+// Instrument menu > Playing (stringed instruments).
+//   moveBeads — dragging a fretboard bead along its string changes the
+//               scale (on by default); off, beads only play.
+//   strumMode — what a strum sounds on each string: 'scale' = the scale/
+//               chord note nearest to where the finger crosses; 'exact' =
+//               whatever fret it crosses at, in the scale or not.
+let moveBeads = localStorage.getItem('n4a-move-beads') !== 'false';
+let strumMode = localStorage.getItem('n4a-strum-mode') === 'exact' ? 'exact' : 'scale';
+function refreshPlayingControls() {
+  document.getElementById('move-beads-toggle').checked = moveBeads;
+  document.querySelectorAll('#strum-mode-toggle [data-strum]').forEach(b =>
+    b.classList.toggle('active', b.dataset.strum === strumMode));
+}
+document.getElementById('move-beads-toggle').addEventListener('change', e => {
+  moveBeads = e.target.checked;
+  localStorage.setItem('n4a-move-beads', moveBeads);
+  renderFretboard();
+});
+document.querySelectorAll('#strum-mode-toggle [data-strum]').forEach(b => b.addEventListener('click', () => {
+  strumMode = b.dataset.strum;
+  localStorage.setItem('n4a-strum-mode', strumMode);
+  refreshPlayingControls();
+}));
+refreshPlayingControls();
+
+// ── strumming ──
+// Swiping across the strings strums them: each string the finger crosses
+// sounds, like dragging a pick across. Which fret it sounds at depends on
+// strumMode: 'exact' — the fret it crosses at; 'scale' — the note of the
+// current scale/chord nearest to where it crosses that string (within two
+// frets; a string with none nearby stays silent), so in chord mode a swipe
+// near a chord shape plays that chord. Tracked on
+// the <svg> itself, on top of whatever the finger first touched (a bead,
+// an empty fret, bare wood); events from those bubble up here.
+const fretStrums = new Map(); // pointerId -> { u, last, active, notes }
+function isStrumming(pointerId) {
+  const st = fretStrums.get(pointerId);
+  return !!(st && st.active);
+}
+// Pointer -> canonical fretboard coordinates (undoing the upright
+// rotation and the left-handed mirror the drawing was given).
+function fretCanonicalPoint(svg, e) {
+  const m = svg.getScreenCTM();
+  if (!m) return null;
+  const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+  let x = p.x, y = p.y;
+  if (verticalInstrumentMode()) [x, y] = verticalRotation() === 90 ? [p.y, -p.x] : [-p.y, p.x];
+  return { x: mirror(x), y }; // mirror() is its own inverse
+}
+// Fractional string index under a point: 0 = the first string, 1 = the
+// next, … (the spread is linear in the string index at any one x).
+function stringIndexAt(pt) {
+  const y0 = STRING_Y(0, pt.x), y1 = STRING_Y(1, pt.x);
+  return (pt.y - y0) / (y1 - y0);
+}
+function strumNote(s, x) {
+  let fret = 0, best = Infinity;
+  for (let f = 0; f <= FRET_COUNT; f++) {
+    const d = Math.abs(fbMX(f) - x);
+    if (d < best) { best = d; fret = f; }
+  }
+  if (strumMode === 'exact') return playFret(s, fret);
+  for (let d = 0; d <= 2; d++) {
+    for (const f of [fret - d, fret + d]) {
+      if (f < 0 || f > FRET_COUNT) continue;
+      if (scaleOffsets.includes(semitone((effectiveOpenPc(s) + f) % 12))) return playFret(s, f);
+    }
+  }
+  return null;
+}
+(function wireFretboardStrum() {
+  const svg = document.getElementById('fretboard');
+  svg.addEventListener('pointerdown', e => {
+    const pt = fretCanonicalPoint(svg, e);
+    if (!pt) return;
+    const u = stringIndexAt(pt);
+    fretStrums.set(e.pointerId, { u, last: Math.round(u), active: false, notes: [] });
+    // Keep hearing about this finger if it started on bare wood. Not when it
+    // started on a bead or fret spot: that one captures the finger itself,
+    // and grabbing it here first could make the spot's own capture fail —
+    // which is what silently stopped out-of-scale notes from playing.
+    if (!e.target.classList.contains('fb-hit')) {
+      try { svg.setPointerCapture(e.pointerId); } catch (_) { /* not a live pointer */ }
+    }
+  }, true);
+  svg.addEventListener('pointermove', e => {
+    const st = fretStrums.get(e.pointerId);
+    if (!st) return;
+    const pt = fretCanonicalPoint(svg, e);
+    if (!pt) return;
+    const u = stringIndexAt(pt);
+    const lo = Math.min(st.u, u), hi = Math.max(st.u, u);
+    // Every string line passed since the last move, in the order passed.
+    const crossed = [];
+    for (let k = Math.ceil(lo); k <= Math.floor(hi); k++) if (k >= 0 && k < STRING_COUNT) crossed.push(k);
+    if (u < st.u) crossed.reverse();
+    crossed.forEach(k => {
+      if (k === st.last) return;
+      st.last = k;
+      st.active = true;
+      const note = strumNote(k, pt.x);
+      if (note) st.notes.push(note);
+    });
+    st.u = u;
+  });
+  const end = e => {
+    const st = fretStrums.get(e.pointerId);
+    if (!st) return;
+    st.notes.forEach(n => n.release());
+    // Removed after the bead's own pointerup has had its look (isStrumming).
+    setTimeout(() => fretStrums.delete(e.pointerId), 0);
+  };
+  svg.addEventListener('pointerup', end);
+  svg.addEventListener('pointercancel', end);
+})();
+
 // A fretboard spot that plays for as long as it's held (see noteOn) —
 // starting on pointerdown rather than click, which only fires on release.
-function holdToPlay(el, midi) {
+function holdToPlay(el, s, f) {
   let note = null;
   const lift = () => { if (note) { note.release(); note = null; } };
+  el.classList.add('fb-hit');
   el.addEventListener('pointerdown', e => {
     e.preventDefault();
-    el.setPointerCapture(e.pointerId);
     lift();
-    note = noteOn(midi);
+    note = playFret(s, f); // sound first — nothing below may stop it
+    try { el.setPointerCapture(e.pointerId); } catch (_) { /* not a live pointer */ }
   });
   el.addEventListener('pointerup', lift);
   el.addEventListener('pointercancel', lift);
@@ -1568,10 +1746,11 @@ function renderFretboard() {
   // screen direction a local -x actually points.
   const downDX = vertical ? arrowDist * vSign : -arrowDist;
   const upDX = vertical ? -(arrowDist + 2) * vSign : arrowDist;
-  // Extra clearance from the open-string note dot in portrait too (36 vs
-  // 26) — same "felt cramped" report covered the whole tuner cluster's
-  // distance from the string, not just the arrow size.
-  const tunerClearance = vertical ? 36 : 26;
+  // Clearance between the tuner and the open-string note dot: wide enough
+  // that the nearer arrow sits outside the dot's own (enlarged) touch area
+  // — at the old 36/26 they touched, and playing an open string kept
+  // retuning it by accident.
+  const tunerClearance = vertical ? 50 : 38;
   for (let s = 0; s < STRING_COUNT; s++) {
     const y = STRING_Y(s, openX);
     // Clearance from the open-string note dot scales with that dot's own
@@ -1591,9 +1770,9 @@ function renderFretboard() {
         class: tier === 'free' ? 'locked' : ''
       }, downGlyph);
       if (tier === 'free') down.appendChild(mk('title', {}, PAID_FEATURE_MESSAGE));
-      // Swapped per request: this is the "down" *position/glyph*, but now
-      // raises pitch — and the "up" position below now lowers it.
-      else down.addEventListener('click', () => adjustTuning(s, 1));
+      // Arrow direction = pitch direction: ∨ (portrait) / < (landscape)
+      // tunes the string down a semitone, ∧ / > tunes it up.
+      else down.addEventListener('click', () => adjustTuning(s, -1));
       svg.appendChild(down);
     }
 
@@ -1609,7 +1788,7 @@ function renderFretboard() {
         class: tier === 'free' ? 'locked' : ''
       }, upGlyph);
       if (tier === 'free') up.appendChild(mk('title', {}, PAID_FEATURE_MESSAGE));
-      else up.addEventListener('click', () => adjustTuning(s, -1));
+      else up.addEventListener('click', () => adjustTuning(s, 1));
       svg.appendChild(up);
     }
   }
@@ -1675,7 +1854,8 @@ function renderFretboard() {
     svg.appendChild(mk('line', {
       x1: mirror(fbMXs(0, s)), y1: STRING_Y(s, openX),
       x2: mirror(fbFXs(FRET_COUNT, s)), y2: STRING_Y(s, END_X),
-      stroke: '#8a8a8a', 'stroke-width': (thinMin + s * (thinMax - thinMin) / last).toFixed(2)
+      stroke: '#8a8a8a', 'stroke-width': (thinMin + s * (thinMax - thinMin) / last).toFixed(2),
+      class: 'fb-string', 'data-s': s
     }));
   }
 
@@ -1746,7 +1926,7 @@ function renderFretboard() {
 
     const circle = mk('circle', {
       cx: mirror(x), cy: y, r,
-      fill: icolor(st), opacity: 1,
+      fill: icolor(st), opacity: 1, class: 'fb-bead', 'data-s': s, 'data-f': f,
       stroke: 'rgba(255,255,255,0.55)', 'stroke-width': 1.5,
       'pointer-events': 'none', // the invisible hit circle below is what actually receives touches
     });
@@ -1761,7 +1941,7 @@ function renderFretboard() {
     // is usually several frets away (most frets aren't in the current
     // scale at all) — there's little to actually collide with.
     const hit = mk('circle', {
-      cx: mirror(x), cy: y, r: Math.max(r * 2.2, 16),
+      cx: mirror(x), cy: y, r: Math.max(r * 2.2, 16), class: 'fb-hit',
       fill: 'transparent', cursor: 'pointer',
       // touch-action: none is what makes a drag start the instant the
       // finger moves, rather than after a delay — without it, the browser
@@ -1773,8 +1953,10 @@ function renderFretboard() {
       style: 'touch-action: none;',
     });
 
-    if (idx === 0) {
-      holdToPlay(hit, midi);
+    // The root never moves (a scale is defined relative to it); with Move
+    // beads off, none of them do.
+    if (idx === 0 || !moveBeads) {
+      holdToPlay(hit, s, f);
       svg.appendChild(hit);
       return;
     }
@@ -1787,8 +1969,8 @@ function renderFretboard() {
     // will follow at all.
     hit.addEventListener('pointerdown', e => {
       e.preventDefault();
-      drag = { startX: e.clientX, startY: e.clientY, moved: false, lastMidi: midi, result: null, note: noteOn(midi) };
-      hit.setPointerCapture(e.pointerId);
+      drag = { startX: e.clientX, startY: e.clientY, moved: false, lastMidi: midi, result: null, note: playFret(s, f) };
+      try { hit.setPointerCapture(e.pointerId); } catch (_) { /* not a live pointer */ }
     });
     hit.addEventListener('pointermove', e => {
       if (!drag || !candidates.length) return;
@@ -1814,14 +1996,16 @@ function renderFretboard() {
       if (best.midi !== drag.lastMidi) {
         drag.lastMidi = best.midi;
         drag.note.release();
-        drag.note = noteOn(best.midi);
+        drag.note = playFret(s, best.f);
       }
     });
-    hit.addEventListener('pointerup', () => {
+    hit.addEventListener('pointerup', e => {
       if (!drag) return;
       const result = drag.moved ? drag.result : null;
       drag.note.release();
       drag = null;
+      // A strum that happened to start on this bead isn't a drag of it.
+      if (isStrumming(e.pointerId)) { if (result) renderFretboard(); return; }
       if (result && result.st !== st) { scaleOffsets[idx] = result.st; render(); }
     });
     ['pointercancel', 'lostpointercapture'].forEach(type => hit.addEventListener(type, () => {
@@ -1840,7 +2024,7 @@ function renderFretboard() {
       cx: mirror(x), cy: STRING_Y(s, cx), r: fbR(s),
       fill: 'transparent', cursor: 'pointer', style: 'touch-action: none;'
     });
-    holdToPlay(hit, midi);
+    holdToPlay(hit, s, f);
     svg.appendChild(hit);
   });
 
@@ -2012,6 +2196,7 @@ function updateInstrumentUI() {
   organBtn.classList.toggle('active', family === 'piano' && keyboardSound === 'organ');
   organBtn.style.display = tier === 'free' ? 'none' : '';
   document.getElementById('pedals').hidden = family !== 'piano';
+  document.getElementById('playing-group').style.display = family === 'piano' ? 'none' : '';
   document.getElementById('fretboard-wrap').classList.toggle('keys', family === 'piano');
 
   document.getElementById('guitar-strings-wrap').style.display = family === 'guitar' ? 'flex' : 'none';
@@ -2386,9 +2571,7 @@ function syncChordModeUI() {
   document.getElementById('ref-library-label').textContent = on ? 'Browse chords' : 'Browse scales';
   // Families/Modes has no chord-mode equivalent (see the HTML comment) —
   // hidden rather than left showing a control that does nothing.
-  ['rowmode-hint', 'rowmode-toggle'].forEach(id => {
-    document.getElementById(id).hidden = on;
-  });
+  document.getElementById('rowmode-switch').hidden = on;
   // Voicing is a chord-only concept (see applyVoicing) — same reasoning.
   document.getElementById('voicing-select').hidden = !on;
 }
@@ -2700,16 +2883,8 @@ function renderTable() {
   });
 
   wrap.appendChild(container);
-  scrollLibraryToCurrent();
 }
 
-// Brings the row for what's loaded into view (with "All", a 7-note scale
-// sits below the 5- and 6-note sections). 'nearest' leaves it alone if
-// it's already visible, so tapping rows while browsing never jumps.
-function scrollLibraryToCurrent() {
-  const cur = document.querySelector('#ref-table-wrap .ref-row-current');
-  if (cur && cur.offsetParent) requestAnimationFrame(() => cur.scrollIntoView({ block: 'nearest' }));
-}
 
 // ── §7 audio (Tone.js) ────────────────────────────────────────────────────────
 //
@@ -3845,6 +4020,39 @@ function previewScale(set, pulse) {
       if (delayMs <= 0) fire(); else setTimeout(fire, delayMs);
     };
 
+    // The organ plays differently. An organ note doesn't decay, so short
+    // detached notes sound choppy, and re-striking a pitch that's already
+    // sounding (the arpeggio over a still-ringing chord) doesn't work on it
+    // — the sampler releases every voice of that pitch together, so each
+    // arpeggio note also cut its chord note off. Instead: a chord builds
+    // up from the bottom, each note joining and holding until the full
+    // chord sounds together; a scale is played legato, each note held
+    // right up to the next.
+    const organ = INSTRUMENT_FAMILY[instrument] === 'piano' && keyboardSound === 'organ';
+    if (organ) {
+      if (chordMode) {
+        const midis = applyVoicing(set.map(offset => midiFor(bumpedOffset(offset))), chordVoicing);
+        const run = set.map((_, idx) => ({ midi: midis[idx], idx })).sort((a, b) => a.midi - b.midi);
+        const end = now + run.length * step * 1.5 + 1.2;
+        run.forEach(({ midi, idx }, i) => {
+          const t = now + i * step * 1.5;
+          sampler.triggerAttackRelease(midiToFreq(midi), end - t, t);
+          pulseAt(idx, t);
+        });
+      } else {
+        const run = set
+          .map((offset, idx) => ({ offset: bumpedOffset(offset), idx }))
+          .concat([{ offset: 12, idx: 0 }])
+          .sort((a, b) => a.offset - b.offset);
+        run.forEach(({ offset, idx }, i) => {
+          const last = i === run.length - 1;
+          sampler.triggerAttackRelease(midiToFreq(midiFor(offset)), last ? step * 3 : step, now + i * step);
+          pulseAt(idx, now + i * step);
+        });
+      }
+      return;
+    }
+
     if (chordMode) {
       // Strike the full chord together first (let it ring — the ONLY way
       // to actually hear "is this the voicing I think it is"), a short
@@ -4220,12 +4428,9 @@ document.getElementById('tuning-preset').addEventListener('change', e => {
 });
 
 // wire up reference-table controls
-document.querySelectorAll('#rowmode-toggle button').forEach(b => {
-  b.onclick = () => {
-    refRowMode = b.dataset.rowmode;
-    document.querySelectorAll('#rowmode-toggle button').forEach(x => x.classList.toggle('active', x === b));
-    renderTable();
-  };
+document.getElementById('rowmode-toggle').addEventListener('change', e => {
+  refRowMode = e.target.checked ? 'modes' : 'families';
+  renderTable();
 });
 document.getElementById('mode-scale-btn').onclick = () => setChordMode(false);
 document.getElementById('mode-chord-btn').onclick = () => setChordMode(true);
@@ -4398,7 +4603,6 @@ function openReflibPopup() {
   restoreReflibNodes = parkNodes([document.querySelector('.col-ref')], reflibPopupBody);
   reflibPopup.showModal();
   document.getElementById('reflib-open-btn').setAttribute('aria-expanded', 'true');
-  scrollLibraryToCurrent();
 }
 document.getElementById('reflib-open-btn').addEventListener('click', openReflibPopup);
 
@@ -4422,11 +4626,10 @@ parkNodes([document.getElementById('instrument-label')], quickbar);
 parkNodes([document.getElementById('sample-loading')], document.getElementById('fretboard-wrap'));
 updateInstrumentUI();
 
-// "SpiceMap" and the Basic/Full switch move out of .header-row (never
-// shown) into the left of the scale-name row, stacked — see
-// #view-mode-switch in index.html.
+// "SpiceMap" moves out of .header-row (never shown) into the left of the
+// scale-name row.
 const scaleNameRowLeft = document.getElementById('scale-name-row-left');
-parkNodes([document.querySelector('.header-row h1'), document.getElementById('view-mode-switch')], scaleNameRowLeft);
+parkNodes([document.querySelector('.header-row h1')], scaleNameRowLeft);
 
 // Mode(Scale/Chord)+note-count move out of #root-row (which only keeps the
 // Root picker) and into the scale-name row's right side, alongside Browse.
