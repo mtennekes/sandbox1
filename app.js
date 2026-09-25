@@ -1091,6 +1091,7 @@ if (!TUNINGS[instrument] && instrument !== 'piano') instrument = 'guitar'; // gu
 // Free tier only has guitar/piano — fall back if a stale localStorage value
 // (from a previous paid session, or a different tier) points elsewhere.
 if (tier === 'free' && !['guitar', 'guitar7', 'guitar8', 'piano'].includes(instrument)) instrument = 'guitar';
+if (tier === 'free') localStorage.setItem('n4a-keyboard-sound', 'piano'); // organ is paid-only
 
 // Last-used string count per family, so switching Guitar -> Bass -> Guitar
 // comes back to whichever guitar variant you had, not always the 6-string.
@@ -1098,6 +1099,15 @@ let guitarStrings = INSTRUMENT_FAMILY[instrument] === 'guitar' ? stringsOf(instr
 let bassStrings   = INSTRUMENT_FAMILY[instrument] === 'bass'   ? stringsOf(instrument) : (Number(localStorage.getItem('n4a-bass-strings')) || 4);
 // Free tier has no 7/8-string guitar.
 if (tier === 'free' && guitarStrings !== 6) { guitarStrings = 6; instrument = 'guitar'; }
+
+// The keyboard can sound as a piano or an organ — one instrument
+// ('piano') as far as drawing and fingering go, two buttons in the
+// Instrument menu. The organ also looks different (see renderPiano).
+let keyboardSound = localStorage.getItem('n4a-keyboard-sound') === 'organ' ? 'organ' : 'piano';
+function setKeyboardSound(v) {
+  keyboardSound = v;
+  localStorage.setItem('n4a-keyboard-sound', v);
+}
 
 function resolveInstrumentKey(family) {
   if (family === 'guitar') return guitarStrings === 6 ? 'guitar' : 'guitar' + guitarStrings;
@@ -1541,6 +1551,9 @@ function renderFretboard() {
   // between them.
   const arrowDist = vertical ? 20 : 15;
   const arrowFontSize = vertical ? 27 : 17;
+  // Pinned to ~17 on-screen px like the rest of the drawing's text (see
+  // syncSvgTextScale), never bigger than the size it was drawn for.
+  const arrowStyle = `font-size: min(calc(17px / var(--k, 1)), ${arrowFontSize}px)`;
   // Portrait only, both of these: a user found the knobs small and a
   // little dim there while being happy with them in landscape, which is
   // why every one of these is a vertical? ... : <unchanged landscape value>.
@@ -1571,7 +1584,7 @@ function renderFretboard() {
     // why, rather than removing them outright.
     {
       const down = mk('text', {
-        x: vcx + downDX, y: y + 4, 'text-anchor': 'middle', 'font-size': arrowFontSize, 'font-weight': 'bold',
+        x: vcx + downDX, y: y + 4, 'text-anchor': 'middle', 'font-weight': 'bold', style: arrowStyle,
         fill: arrowFill, cursor: tier === 'free' ? 'not-allowed' : 'pointer',
         class: tier === 'free' ? 'locked' : ''
       }, downGlyph);
@@ -1589,7 +1602,7 @@ function renderFretboard() {
 
     {
       const up = mk('text', {
-        x: vcx + upDX, y: y + 4, 'text-anchor': 'middle', 'font-size': arrowFontSize, 'font-weight': 'bold',
+        x: vcx + upDX, y: y + 4, 'text-anchor': 'middle', 'font-weight': 'bold', style: arrowStyle,
         fill: arrowFill, cursor: tier === 'free' ? 'not-allowed' : 'pointer',
         class: tier === 'free' ? 'locked' : ''
       }, upGlyph);
@@ -1888,6 +1901,7 @@ function setOrientation(o) {
 // ── instrument switching (guitar / bass / piano) ─────────────────────────────
 
 function setInstrument(instr) {
+  if (INSTRUMENT_FAMILY[instr] !== 'piano' && pedalDown) setPedal(false); // the pedal belongs to the keyboard
   instrument = instr;
   localStorage.setItem('n4a-instrument', instr);
   if (instr !== 'piano') {
@@ -1912,12 +1926,29 @@ function setInstrument(instr) {
   currentNoteSampler();
 }
 
+// The instrument drawings are SVGs scaled to fit the screen, so a font
+// size inside them is in drawing units, not screen pixels — the same
+// number came out ~15px on a phone and ~30px on an iPad. This measures
+// each drawing's current px-per-unit and hands it to CSS as --k, which the
+// text rules divide by to land on fixed on-screen sizes (see the type
+// scale at the top of style.css). Re-run whenever a drawing is redrawn or
+// resized.
+function syncSvgTextScale() {
+  ['abacus', 'fretboard', 'piano'].forEach(id => {
+    const svg = document.getElementById(id);
+    const m = svg.getScreenCTM();
+    const k = m ? Math.hypot(m.a, m.b) : 0;
+    if (k > 0) svg.style.setProperty('--k', k);
+  });
+}
+
 function renderInstrumentView() {
   if (instrument === 'piano') renderPiano(); else renderFretboard();
   // Upright with the library sidebar, the instrument's column is sized to
   // its own drawing (see sizeLibrarySidebar) — a different instrument or
   // string count changes that.
   if (currentLayout) sizeLibrarySidebar();
+  syncSvgTextScale();
 }
 
 // Instrument menu > Frets / Octaves (+ Key length for the piano). The
@@ -1973,9 +2004,13 @@ function updateInstrumentUI() {
   const family = INSTRUMENT_FAMILY[instrument];
   ['guitar', 'bass', 'ukulele', 'mandolin', 'banjo', 'piano'].forEach(f => {
     const btn = document.getElementById('instr-' + f);
-    btn.classList.toggle('active', family === f);
+    btn.classList.toggle('active', family === f && !(f === 'piano' && keyboardSound === 'organ'));
     btn.style.display = (tier === 'free' && !FREE_TIER_FAMILIES.includes(f)) ? 'none' : '';
   });
+  const organBtn = document.getElementById('instr-organ');
+  organBtn.classList.toggle('active', family === 'piano' && keyboardSound === 'organ');
+  organBtn.style.display = tier === 'free' ? 'none' : '';
+  document.getElementById('pedal-btn').hidden = family !== 'piano';
 
   document.getElementById('guitar-strings-wrap').style.display = family === 'guitar' ? 'flex' : 'none';
   document.getElementById('bass-strings-wrap').style.display = family === 'bass' ? 'flex' : 'none';
@@ -1995,7 +2030,8 @@ function updateInstrumentUI() {
   // applyInstrumentLabelPlacement) as a short "Instrument" button rather
   // than a caption — the full instrument/tuning detail is one tap away in
   // the popup it opens.
-  document.getElementById('instrument-label').textContent = 'Instrument';
+  document.getElementById('instrument-label').innerHTML =
+    '<span class="btn-icon" aria-hidden="true">🎸🎹</span><span class="btn-label">Instrument</span>';
 
   const showTuningPreset = family !== 'piano' && tier !== 'free';
   refreshInstrumentSizeControls();
@@ -2111,6 +2147,10 @@ function renderPiano() {
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.setAttribute('width', width);
   svg.setAttribute('height', height);
+  // The organ is drawn with its key colors swapped — dark naturals, light
+  // sharps — the way harpsichords and many church and chamber organs are
+  // built, so it reads as a different instrument at a glance (style.css).
+  svg.classList.toggle('organ', keyboardSound === 'organ');
 
   function markerStyle(pc) {
     const st = semitone(pc);
@@ -2634,9 +2674,9 @@ function renderTable() {
       addRow(augA.name, augA.set);
       addRow(blues.name, blues.set);
     } else {
-      addGroupHeader('Whole-tone (1 shape — every rotation is the same mode, just transposed)');
+      addGroupHeader('Whole-tone');
       addRow(wholeTone.name, wholeTone.set);
-      addGroupHeader('Augmented (2 shapes)');
+      addGroupHeader('Augmented');
       addRow(augA.name, augA.set);
       addRow(augB.name, augB.set);
       addGroupHeader('Other hexatonic scales');
@@ -2735,9 +2775,35 @@ function unlockSilentSwitchAudio() {
   silentUnlockEl.play().catch(() => {});
 }
 
+// Audio that stops for good until the app is restarted: after an
+// interruption (a call, Siri, another app taking the audio, the phone
+// locking, a Bluetooth speaker connecting or dropping) iOS leaves the
+// AudioContext 'suspended' or 'interrupted' — and nothing ever resumed it,
+// since ensureAudio's fast path returned immediately once audio had started
+// the first time. Sometimes it even still reports 'running' with its clock
+// frozen. So every tap now checks: not running → resume(); running but the
+// clock hasn't moved since the last check → a suspend()/resume() cycle,
+// which un-sticks it. Both happen inside the tap itself, which iOS needs.
+let audioClockCheck = null; // { wall, ctx } at the previous check
+function reviveAudio() {
+  const ctx = nativeAudioContext();
+  const now = performance.now();
+  const prev = audioClockCheck;
+  audioClockCheck = { wall: now, ctx: ctx.currentTime };
+  if (ctx.state !== 'running') return ctx.resume().catch(() => {});
+  if (prev && now - prev.wall > 500 && ctx.currentTime === prev.ctx) {
+    return ctx.suspend().then(() => ctx.resume()).catch(() => {});
+  }
+  return Promise.resolve();
+}
+// Coming back to the app is the usual moment after an interruption.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && audioStarted) reviveAudio();
+});
+
 function ensureAudio() {
   unlockSilentSwitchAudio();
-  if (audioStarted) return Promise.resolve();
+  if (audioStarted) return reviveAudio();
   if (audioStartPromise) return audioStartPromise;
   // Tone.loaded() waits on every sampler/buffer in the app's shared load
   // queue (piano, guitar, bass, drone samples — all fetched from external
@@ -2884,7 +2950,12 @@ if (audioLatencyPlugin) {
   audioLatencyPlugin.getOutputLatency().then(applyOutputRouteInfo).catch(() => {});
   // Fires when a speaker/headphones connect or disconnect, so pulses
   // retime themselves without the app needing a restart.
-  audioLatencyPlugin.addListener('routeChange', applyOutputRouteInfo);
+  audioLatencyPlugin.addListener('routeChange', info => {
+    applyOutputRouteInfo(info);
+    // A new output (speaker connected/disconnected) is one of the things
+    // that can leave Web Audio stalled — see reviveAudio.
+    if (audioStarted) reviveAudio();
+  });
 }
 
 // Tone wraps the real AudioContext (standardized-audio-context), and the
@@ -3281,12 +3352,11 @@ const droneVoice = {
 };
 
 // Real sampled instruments (piano: Tone.js's official Salamander set;
-// guitar/bass: nbrosowsky/tonejs-instruments, CC-licensed), pitch-shifted per
-// note from the nearest sample — this is what click-a-bead/chord playback
-// uses. Ukulele/mandolin/banjo don't have their own recordings in that set,
-// so they borrow the acoustic guitar sample as the closest available
-// plucked-string timbre — still real strings, just not a perfect match for
-// those specific instruments.
+// guitar/bass/organ: nbrosowsky/tonejs-instruments, CC-licensed),
+// pitch-shifted per note from the nearest sample — this is what
+// click-a-bead/chord playback uses. Ukulele/mandolin/banjo have no
+// recordings in that set; theirs are synthesized instead (see
+// pluckedStringUrls below).
 //
 // Each Sampler is only constructed (and only starts fetching its ~17-37
 // files) the first time that instrument family is actually needed, not all
@@ -3322,6 +3392,25 @@ const SAMPLER_CONFIG = {
       'C#5': 'Cs5.mp3', D5: 'D5.mp3'
     }
   },
+  organ: {
+    baseUrl: SAMPLES_BASE_URL + '/organ/',
+    urls: {
+      C1: 'C1.mp3', 'D#1': 'Ds1.mp3', 'F#1': 'Fs1.mp3', A1: 'A1.mp3',
+      C2: 'C2.mp3', 'D#2': 'Ds2.mp3', 'F#2': 'Fs2.mp3', A2: 'A2.mp3',
+      C3: 'C3.mp3', 'D#3': 'Ds3.mp3', 'F#3': 'Fs3.mp3', A3: 'A3.mp3',
+      C4: 'C4.mp3', 'D#4': 'Ds4.mp3', 'F#4': 'Fs4.mp3', A4: 'A4.mp3',
+      C5: 'C5.mp3', 'D#5': 'Ds5.mp3', 'F#5': 'Fs5.mp3', A5: 'A5.mp3',
+      C6: 'C6.mp3'
+    },
+    // An organ pipe stops the moment the key comes up — no decay tail.
+    release: 0.08,
+    volume: -12 // its samples are ~6 dB hotter than the piano's, and it doesn't decay
+  },
+  // Volumes matched by measurement to the guitar's loudness (RMS over the
+  // first second of a C4).
+  ukulele:  { synth: 'ukulele', volume: -6 },
+  mandolin: { synth: 'mandolin', volume: -3 },
+  banjo:    { synth: 'banjo', volume: -1, highpass: 220 },
   bass: {
     baseUrl: SAMPLES_BASE_URL + '/bass-electric/',
     urls: {
@@ -3338,7 +3427,7 @@ function getSampler(family) {
   if (samplerCache[family]) return samplerCache[family];
   const cfg = SAMPLER_CONFIG[family];
   const sampler = new Tone.Sampler({
-    urls: cfg.urls,
+    urls: cfg.synth ? pluckedStringUrls(PLUCK_VOICES[cfg.synth]) : cfg.urls,
     // 0.2, not 1: this release runs AFTER the duration passed to
     // triggerAttackRelease, so at 1s every note outlasted the Playback >
     // Sustain setting by a full second — a user reported notes ringing
@@ -3346,14 +3435,84 @@ function getSampler(family) {
     // Short enough now that the setting is roughly what you hear, long
     // enough to fade rather than click. (The reverb still adds its own
     // ambient tail on top, by design — that's room, not note length.)
-    release: 0.2,
-    baseUrl: cfg.baseUrl,
+    release: cfg.release ?? 0.2,
+    baseUrl: cfg.baseUrl || '',
     onload: refreshSampleLoadingIndicator
-  }).connect(reverb);
-  sampler.volume.value = -4;
+  });
+  if (cfg.highpass) sampler.chain(new Tone.Filter(cfg.highpass, 'highpass'), reverb);
+  else sampler.connect(reverb);
+  sampler.volume.value = cfg.volume ?? -4;
   samplerCache[family] = sampler;
   refreshSampleLoadingIndicator();
   return sampler;
+}
+
+// Ukulele, mandolin and banjo — no free multisampled recordings of these
+// to hand, so their "samples" are synthesized right here, once, the first
+// time the instrument is picked: a Karplus-Strong plucked string (a burst
+// of noise ringing round a tuned, slightly lossy delay loop — the classic
+// physical model of a plucked string), computed straight into audio
+// buffers in plain JS. A buffer every 4 semitones then goes into an
+// ordinary Tone.Sampler, exactly like the recorded instruments, so every
+// playback path treats them the same. Voiced per instrument:
+//   ukulele  — nylon: a soft, rounded pluck, darker tone, medium ring
+//   mandolin — steel: bright, and each note on two strings a few cents
+//              apart (a mandolin's paired courses — that shimmer is most
+//              of what makes it sound like one), shortish ring
+//   banjo    — the brightest, snappiest pluck and the shortest ring, with
+//              the low end thinned out afterwards (a drumhead, not a
+//              wooden body)
+const PLUCK_VOICES = {
+  //          ring (s)  brightness  pluck pos  soft attack  string pairs (cents)
+  ukulele:  { t60: 1.6, bright: 0.52, pick: 0.28, soft: 0.55, courses: [0] },
+  mandolin: { t60: 1.3, bright: 0.62, pick: 0.12, soft: 0,    courses: [-4, 4] },
+  banjo:    { t60: 0.8, bright: 0.72, pick: 0.08, soft: 0,    courses: [0] },
+};
+function pluckedStringBuffer(freq, voice) {
+  const sr = Tone.context.sampleRate;
+  const len = Math.floor(sr * Math.min(3, voice.t60 * 1.6));
+  const out = new Float32Array(len);
+  const loss = Math.pow(10, -3 / (voice.t60 * sr)); // -60 dB over t60, per sample
+  voice.courses.forEach(cents => {
+    const f = freq * Math.pow(2, cents / 1200);
+    // The two-tap loss filter below delays the loop by (1 - bright) of a
+    // sample; taking that off the delay keeps the string in tune.
+    const period = sr / f - (1 - voice.bright);
+    const y = new Float32Array(len);
+    // Excitation: one period of noise, optionally smoothed (a fingertip
+    // rather than a pick), with a comb notch for where it's plucked.
+    const n0 = Math.ceil(period);
+    const exc = new Float32Array(n0);
+    let lp = 0;
+    for (let n = 0; n < n0; n++) {
+      const white = Math.random() * 2 - 1;
+      lp = voice.soft ? lp + (1 - voice.soft) * (white - lp) : white;
+      exc[n] = lp;
+    }
+    const pickAt = Math.max(1, Math.round(voice.pick * n0));
+    const at = (k) => {                   // y at fractional index k, linear interpolation
+      if (k < 0) return 0;
+      const i = Math.floor(k), fr = k - i;
+      return y[i] + fr * ((y[i + 1] || 0) - y[i]);
+    };
+    for (let n = 0; n < len; n++) {
+      const x = n < n0 ? exc[n] - (n >= pickAt ? exc[n - pickAt] : 0) : 0;
+      const k = n - period;
+      y[n] = x + loss * (voice.bright * at(k) + (1 - voice.bright) * at(k - 1));
+    }
+    for (let n = 0; n < len; n++) out[n] += y[n];
+  });
+  let peak = 0;
+  for (let n = 0; n < len; n++) peak = Math.max(peak, Math.abs(out[n]));
+  const buf = Tone.context.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  for (let n = 0; n < len; n++) data[n] = out[n] * (0.8 / (peak || 1));
+  return buf;
+}
+function pluckedStringUrls(voice) {
+  const urls = {};
+  for (let midi = 43; midi <= 91; midi += 4) urls[midi] = pluckedStringBuffer(Tone.Frequency(midi, 'midi').toFrequency(), voice);
+  return urls;
 }
 
 // Tiny "Loading sounds..." pill shown while the *currently selected*
@@ -3363,19 +3522,21 @@ function getSampler(family) {
 // instrument you're not even looking at shouldn't flip this on, and
 // switching to one that's already cached shouldn't leave it stuck on.
 function refreshSampleLoadingIndicator() {
-  const family = INSTRUMENT_FAMILY[instrument] === 'bass' ? 'bass'
-    : INSTRUMENT_FAMILY[instrument] === 'piano' ? 'piano' : 'guitar';
-  const sampler = samplerCache[family];
+  const key = soundSourceKey();
+  const sampler = samplerCache[key];
   const loading = !sampler || !sampler.loaded;
   document.getElementById('sample-loading').style.display = loading ? '' : 'none';
 }
 
-// Which sampler click-a-bead/scale playback should use right now.
-function currentNoteSampler() {
+// Which sampler click-a-bead/scale playback should use right now (the
+// ukulele/mandolin/banjo ones are synthesized — see pluckedStringUrls).
+function soundSourceKey() {
   const family = INSTRUMENT_FAMILY[instrument];
-  if (family === 'bass') return getSampler('bass');
-  if (family === 'piano') return getSampler('piano');
-  return getSampler('guitar'); // guitar, ukulele, mandolin, banjo
+  if (family === 'piano') return keyboardSound;
+  return family; // guitar, bass, ukulele, mandolin, banjo
+}
+function currentNoteSampler() {
+  return getSampler(soundSourceKey());
 }
 // Bass sits an octave below the other instruments (a real bass guitar
 // sounds an octave down from a regular guitar) — everything else plays at
@@ -3457,10 +3618,27 @@ function updateDroneButton() {
 // pending release — or the old tap's timer would cut the new, still-held
 // note short. pendingNoteRelease tracks those timers per sounding pitch.
 const pendingNoteRelease = new Map(); // shifted midi -> timeout id
+
+// Sustain pedal (keyboard instruments, the Pedal button): latching — tap to
+// press it down, tap again to lift it. While down, notes released by
+// noteOn wait here; lifting the pedal lets them all go (each still no
+// sooner than the Sustain setting after it was struck).
+let pedalDown = false;
+const pedalHeldNotes = [];
+function setPedal(on) {
+  pedalDown = on;
+  const b = document.getElementById('pedal-btn');
+  b.classList.toggle('active', on);
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  if (!on) pedalHeldNotes.splice(0).forEach(release => release());
+}
+document.getElementById('pedal-btn').addEventListener('click', () => setPedal(!pedalDown));
 function noteOn(midi) {
   const pressedAt = performance.now();
   let started = null, released = false;
   const releaseNow = () => {
+    // Sustain pedal down: let it ring until the pedal comes up.
+    if (pedalDown) { pedalHeldNotes.push(releaseNow); return; }
     const { sampler, shifted, freq } = started;
     const waitMs = Math.max(0, playbackSustain * 1000 - (performance.now() - pressedAt));
     const id = setTimeout(() => {
@@ -3744,7 +3922,6 @@ function refreshSynthDialogControls() {
   refreshNeckTaperControl();
   refreshFretFanControl();
   syncPerspectiveUI();
-  syncPaletteUI();
   refreshPlaybackControls();
   refreshSyncControls();
   document.getElementById('synth-drone-instrument').value = droneConfig.instrument;
@@ -3819,6 +3996,9 @@ function syncPerspectiveUI() {
 }
 
 function syncPaletteUI() {
+  // Choosing a palette is a paid-tier feature (it lived in Setup, which the
+  // free tier doesn't get); the meanings are for everyone.
+  document.getElementById('palette-controls').hidden = tier === 'free';
   const group = document.getElementById('palette-toggle');
   const customGroup = document.getElementById('palette-custom-toggle');
   if (!group.children.length) {
@@ -3829,7 +4009,7 @@ function syncPaletteUI() {
       b.setAttribute('role', 'radio');
       b.dataset.palette = key;
       b.textContent = p.label;
-      b.addEventListener('click', () => { applyPalette(key); syncPaletteUI(); });
+      b.addEventListener('click', () => { applyPalette(key); syncPaletteUI(); renderColorsPopup(); });
       (key === 'custom' ? customGroup : group).appendChild(b);
     });
   }
@@ -4017,7 +4197,8 @@ document.getElementById('instr-bass').onclick     = () => setInstrumentFamily('b
 document.getElementById('instr-ukulele').onclick  = () => setInstrumentFamily('ukulele');
 document.getElementById('instr-mandolin').onclick = () => setInstrumentFamily('mandolin');
 document.getElementById('instr-banjo').onclick    = () => setInstrumentFamily('banjo');
-document.getElementById('instr-piano').onclick    = () => setInstrumentFamily('piano');
+document.getElementById('instr-piano').onclick    = () => { setKeyboardSound('piano'); setInstrumentFamily('piano'); };
+document.getElementById('instr-organ').onclick    = () => { setKeyboardSound('organ'); setInstrumentFamily('piano'); };
 document.getElementById('guitar-strings-5').onclick = () => setGuitarStrings(5);
 document.getElementById('guitar-strings-6').onclick = () => setGuitarStrings(6);
 document.getElementById('guitar-strings-7').onclick = () => setGuitarStrings(7);
@@ -4256,7 +4437,9 @@ let restoreModeControlsNodes = null;
 function applyModeControlsPlacement() {
   if (verticalInstrumentMode()) {
     if (!restoreModeControlsNodes) {
-      restoreModeControlsNodes = parkNodes([modeControls], rootRow);
+      // The keyboard's Pedal comes along: the bottom toolbar is already
+      // full on a portrait phone.
+      restoreModeControlsNodes = parkNodes([modeControls, document.getElementById('pedal-btn')], rootRow);
     }
   } else if (restoreModeControlsNodes) {
     restoreModeControlsNodes();
@@ -4325,6 +4508,7 @@ function applyLayout() {
     applyInstrumentOrientation();
   }
   sizeLibrarySidebar();
+  syncSvgTextScale();
 }
 
 // Column sizes for the sidebar layout. Lying down, the fretboard is
@@ -4406,7 +4590,6 @@ const PALETTE_INFO = {
 const legendTable = document.querySelector('#color-legend .legend-table');
 function renderColorsPopup() {
   const info = PALETTE_INFO[paletteName];
-  document.getElementById('colors-popup-title').textContent = PALETTES[paletteName].label + ' colors';
   document.getElementById('colors-popup-intro').textContent = info.intro;
   const table = legendTable.cloneNode(true);
   const tbody = table.querySelector('tbody');
@@ -4457,7 +4640,8 @@ function renderColorsPopup() {
 }
 const colorsPopup = document.getElementById('colors-popup');
 wireMobilePopup(colorsPopup, 'colors-popup-close');
-document.getElementById('palette-info-btn').addEventListener('click', () => {
+document.getElementById('colors-btn').addEventListener('click', () => {
+  syncPaletteUI();
   renderColorsPopup();
   colorsPopup.showModal();
 });

@@ -198,11 +198,21 @@
                As plain children of .quickbar they all share that one gap
                value, so every button in the row is evenly spaced by
                construction rather than by keeping two numbers in sync. -->
+          <!-- Keyboard instruments only: a latching sustain pedal — while
+               lit, keys keep sounding after you lift your finger, until
+               it's switched off again (see setPedal in app.js). -->
+          <button id="pedal-btn" class="hand-btn drone-btn" aria-pressed="false" title="Sustain pedal">
+            <span class="drone-led" aria-hidden="true"></span>Pedal
+          </button>
           <button id="drone-toggle" class="hand-btn drone-btn" aria-pressed="false">
             <span class="drone-led" aria-hidden="true"></span>Drone
           </button>
           <button id="play-scale-btn" class="hand-btn" title="Play scale">&#9654; Play</button>
-          <button id="synth-settings-btn" class="hand-btn" title="Sound setup">&#9881; Setup</button>
+          <!-- What the colors mean, and which palette — its own button so a
+               newcomer can find it. Icon-only where the row is tight (see
+               .btn-label in style.css). -->
+          <button id="colors-btn" class="hand-btn icon-btn" title="Colors" aria-label="Colors"><span class="btn-icon" aria-hidden="true">🌈</span><span class="btn-label">Colors</span></button>
+          <button id="synth-settings-btn" class="hand-btn icon-btn" title="Setup" aria-label="Setup"><span class="btn-icon" aria-hidden="true">&#9881;&#65039;</span><span class="btn-label">Setup</span></button>
           <button id="rotate-btn" class="hand-btn rotate-btn" title="Rotate instrument" aria-label="Rotate instrument"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12.4 1.6v3h-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Rotate</button>
         </div>
       </div>
@@ -221,6 +231,7 @@
             <button id="instr-mandolin" class="hand-btn">Mandolin</button>
             <button id="instr-banjo" class="hand-btn">Banjo</button>
             <button id="instr-piano" class="hand-btn">Piano</button>
+            <button id="instr-organ" class="hand-btn">Organ</button>
           </div>
           <div class="string-tuning-row sub-toggle">
             <div class="hand-toggle" id="guitar-strings-wrap">
@@ -271,7 +282,7 @@
 
       <div class="section" id="fretboard-wrap">
         <div class="label-row">
-          <div class="label" id="instrument-label">Fretboard — standard tuning — 15 frets</div>
+          <div class="label" id="instrument-label" role="button" tabindex="0" title="Instrument" aria-label="Instrument">Instrument</div>
           <span class="sample-loading" id="sample-loading" style="display:none;">Loading sounds&hellip;</span>
         </div>
         <svg id="fretboard" viewBox="0 0 1110 250" width="1110" height="250"></svg>
@@ -429,7 +440,22 @@
      Filled from #color-legend's table by app.js. -->
 <dialog id="colors-popup" class="mobile-popup">
   <button type="button" id="colors-popup-close" class="mobile-popup-close" aria-label="Close">&times;</button>
-  <h2 id="colors-popup-title"></h2>
+  <h2>Colors</h2>
+  <!-- Palette choice (paid tier — hidden for free, see syncPaletteUI).
+       Buttons, not a <select>: iOS draws a native select's picker white
+       whatever the CSS says (see .dropdown-btn in style.css), and with
+       only three presets a segmented control is one tap instead of two.
+       Custom sits on its own line under them: the meanings below are
+       about the presets, not your own colors. -->
+  <div id="palette-controls">
+    <div class="hand-toggle" id="palette-toggle" role="radiogroup" aria-label="Palette"></div>
+    <div class="hand-toggle palette-custom-toggle" id="palette-custom-toggle"></div>
+    <!-- Twelve swatches, one per degree, shown only for the Custom
+         palette. <input type="color"> hands the whole job to the OS
+         picker, which is both less code and a better picker than anything
+         hand-rolled here would be. -->
+    <div id="palette-custom-row" class="palette-swatches"></div>
+  </div>
   <p id="colors-popup-intro" class="colors-popup-intro"></p>
   <div id="colors-popup-body"></div>
 </dialog>
@@ -475,22 +501,6 @@
   </div>
 
   </div>
-
-  <div class="synth-section-title"><span aria-hidden="true">🎨</span>Colors</div>
-  <!-- Buttons, not a <select>: iOS draws a native select's picker white
-       whatever the CSS says (see .dropdown-btn in style.css), and with
-       only three presets a segmented control is one tap instead of two.
-       Custom gets its own button further down (#palette-custom-toggle). -->
-  <div class="synth-row palette-row">
-    <div class="hand-toggle" id="palette-toggle" role="radiogroup" aria-label="Palette"></div>
-    <button type="button" id="palette-info-btn" class="hand-btn info-btn"><svg class="info-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="4.8" r="1" fill="currentColor"/><path d="M8 7.2v4.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>What do the colors mean?</button>
-  </div>
-  <!-- Twelve swatches, one per degree, shown only for the Custom palette
-       (see syncPaletteUI in app.js). <input type="color"> hands the whole
-       job to the OS picker, which is both less code and a better picker
-       than anything hand-rolled here would be. -->
-  <div class="hand-toggle palette-custom-toggle" id="palette-custom-toggle"></div>
-  <div id="palette-custom-row" class="palette-swatches"></div>
 
   <div class="synth-section-title"><span aria-hidden="true">🔊</span>Audio</div>
 

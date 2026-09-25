@@ -106,7 +106,16 @@
        Deliberately NOT the SVG type (abacus/fretboard/piano labels): those
        scale with their own viewBox, not with page px, so they're tuned
        where they're drawn. */
-    :root { --ui-font: 13px; --ui-font-sm: 12px; }
+    :root { --ui-font: 13px; --ui-font-sm: 12px; --title-font: 15px; --name-font: 16px; }
+    /* The type scale, kept deliberately small so nothing on screen jumps
+       out as much bigger or smaller than its neighbours:
+         12px  small captions            (--ui-font-sm)
+         13px  buttons, fret numbers, key names   (--ui-font)
+         15px  title, note labels on the abacus and tuners  (--title-font)
+         16px  the scale/chord name — the one headline     (--name-font)
+       The instrument drawings are SVGs that scale with the screen, so their
+       text is pinned to these on-screen sizes by app.js (syncSvgTextScale
+       sets --k, the drawing's px-per-unit) — see the lay-v/lay-h rules. */
     *, *::before, *::after { touch-action: manipulation; }
     /* Also on <html>, not just <body>. Body's background normally
        propagates to the canvas, so this looks redundant — but during an
@@ -119,6 +128,11 @@
        capacitor.config.json — CSS alone can't reach the WKWebView's own
        background. */
     html { background: var(--bg); }
+    /* iOS "text autosizing" enlarges text in blocks it guesses are
+       paragraphs, and re-guesses after a reflow — which is why the library's
+       family headings came back much bigger after switching Families ->
+       Modes in landscape. This app sizes its own text; turn the guessing off. */
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body {
       font-family: system-ui, -apple-system, sans-serif;
       background: var(--bg);
@@ -175,10 +189,15 @@
       text-transform: none; font-weight: normal; letter-spacing: normal; opacity: 1;
     }
     .quickbar #instrument-label:hover { background: var(--surface-hover-bg); color: var(--surface-hover-text); }
-    .quickbar #instrument-label::before { content: "\1F3B8\00a0"; }
     /* Floats over the instrument's top corner while samples load (see
        app.js) rather than taking width in a toolbar row. */
     #fretboard-wrap { position: relative; }
+    /* The root and voicing dropdowns open from these rows and have to land
+       ABOVE the instrument. A scrolling row like the quickbar is its own
+       stacking context on iOS, which traps the list's z-index inside it —
+       and the (positioned) instrument comes later in the page, so it was
+       painting over the list. Lifting the rows themselves fixes that. */
+    .quickbar, #root-row { position: relative; z-index: 5; }
     #fretboard-wrap > #sample-loading {
       position: absolute; top: 4px; right: 4px; z-index: 1; pointer-events: none;
       padding: 2px 8px; border-radius: 999px; background: rgba(0, 0, 0, 0.55); color: #fff;
@@ -233,7 +252,7 @@
     }
     .mode-switch-opt {
       padding: 1px 6px; border-radius: 999px;
-      font-size: 9px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
       color: var(--text-muted); opacity: 0.6; line-height: 1.3;
       transition: background 0.12s ease, color 0.12s ease, opacity 0.12s ease;
     }
@@ -275,7 +294,7 @@
        a foreground-on-accent-fill color (see .root-btn.active), a
        different job than "a decorative pop of accent hue on the page
        background" this rule used it for. */
-    .scale-name .name { font-size: 1.05rem; font-weight: 600; color: var(--text); }
+    .scale-name .name { font-size: var(--name-font); font-weight: 600; color: var(--text); }
     .scale-name .name.fallback { font-weight: 400; font-style: italic; color: var(--text-muted); }
 
     .quickbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 14px; }
@@ -324,6 +343,15 @@
     #piano .piano-key-black { fill: #1c1c1c; stroke: #000000; stroke-width: 1; }
     #piano .piano-key-white.pressed { fill: #cfc9bc; }
     #piano .piano-key-black.pressed { fill: #4a4a4a; }
+    /* Organ (see renderPiano): key colors swapped — dark naturals, light
+       sharps — and the key names recolored to stay readable on them. */
+    #piano.organ .piano-key-white { fill: #2b2420; stroke: #0e0b09; }
+    #piano.organ .piano-key-black { fill: #ece5d3; stroke: #8a8272; }
+    #piano.organ .piano-key-white.pressed { fill: #4a3f37; }
+    #piano.organ .piano-key-black.pressed { fill: #cbc2ab; }
+    #piano.organ text.piano-white-label { fill: #f4efe4; }
+    #piano.organ text.piano-black-label { fill: #1c1c1c; }
+    #pedal-btn[hidden] { display: none; }
 
     .mode-controls { display: flex; align-items: center; gap: 8px; outline: none; margin-top: 10px; }
     .arm-btn { min-width: 28px; padding: 4px 8px; font-size: var(--ui-font); }
@@ -734,7 +762,7 @@
            #scale-name just sit adjacent at their natural size. */
         display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
       }
-      html.lay-v .scale-name-row-left h1 { font-size: 15px; margin: 0; line-height: 1.1; }
+      html.lay-v .scale-name-row-left h1 { font-size: var(--title-font); margin: 0; line-height: 1.1; }
       /* min-width:24px overrides the shared .hand-btn rule's 36px — at
          36px, 5 buttons (Scale mode's 5/6/7/8/12) came to 204px, well past
          #ref-notecount-wrap's 148px min-width above, so Scale mode was
@@ -911,13 +939,13 @@
          to the beads/fretboard itself, not just bigger on screen. */
       /* The abacus is deliberately NOT bumped along with the rest: a user
          confirmed this size specifically reads right as-is. */
-      html.lay-v #abacus text { font-size: 17px; }
-      html.lay-v #fretboard text.fret-num { font-size: 17px; }
+      html.lay-v #abacus text { font-size: min(calc(var(--title-font) / var(--k, 1)), 17px); }
+      html.lay-v #fretboard text.fret-num { font-size: min(calc(var(--ui-font) / var(--k, 1)), 17px); }
       /* The per-string tuner label (E, A, D…) — same reasoning as the
          other two rules just above: legible at this screen size means
          bigger than the desktop-tuned inline value, not just "however big
          the SVG happens to scale down to." */
-      html.lay-v #fretboard text.tuner-note-name { font-size: 22px; }
+      html.lay-v #fretboard text.tuner-note-name { font-size: min(calc(var(--title-font) / var(--k, 1)), 22px); }
       /* Piano key labels, same reasoning again — and unified white/black
          (12px/9px desktop) up to the bead-label size specifically, since a
          user asked for these to read as legibly as the abacus's own
@@ -925,7 +953,7 @@
          pass as the page chrome — held just under the 27-unit black-key
          width so a two-character label like "C♯" still sits inside its own
          key rather than spilling onto its neighbours. */
-      html.lay-v #piano text.piano-white-label, html.lay-v #piano text.piano-black-label { font-size: 19px; }
+      html.lay-v #piano text.piano-white-label, html.lay-v #piano text.piano-black-label { font-size: min(calc(var(--ui-font) / var(--k, 1)), 19px); }
     
 
 
@@ -1047,7 +1075,7 @@
            matters — the root note used to visibly jump position). */
         display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
       }
-      html.lay-h .scale-name-row-left h1 { font-size: 13px; margin: 0; line-height: 1.1; }
+      html.lay-h .scale-name-row-left h1 { font-size: var(--title-font); margin: 0; line-height: 1.1; }
       /* min-width:24px overrides the shared .hand-btn rule's 36px — at
          36px, 5 buttons (Scale mode's 5/6/7/8/12) came to 204px, well past
          #ref-notecount-wrap's 148px min-width above, so Scale mode was
@@ -1107,7 +1135,6 @@
          has #root-row as an ancestor. */
       html.lay-h .quickbar #root-group .label { display: none; }
 
-      html.lay-h .scale-name .name { font-size: 0.9rem; }
       /* Tapping the scale name itself (not just the small icon beside it)
          also opens the scale library — see app.js — so give it an obvious
          "tappable" affordance. (#instrument-label gets the same treatment
@@ -1169,15 +1196,16 @@
 
       /* Same font-size bump as portrait app mode above, and for the same
          reason — see the comment there. */
-      html.lay-h #abacus text { font-size: 14px; }
-      html.lay-h #fretboard text.fret-num { font-size: 16px; }
+      html.lay-h #abacus text { font-size: min(calc(var(--title-font) / var(--k, 1)), 14px); }
+      html.lay-h #fretboard text.fret-num { font-size: min(calc(var(--ui-font) / var(--k, 1)), 16px); }
+      html.lay-h #fretboard text.tuner-note-name { font-size: min(calc(var(--title-font) / var(--k, 1)), 16px); }
       /* Both key labels, kept equal to each other (black used to sit at a
          weaker 9px default beside white's 12px) and bumped together from
          12 to 14 — same "everything a bit bigger" pass as the page chrome
          got. Left below portrait's own 19px: a landscape key is the same
          drawn width but the whole keyboard is scaled down to fit a ~400px
          viewport height, so the same number reads larger here. */
-      html.lay-h #piano text.piano-white-label, html.lay-h #piano text.piano-black-label { font-size: 14px; }
+      html.lay-h #piano text.piano-white-label, html.lay-h #piano text.piano-black-label { font-size: min(calc(var(--ui-font) / var(--k, 1)), 14px); }
 
       /* The library's own card list (see .ref-card above — used here too,
          since phoneAppModeMQ covers this breakpoint as well) stacks name
@@ -1227,6 +1255,28 @@
        than the phone's full-width toolbar — let it wrap rather than
        scroll sideways. */
     html.lay-v:not(.phone) .quickbar, html.lay-v:not(.phone) #root-row { flex-wrap: wrap; }
+
+    /* One height for every control in the toolbar rows (and the buttons in
+       the title row) — they used to range from 25 to 29px depending on each
+       one's own padding and font, which showed most as the root picker
+       standing taller than the mode stepper and voicing picker beside it.
+       Buttons centre their own content vertically; the Instrument pill is
+       a div, so it's told to. */
+    :root { --ctl-h: 28px; }
+    .quickbar .hand-btn, .quickbar #instrument-label, #root-row .hand-btn,
+    .arm-btn, .dropdown-btn, .scale-name-actions .hand-btn, .reflib-open-btn {
+      height: var(--ctl-h); box-sizing: border-box;
+    }
+    .quickbar #instrument-label { display: inline-flex; align-items: center; }
+
+    /* Toolbar buttons with an icon and a word: where the row is tight (a
+       portrait phone, a small landscape one) only the icon shows, and the
+       button's title/aria-label still says what it is. */
+    .icon-btn, .quickbar #instrument-label { gap: 5px; }
+    .icon-btn { display: inline-flex; align-items: center; justify-content: center; }
+    .btn-icon { line-height: 1; }
+    html.phone.lay-v .btn-label { display: none; }
+    @media (max-width: 759px) { html.phone.lay-h .btn-label { display: none; } }
 
     /* ── library sidebar (html.lib-side) ───────────────────────────────
        On a tablet or desktop there's room to keep the scale/chord library
@@ -1510,9 +1560,14 @@
       background: #ffffff; border-color: #ffffff;
       box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.9);
     }
-    .synth-row.palette-row { align-items: center; gap: 10px; }
-    .info-btn { display: inline-flex; align-items: center; gap: 6px; }
-    .info-icon { width: 15px; height: 15px; flex: 0 0 auto; }
+    #palette-controls { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--panel-border); }
+    #palette-controls[hidden] { display: none; }
+    #palette-toggle { margin-bottom: 8px; }
+    #palette-custom-row { margin-top: 8px; margin-bottom: 0; }
+    dialog#colors-popup h2 {
+      font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em;
+      opacity: 0.9; margin-bottom: 14px;
+    }
     .colors-popup-intro { font-size: var(--ui-font); opacity: 0.85; margin-bottom: 12px; }
     .palette-swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
     .palette-swatch { display: flex; flex-direction: column; align-items: center; gap: 3px; }
@@ -1541,7 +1596,6 @@
     .explainer-degree p.explainer-use { opacity: 0.7; }
     /* Custom sits apart from the three presets, under the info button —
        the color meanings are about the presets, not your own colors. */
-    .palette-custom-toggle { margin-bottom: 10px; }
     /* Only the heading directly under the dialog's own title loses the top
        margin. A :first-of-type clause used to sit here too and was the
        reason "Handedness" had no space above it in the Instrument popup:
