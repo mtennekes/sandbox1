@@ -345,7 +345,7 @@ addCompositeEntry('Flamenco fusion', 'Phrygian', [0, 1, 3, 5, 7, 8, 10], [4], { 
 // 2020 chord chart (.claude/chart_righthanded.pdf) — major/minor/dim/aug
 // triads, the usual 7th-chord family, and the altered/extended 9th chords
 // (7♭9, 7♯9 in particular) that chart named but this app never has, until
-// now. 11ths/13ths are 6-7 notes — out of scope for the 3/4/5 bucket here.
+// now. 11ths/13ths (6-7 notes) come further down.
 addChordEntry('Major triad',        'chordTriad',  [0, 4, 7]);
 addChordEntry('Minor triad',        'chordTriad',  [0, 3, 7]);
 addChordEntry('Diminished triad',   'chordTriad',  [0, 3, 6]);
@@ -383,7 +383,12 @@ addChordEntry('Dominant 9th',       'chordNinth',  [0, 2, 4, 7, 10], undefined, 
 addChordEntry('Dominant 7♭9',       'chordNinth',  [0, 1, 4, 7, 10], undefined, [1]);
 addChordEntry('Dominant 7♯9',       'chordNinth',  [0, 3, 4, 7, 10], undefined, [3]); // 3 is the ♯9 here, not a minor 3rd — the natural 3rd (4) is also present, same as any real "Hendrix chord" voicing
 addChordEntry('Minor 9th',          'chordNinth',  [0, 2, 3, 7, 10], undefined, [2]);
-addChordEntry('Minor 11th',         'chordNinth',  [0, 3, 5, 7, 10], undefined, [5]); // common voicing: root ♭3 5 ♭7 11, 9th omitted — same note-set as the Yu/minor-pentatonic scale, kept in CHORD_DICT (not SCALE_DICT) precisely so both names stay reachable
+// Named the way chord-naming tools spell it: an "11th" chord symbol
+// implies the 9th too (m11 = R ♭3 5 ♭7 9 11), so this one — the common
+// voicing that leaves the 9th out — says so, and plain "Minor 11th" is the
+// 6-note chord that has it. Same note-set as the Yu/minor-pentatonic
+// scale, kept in CHORD_DICT (not SCALE_DICT) so both names stay reachable.
+addChordEntry('Minor 11th (no 9th)', 'chordNinth',  [0, 3, 5, 7, 10], undefined, [5]);
 // Same "add the 9th" extension as Minor 9th above, but built on Minor-major
 // 7th's own natural 7 instead of Minor 7th's ♭7 — added so a near-miss
 // match against a minor-family chord with a natural 7 present has an actual
@@ -396,30 +401,47 @@ addChordEntry('Minor-major 9th',    'chordNinth',  [0, 2, 3, 7, 11], undefined, 
 addChordEntry('Major 6/9',          'chordNinth',  [0, 2, 4, 7, 9], undefined, [2]);  // same note-set as Gong/major-pentatonic — see above. The 6th (9) stays in the base octave — conventionally voiced close, not stacked like a true upper extension.
 addChordEntry('Minor 6/9',          'chordNinth',  [0, 2, 3, 7, 9], undefined, [2]);
 
-// A full 13th chord is theoretically 7 notes (root 3 5 7 9 11 13), but the
-// 11th almost always gets dropped in practice — it clashes with the 3rd —
-// leaving 6. These are exactly the "omit some notes" shapes any real guitar
-// voicing of the chart's own 11/13 entries already has to be.
-addChordEntry('Major 13th',    'chordThirteenth', [0, 2, 4, 7, 9, 11], undefined, [2, 9]);  // 9th and 13th; the 7th (11) is a core seventh-chord tone, not bumped
-addChordEntry('Dominant 13th', 'chordThirteenth', [0, 2, 4, 7, 9, 10], undefined, [2, 9]);
-addChordEntry('Minor 13th',    'chordThirteenth', [0, 2, 3, 7, 9, 10], undefined, [2, 9]);
-addChordEntry('Minor 11th (full)',   'chordThirteenth', [0, 2, 3, 5, 7, 10], undefined, [2, 5]); // 9th and 11th
-// Minor-major 13th/11th (full): same relationship to Minor 13th/Minor 11th
-// (full) as Minor-major 9th has to Minor 9th just above — natural 7 instead
-// of ♭7. A user loaded F,G,G#,A#,C#,E (root F, relative 0,2,3,5,8,11 — a
-// minor triad + 9 + 11 + a NATURAL 7, i.e. exactly this shape with a raised
-// 5th) and got "F Minor 11th (full) ♯5 ♯7": self-contradictory in the same
-// way "Dominant 13th ♭13" was (a prior fix) — ♯7 claims the parent's own
-// ♭7 got sharped, when what's actually true is this chord belongs to a
+// 6 notes: the stack up to an 11th, or a 13th with one tone left out.
+// Naming follows the rule the 7-note entries below set up: a plain name
+// ("Minor 13th") is the chord stacked all the way up, and a 6-note
+// version says which tone it drops ("(no 11th)") — the way chord-naming
+// tools write it (C13(no11)). Which tone goes is the one players actually
+// drop: the 11th on a major 3rd (a ♭9 clash with it), the 5th on a
+// minor 3rd, where the 11th is a consonant, characteristic sound (Dm11
+// on a piano is every white key from D to G an octave and a half up).
+addChordEntry('Major 13th (no 11th)',     'chordThirteenth', [0, 2, 4, 7, 9, 11], undefined, [2, 9]);  // 9th and 13th; the 7th (11) is a core seventh-chord tone, not bumped
+addChordEntry('Dominant 13th (no 11th)',  'chordThirteenth', [0, 2, 4, 7, 9, 10], undefined, [2, 9]);
+addChordEntry('Minor 13th (no 5th)',      'chordThirteenth', [0, 2, 3, 5, 9, 10], undefined, [2, 5, 9]);
+addChordEntry('Minor 11th',               'chordThirteenth', [0, 2, 3, 5, 7, 10], undefined, [2, 5]); // 9th and 11th
+// Minor-major 13th/11th: same relationship to Minor 13th/Minor 11th as
+// Minor-major 9th has to Minor 9th just above — natural 7 instead of ♭7.
+// A user loaded F,G,G#,A#,C#,E (root F, relative 0,2,3,5,8,11 — a minor
+// triad + 9 + 11 + a NATURAL 7, i.e. exactly this shape with a raised
+// 5th) and got "F Minor 11th ♯5 ♯7": self-contradictory in the same way
+// "Dominant 13th ♭13" was (a prior fix) — ♯7 claims the parent's own ♭7
+// got sharped, when what's actually true is this chord belongs to a
 // DIFFERENT, already-named family (minor-major, i.e. "FmMaj7" — see
-// CHORD_SYMBOL below) rather than being Minor 11th (full) with an
-// alteration bolted on. With this entry present, that same note-set now
-// matches it with exactly ONE real alteration (♯5, the genuinely altered
-// note) instead of forcing a two-alteration, wrong-family fallback match.
-addChordEntry('Minor-major 13th',    'chordThirteenth', [0, 2, 3, 7, 9, 11], undefined, [2, 9]);
-addChordEntry('Minor-major 11th (full)', 'chordThirteenth', [0, 2, 3, 5, 7, 11], undefined, [2, 5]); // 9th and 11th
-addChordEntry('Dominant 9♯11',           'chordThirteenth', [0, 2, 4, 6, 7, 10], undefined, [2, 6]); // 9th and ♯11th
-addChordEntry('Dominant 13♭9', 'chordThirteenth', [0, 1, 4, 7, 9, 10], undefined, [1, 9]); // ♭9th and 13th
+// CHORD_SYMBOL below) rather than being Minor 11th with an alteration
+// bolted on. With this entry present, that same note-set now matches it
+// with exactly ONE real alteration (♯5, the genuinely altered note)
+// instead of forcing a two-alteration, wrong-family fallback match.
+addChordEntry('Minor-major 13th (no 5th)', 'chordThirteenth', [0, 2, 3, 5, 9, 11], undefined, [2, 5, 9]);
+addChordEntry('Minor-major 11th',          'chordThirteenth', [0, 2, 3, 5, 7, 11], undefined, [2, 5]); // 9th and 11th
+addChordEntry('Dominant 9♯11',             'chordThirteenth', [0, 2, 4, 6, 7, 10], undefined, [2, 6]); // 9th and ♯11th
+addChordEntry('Dominant 13♭9 (no 11th)',   'chordThirteenth', [0, 1, 4, 7, 9, 10], undefined, [1, 9]); // ♭9th and 13th
+
+// 7 notes: every chord tone stacked in thirds, R 3 5 7 9 11 13 — which is
+// always a whole 7-note scale, so each of these shares its note-set with
+// a mode (Major 13th = Ionian, Minor 13th = Dorian, ...). Same situation
+// as 6/9 vs. major pentatonic: CHORD_DICT keeps the chord name reachable.
+// The natural 11 over a major 3rd is the textbook "avoid note", which is
+// why the ♯11 versions are the ones jazz players actually voice in full.
+addChordEntry('Major 13th',          'chordFullThirteenth', [0, 2, 4, 5, 7, 9, 11], undefined, [2, 5, 9]);
+addChordEntry('Dominant 13th',       'chordFullThirteenth', [0, 2, 4, 5, 7, 9, 10], undefined, [2, 5, 9]);
+addChordEntry('Minor 13th',          'chordFullThirteenth', [0, 2, 3, 5, 7, 9, 10], undefined, [2, 5, 9]);
+addChordEntry('Minor-major 13th',    'chordFullThirteenth', [0, 2, 3, 5, 7, 9, 11], undefined, [2, 5, 9]);
+addChordEntry('Major 13♯11',         'chordFullThirteenth', [0, 2, 4, 6, 7, 9, 11], undefined, [2, 6, 9]);
+addChordEntry('Dominant 13♯11',      'chordFullThirteenth', [0, 2, 4, 6, 7, 9, 10], undefined, [2, 6, 9]);
 
 // Common shorthand for the chord reference table (addRow's 3rd arg) — most
 // reuse the exact symbol strings theory.js's own CHORD_QUALITY/EXTRA_QUALITY
@@ -433,10 +455,13 @@ const CHORD_SYMBOL = {
   'Augmented major 7th': '+maj7', 'Dominant 7♯5': '7♯5', 'Dominant 7♭5': '7♭5',
   'Major 6th': '6', 'Minor 6th': 'm6', 'Major add9': 'add9', 'Minor add9': 'madd9',
   'Major 9th': 'maj9', 'Dominant 9th': '9', 'Dominant 7♭9': '7♭9', 'Dominant 7♯9': '7♯9',
-  'Minor 9th': 'm9', 'Minor 11th': 'm11', 'Major 6/9': '6/9', 'Minor 6/9': 'm6/9',
-  'Major 13th': 'maj13', 'Dominant 13th': '13', 'Minor 13th': 'm13',
-  'Minor 11th (full)': 'm11', 'Dominant 9♯11': '9♯11', 'Dominant 13♭9': '13♭9',
-  'Minor-major 9th': 'mMaj9', 'Minor-major 13th': 'mMaj13', 'Minor-major 11th (full)': 'mMaj11',
+  'Minor 9th': 'm9', 'Minor 11th (no 9th)': 'm11(no9)', 'Major 6/9': '6/9', 'Minor 6/9': 'm6/9',
+  'Minor-major 9th': 'mMaj9',
+  'Major 13th (no 11th)': 'maj13(no11)', 'Dominant 13th (no 11th)': '13(no11)', 'Minor 13th (no 5th)': 'm13(no5)',
+  'Minor 11th': 'm11', 'Minor-major 13th (no 5th)': 'mMaj13(no5)', 'Minor-major 11th': 'mMaj11',
+  'Dominant 9♯11': '9♯11', 'Dominant 13♭9 (no 11th)': '13♭9(no11)',
+  'Major 13th': 'maj13', 'Dominant 13th': '13', 'Minor 13th': 'm13', 'Minor-major 13th': 'mMaj13',
+  'Major 13♯11': 'maj13♯11', 'Dominant 13♯11': '13♯11',
 };
 
 // The 12-note row in the library replaces what used to be a separate
@@ -830,9 +855,11 @@ function setLabelMode(mode) {
 function setViewMode(mode) {
   viewMode = mode;
   localStorage.setItem('n4a-view-mode', mode);
-  const modeSwitch = document.getElementById('view-mode-switch');
-  modeSwitch.setAttribute('aria-checked', mode === 'beginner' ? 'true' : 'false');
-  modeSwitch.querySelectorAll('.mode-switch-opt').forEach(o => o.classList.toggle('active', o.dataset.mode === mode));
+  document.querySelectorAll('#view-mode-switch .view-mode-opt').forEach(o => {
+    const on = o.dataset.mode === mode;
+    o.classList.toggle('active', on);
+    o.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
   // Only the library changes — the mode stepper and voicing stay on the
   // main screen in both, which is why the switch lives in the library.
   // Beginner keeps #notecount-group (the Scale/Chord toggle, which
@@ -906,7 +933,12 @@ function renderName() {
     if (match) name = match.label;
   }
   const el = document.getElementById('scale-name');
-  const label = name === 'no common name' ? name : `${NOTE_NAMES[rootPitchClass]} ${name}`;
+  let label = name === 'no common name' ? name : `${NOTE_NAMES[rootPitchClass]} ${name}`;
+  // An inverted chord names its bass note, slash-chord style (C Major / E).
+  if (chordMode && chordInversion && name !== 'no common name') {
+    const bass = voicedChordNotes(scaleOffsets)[0];
+    label += ` / ${spelledNoteName(chordAwareBeadLabel(bass.idx, bass.offset, scaleOffsets, 'relative', rootPitchClass), bass.midi)}`;
+  }
   // No note-name/degree formula line here — that's already shown live on
   // the abacus beads themselves, so repeating it under the name was
   // redundant.
@@ -930,22 +962,36 @@ function applyArmRotation(newIdx) {
   render();
 }
 
-// Mechanically identical in both modes (re-root the same absolute-pitch
-// collection, see applyArmRotation above) — but "Mode" is scale-specific
-// vocabulary that doesn't mean anything for a chord. "Inversion" is the
-// nearest chord-literate term for "which chord tone is currently treated as
-// root," even though it's not textbook-precise (a real inversion is about
-// which tone is in the bass, not which is the interval reference). Shared
-// by renderModeLabel and stepMode's own mid-animation label update — that
-// second call site used to hardcode "Mode", which is why the label used to
-// flash back to "Mode" for the ~650ms of a rotation before settling back to
-// "Inversion" in chord mode.
+// Scales step through their modes: re-root the same absolute-pitch
+// collection (applyArmRotation above). Chords step through inversions
+// instead, which is a different thing: the chord stays the same chord on
+// the same root (C Minor 13th stays C Minor 13th), and only which chord
+// tone sits in the bass changes — see chordInversion/voicedChordNotes.
+// (This used to re-root chords too, calling that an "inversion": stepping
+// a C Minor 13th landed on a nonsense "D Dominant 13♭9 ♯3 ♭13".)
+const ORDINAL = ['Root position', '1st', '2nd', '3rd'];
 function modeLabelText(idx, total) {
-  return `${chordMode ? 'Inversion' : 'Mode'} ${idx + 1}/${total}`;
+  if (!chordMode) return `Mode ${idx + 1}/${total}`;
+  return idx === 0 ? ORDINAL[0] : `${ORDINAL[idx] || idx + 'th'} inversion`;
+}
+
+// "Shape 2/11" for a chord; for a scale, what its system calls the
+// position: the CAGED form, the fret the index finger's at (Berklee), or
+// just its number (3 per string).
+function shapeLabelText() {
+  const sh = chordShapes.list[chordShapes.idx], k = `${chordShapes.idx + 1}/${chordShapes.list.length}`;
+  if (chordMode) return `Shape ${k}`;
+  if (sh.system === 'caged') return `${sh.label} ${k}`;
+  if (sh.system === 'berklee') return sh.label;
+  return `3/string ${k}`;
 }
 
 function renderModeLabel() {
-  document.getElementById('mode-label').textContent = modeLabelText(armRootIdx, armPCs.length);
+  document.getElementById('mode-label').textContent = shapesActive()
+    ? shapeLabelText()
+    : chordMode
+    ? modeLabelText(chordInversion, scaleOffsets.length)
+    : modeLabelText(armRootIdx, armPCs.length);
 }
 
 let animating = false;
@@ -957,6 +1003,18 @@ function setModeControlsDisabled(v) {
 
 function stepMode(dir) {
   if (animating) return;
+  if (shapesActive()) {
+    const n = chordShapes.list.length;
+    chordShapes.idx = ((chordShapes.idx + dir) % n + n) % n;
+    render();
+    return;
+  }
+  if (chordMode) {
+    const n = scaleOffsets.length;
+    chordInversion = ((chordInversion + dir) % n + n) % n;
+    render();
+    return;
+  }
   const n = armPCs.length;
   const newIdx = ((armRootIdx + dir) % n + n) % n;
 
@@ -1237,12 +1295,20 @@ const NUT_X = 110;
 // fewer frets over the same height is a proportionally wider neck. Fret
 // *spacing* is unaffected (it's anchored to REF_FRET/REF_X below), so this
 // lengthens or shortens the neck rather than rescaling it.
+// Lying down on a tablet/desktop the neck has a whole wide screen to
+// itself, so it defaults to more frets — which also draws it at a smaller
+// scale — and remembers its own choice apart from a phone's.
 const FRET_OPTIONS_H = [12, 15, 17, 19, 22, 24], FRET_OPTIONS_V = [5, 7, 10, 12, 15];
-let FRETS_HORIZONTAL = Number(localStorage.getItem('n4a-frets-h')) || 15;
-let FRETS_VERTICAL = Number(localStorage.getItem('n4a-frets-v')) || 10;
+// Same upright: a tablet or desktop window has the height for a longer
+// neck, and at 10 frets it was drawn far bigger than it needs to be.
+const ON_PHONE = window.spicemapLayout().phone;
+const FRETS_H_KEY = ON_PHONE ? 'n4a-frets-h' : 'n4a-frets-h-wide';
+const FRETS_V_KEY = ON_PHONE ? 'n4a-frets-v' : 'n4a-frets-v-wide';
+let FRETS_HORIZONTAL = Number(localStorage.getItem(FRETS_H_KEY)) || (ON_PHONE ? 15 : 22);
+let FRETS_VERTICAL = Number(localStorage.getItem(FRETS_V_KEY)) || (ON_PHONE ? 10 : 15);
 function setFretCount(n) {
-  if (verticalInstrumentMode()) { FRETS_VERTICAL = n; localStorage.setItem('n4a-frets-v', n); }
-  else { FRETS_HORIZONTAL = n; localStorage.setItem('n4a-frets-h', n); }
+  if (verticalInstrumentMode()) { FRETS_VERTICAL = n; localStorage.setItem(FRETS_V_KEY, n); }
+  else { FRETS_HORIZONTAL = n; localStorage.setItem(FRETS_H_KEY, n); }
   renderInstrumentView();
   refreshInstrumentSizeControls();
 }
@@ -1462,7 +1528,10 @@ function shakeFretBead(s, f) {
   bead.classList.add('fb-shake');
 }
 // A plucked string bends into a shallow triangle between the fret it's
-// stopped at and the far end, swinging back and forth and dying away. The
+// stopped at and the bridge, swinging back and forth and dying away. The
+// bridge is off the drawing (the neck stops at the last fret drawn), so
+// the peak can fall past its end, and the string still moves where the
+// drawing cuts it off. The
 // real line is hidden while a temporary polyline draws that shape.
 // Everything is in the drawing's own (pre-rotation) coordinates, where a
 // string runs along x — so the swing along y is across the string in both
@@ -1479,7 +1548,15 @@ function vibrateString(s, f) {
   const xs = mirror(fbFXs(f, s));
   const ts = Math.max(0, Math.min(1, (xs - x1) / (x2 - x1)));
   const at = t => [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t];
-  const [sx, sy] = at(ts), [ax, ay] = at(ts + (1 - ts) / 2);
+  // The bridge: where fret "infinity" would be — the full scale length
+  // from the nut, fanned like everything else on this string.
+  const xb = mirror(FAN_PIVOT_X + (NUT_X + FRET_SCALE - FAN_PIVOT_X) * fanFactor(s));
+  const tb = Math.max(1, (xb - x1) / (x2 - x1));
+  const tm = (ts + tb) / 2; // the peak, midway between stop and bridge
+  const [sx, sy] = at(ts), [ax, ay] = at(Math.min(tm, 1));
+  // How far the drawn end moves, relative to the peak: all the way when
+  // the peak is past it, else sloping down toward the bridge.
+  const endShare = tm >= 1 ? (1 - ts) / (tm - ts) : (tb - 1) / (tb - tm);
   const path = mk('polyline', {
     fill: 'none', stroke: line.getAttribute('stroke'), 'stroke-width': line.getAttribute('stroke-width'),
     'pointer-events': 'none',
@@ -1502,7 +1579,8 @@ function vibrateString(s, f) {
     const t = (now - start) / 1000;
     if (t > 0.7 || !path.isConnected) { finish(); return; }
     const off = amp * Math.cos(2 * Math.PI * 11 * t) * Math.exp(-t / 0.2);
-    path.setAttribute('points', `${x1},${y1} ${sx},${sy} ${ax},${ay + off} ${x2},${y2}`);
+    const peak = tm >= 1 ? '' : `${ax},${ay + off} `;
+    path.setAttribute('points', `${x1},${y1} ${sx},${sy} ${peak}${x2},${y2 + off * endShare}`);
     entry.frame = requestAnimationFrame(frame);
   })(start);
 }
@@ -1544,7 +1622,34 @@ refreshPlayingControls();
 const fretStrums = new Map(); // pointerId -> { u, last, active, notes }
 function isStrumming(pointerId) {
   const st = fretStrums.get(pointerId);
-  return !!(st && st.active);
+  return !!(st && (st.active || st.swiped));
+}
+// Shape mode: a swipe doesn't strum, it picks the shape that best matches
+// its path (selectShapeBySwipe) when the finger lifts. The path, sampled
+// every few units so a fast swipe doesn't skip a string, becomes the
+// {s, f} cells it passed over: the nearest string (when the finger is on
+// one, not between two) and the nearest fret on it.
+function swipeCells(path) {
+  const cells = new Map();
+  const add = pt => {
+    const u = stringIndexAt(pt), s = Math.round(u);
+    if (s < 0 || s >= STRING_COUNT || Math.abs(u - s) > 0.4) return;
+    let f = 0, best = Infinity;
+    for (let k = 0; k <= FRET_COUNT; k++) {
+      const d = Math.abs(fbMXs(k, s) - pt.x);
+      if (d < best) { best = d; f = k; }
+    }
+    cells.set(s + ':' + f, { s, f });
+  };
+  path.forEach((pt, i) => {
+    const prev = path[i - 1];
+    const steps = prev ? Math.max(1, Math.ceil(Math.hypot(pt.x - prev.x, pt.y - prev.y) / 4)) : 1;
+    for (let k = 1; k <= steps; k++) {
+      const t = k / steps;
+      add(prev ? { x: prev.x + (pt.x - prev.x) * t, y: prev.y + (pt.y - prev.y) * t } : pt);
+    }
+  });
+  return [...cells.values()];
 }
 // Pointer -> canonical fretboard coordinates (undoing the upright
 // rotation and the left-handed mirror the drawing was given).
@@ -1563,6 +1668,10 @@ function stringIndexAt(pt) {
   return (pt.y - y0) / (y1 - y0);
 }
 function strumNote(s, x) {
+  // A shape on show is what a strum plays: its fret on each string it
+  // uses, silence on the ones it leaves out.
+  const sh = currentShape();
+  if (sh && chordMode) return sh.frets[s] === null ? null : playFret(s, sh.frets[s]);
   let fret = 0, best = Infinity;
   for (let f = 0; f <= FRET_COUNT; f++) {
     const d = Math.abs(fbMX(f) - x);
@@ -1583,7 +1692,10 @@ function strumNote(s, x) {
     const pt = fretCanonicalPoint(svg, e);
     if (!pt) return;
     const u = stringIndexAt(pt);
-    fretStrums.set(e.pointerId, { u, last: Math.round(u), active: false, notes: [] });
+    fretStrums.set(e.pointerId, {
+      u, last: Math.round(u), active: false, notes: [],
+      shapes: shapesActive(), path: [pt], x0: e.clientX, y0: e.clientY, swiped: false,
+    });
     // Keep hearing about this finger if it started on bare wood. Not when it
     // started on a bead or fret spot: that one captures the finger itself,
     // and grabbing it here first could make the spot's own capture fail —
@@ -1597,6 +1709,11 @@ function strumNote(s, x) {
     if (!st) return;
     const pt = fretCanonicalPoint(svg, e);
     if (!pt) return;
+    if (st.shapes) {
+      st.path.push(pt);
+      if (Math.hypot(e.clientX - st.x0, e.clientY - st.y0) > 14) st.swiped = true;
+      return;
+    }
     const u = stringIndexAt(pt);
     const lo = Math.min(st.u, u), hi = Math.max(st.u, u);
     // Every string line passed since the last move, in the order passed.
@@ -1616,6 +1733,7 @@ function strumNote(s, x) {
     const st = fretStrums.get(e.pointerId);
     if (!st) return;
     st.notes.forEach(n => n.release());
+    if (st.swiped && e.type === 'pointerup') selectShapeBySwipe(swipeCells(st.path));
     // Removed after the bead's own pointerup has had its look (isStrumming).
     setTimeout(() => fretStrums.delete(e.pointerId), 0);
   };
@@ -1644,6 +1762,9 @@ function renderFretboard() {
   const svg = document.getElementById('fretboard');
   svg.innerHTML = '';
   syncNeckMetrics();
+  syncChordShapes(); // the neck length may just have changed (rotating)
+  const shape = currentShape();
+  const inShape = (s, f) => !!shape && shapeHas(shape, s, f);
   const vertical = verticalInstrumentMode();
 
   const last = STRING_COUNT - 1, mid = last / 2;
@@ -1926,7 +2047,7 @@ function renderFretboard() {
 
     const circle = mk('circle', {
       cx: mirror(x), cy: y, r,
-      fill: icolor(st), opacity: 1, class: 'fb-bead', 'data-s': s, 'data-f': f,
+      fill: icolor(st), opacity: shape && !inShape(s, f) ? 0.25 : 1, class: 'fb-bead', 'data-s': s, 'data-f': f,
       stroke: 'rgba(255,255,255,0.55)', 'stroke-width': 1.5,
       'pointer-events': 'none', // the invisible hit circle below is what actually receives touches
     });
@@ -1952,6 +2073,27 @@ function renderFretboard() {
       // this same style for the same reason.)
       style: 'touch-action: none;',
     });
+
+    // Shape mode: a tap picks a shape through this fret (and strums it)
+    // rather than playing the one note; nothing drags.
+    if (shape) {
+      let down = null;
+      hit.classList.add('fb-hit');
+      hit.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        down = { x: e.clientX, y: e.clientY };
+        try { hit.setPointerCapture(e.pointerId); } catch (_) { /* not a live pointer */ }
+      });
+      hit.addEventListener('pointerup', e => {
+        const d = down;
+        down = null;
+        if (!d || isStrumming(e.pointerId) || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12) return;
+        if (!selectShapeAt(s, f)) playFret(s, f).release();
+      });
+      hit.addEventListener('pointercancel', () => { down = null; });
+      svg.appendChild(hit);
+      return;
+    }
 
     // The root never moves (a scale is defined relative to it); with Move
     // beads off, none of them do.
@@ -2016,6 +2158,28 @@ function renderFretboard() {
     svg.appendChild(hit);
   });
 
+  // The shape on show: a white line round its notes (under the beads), and
+  // an × at the nut on each string it leaves out. Both ignore the pointer,
+  // so they never get in the way of a tap.
+  if (shape) {
+    const pts = shape.cells.map(({ s, f }) => ({ x: mirror(fbMXs(f, s)), y: STRING_Y(s, fbMX(f)) }));
+    const pad = BASE_MARKER_R * 1.25 + 3;
+    const firstBead = svg.querySelector('.fb-bead');
+    const outline = mk('path', {
+      d: hullOutlinePath(pts, pad), fill: 'rgba(255,255,255,0.07)', stroke: '#fff', 'stroke-width': 2.2,
+      'stroke-linejoin': 'round', 'pointer-events': 'none', class: 'fb-shape'
+    });
+    svg.insertBefore(outline, firstBead);
+    (shape.frets || []).forEach((f, s) => {
+      if (f !== null) return;
+      const cx = mirror(fbMXs(0, s)), cy = STRING_Y(s, openX), a = BASE_MARKER_R * 0.55;
+      svg.appendChild(mk('path', {
+        d: `M${cx - a},${cy - a}L${cx + a},${cy + a}M${cx + a},${cy - a}L${cx - a},${cy + a}`,
+        stroke: '#fff', 'stroke-width': 2.2, 'stroke-linecap': 'round', 'pointer-events': 'none', class: 'fb-shape'
+      }));
+    });
+  }
+
   // Click-to-play on every other fret/string position too (not just the
   // in-scale bubbles) — same idea as the piano's always-clickable keys.
   // Invisible hit target, same size/position a bubble would use.
@@ -2070,6 +2234,540 @@ function renderFretboard() {
   // a non-uniform stretch, which was distorting beads into ellipses and
   // fattening text.
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+}
+
+// ── chord shapes (fretted instruments, chord mode) ──────────────────────────
+//
+// With the fretboard's tap switch on "shape" (see #fret-tap-toggle), one
+// playable fingering of the chord is outlined and everything else dims.
+// The shape is the voicing: Play, the staff and the slash name all follow
+// it, and the stepper (‹ ›) browses shapes instead of inversions — every
+// inversion's shapes, root position first, each group low on the neck to
+// high. Tapping a chord tone picks the best shape through that exact fret,
+// and tapping it again the next best, round and round.
+//
+// Where shapes come from: the standard fingerings players learn (the CAGED
+// forms — open C is the C-form at the nut, x35553 the A-form barre) come
+// from SHAPE_TEMPLATES and rank first, on a 6-string guitar in standard
+// tuning. Everything else — other chords, inversions, other instruments
+// and tunings — is found by searching the neck for fingerings a hand can
+// actually hold (see findChordShapes), so every chord gets shapes.
+let fretTapMode = localStorage.getItem('n4a-fret-tap') === 'play' ? 'play' : 'shape';
+function setFretTapMode(mode) {
+  fretTapMode = mode;
+  localStorage.setItem('n4a-fret-tap', mode);
+  render();
+}
+
+// Relative frets, low string to high ('x' = not played), measured from
+// the fret the root sits at on the lowest played string. Each is one CAGED
+// form (named after the open chord it is), movable up the neck.
+const SHAPE_TEMPLATES = {
+  'Major triad':         { C: 'x 0 -1 -3 -2 -3', A: 'x 0 2 2 2 0', G: '0 -1 -3 -3 -3 0', E: '0 2 2 1 0 0', D: 'x x 0 2 3 2' },
+  'Minor triad':         { C: 'x 0 -2 -3 -2 x', A: 'x 0 2 2 1 0', E: '0 2 2 0 0 0', D: 'x x 0 2 3 1' },
+  'Dominant 7th':        { C: 'x 0 -1 0 -2 -3', B: 'x 0 -1 0 -2 0', A: 'x 0 2 0 2 0', G: '0 -1 -3 -3 -3 -2', E: '0 2 0 1 0 0', D: 'x x 0 2 1 2' },
+  'Minor 7th':           { A: 'x 0 2 0 1 0', E: '0 2 0 0 0 0', D: 'x x 0 2 1 1' },
+  'Major 7th':           { C: 'x 0 -1 -3 -3 -3', A: 'x 0 2 1 2 0', E: '0 x 1 1 0 x', D: 'x x 0 2 2 2' },
+  'Half-diminished 7th': { A: 'x 0 1 0 1 x', E: '0 x 0 0 -1 x' },
+  'Diminished 7th':      { A: 'x 0 1 -1 1 x', D: 'x x 0 1 0 1' },
+  'Suspended 4th':       { A: 'x 0 2 2 3 0', E: '0 2 2 2 0 0', D: 'x x 0 2 3 3' },
+  'Suspended 2nd':       { A: 'x 0 2 2 0 0', D: 'x x 0 2 3 0' },
+  'Major 6th':           { A: 'x 0 2 2 2 2', E: '0 x -1 1 0 x' },
+  'Minor 6th':           { A: 'x 0 2 2 1 2' },
+  'Major add9':          { C: 'x 0 -1 -3 0 0' },
+  'Dominant 9th':        { A: 'x 0 -1 0 0 0' },
+  'Minor 9th':           { A: 'x 0 -2 0 0 0' },
+  'Major 9th':           { A: 'x 0 -1 1 0 x' },
+  'Dominant 7♯9':        { A: 'x 0 -1 0 1 x' },
+  'Dominant 7♭9':        { A: 'x 0 -1 0 -1 x' },
+  'Dominant 13th (no 11th)': { E: '0 x 0 1 2 x' },
+};
+const STANDARD_GUITAR_MIDI = [64, 59, 55, 50, 45, 40];
+
+function fretted() { return INSTRUMENT_FAMILY[instrument] !== 'piano'; }
+function shapesActive() { return fretted() && fretTapMode === 'shape' && chordShapes.list.length > 0; }
+
+// A shape: frets[s] per string (null = not played), plus what it's worth.
+function shapeKey(frets) { return frets.map(f => (f === null ? 'x' : f)).join(','); }
+function shapeNotes(frets) {
+  const out = [];
+  frets.forEach((f, s) => { if (f !== null) out.push({ s, f, midi: effectiveOpenMidi(s) + f, pc: (effectiveOpenPc(s) + f) % 12 }); });
+  return out.sort((a, b) => a.midi - b.midi);
+}
+
+// Chord tones a fingering may leave out, the way players thin a big chord
+// down to what fits under one hand: the 5th of any four-plus-note chord,
+// the root of a five-plus-note one when it isn't the bass, the 9th under a
+// 13th, and the natural 11th of a full 13th chord on a major 3rd.
+function omittableOffsets(set, bassOffset) {
+  const out = new Set();
+  if (set.length >= 4) out.add(7);
+  if (set.length >= 5 && bassOffset !== 0) out.add(0);
+  if (set.length >= 6 && set.includes(9)) out.add(2);
+  if (set.length >= 7 && set.includes(4)) out.add(5);
+  out.delete(bassOffset);
+  return out;
+}
+
+// How good a fingering is — fuller, closer, fewer fingers — or null for one
+// a hand can't hold. notes: shapeNotes(frets).
+function scoreShape(frets, notes) {
+  const order = frets.map((_, s) => s).reverse(); // low string to high
+  const played = order.filter(s => frets[s] !== null);
+  const first = order.indexOf(played[0]), lastI = order.indexOf(played[played.length - 1]);
+  const interior = order.slice(first, lastI + 1).filter(s => frets[s] === null).length;
+  if (interior > 1) return null;
+  const fr = played.map(s => frets[s]).filter(f => f > 0);
+  const opens = played.length - fr.length;
+  let span = 0, fingers = 0, minF = 0;
+  if (fr.length) {
+    minF = Math.min(...fr);
+    span = Math.max(...fr) - minF;
+    if (span > 3) return null;
+    if (opens && Math.max(...fr) > 4) return null; // open strings belong near the nut
+    const atMin = order.filter(s => frets[s] === minF);
+    // One finger can bar the lowest fret if nothing between its outer
+    // strings is open or left out.
+    const i0 = order.indexOf(atMin[0]), i1 = order.indexOf(atMin[atMin.length - 1]);
+    const barre = atMin.length > 1 && order.slice(i0, i1 + 1).every(s => frets[s] !== null && frets[s] >= minF);
+    fingers = (barre ? 1 : atMin.length) + fr.filter(f => f > minF).length;
+    if (fingers > 4) return null;
+  }
+  const highMutes = order.length - 1 - lastI;
+  return 3 * played.length - 4 * interior - 1.5 * highMutes - span - 0.15 * minF
+    + (minF <= 3 ? opens : 0) - (fingers === 4 ? 1.5 : 0);
+}
+
+// Every fingering of the chord (absolute pitch classes `pcs`) a hand can
+// hold in a four-fret window (plus open strings) and that sounds at least
+// three strings, grouped by its bass pitch class, best first. One search
+// serves every inversion; which tones each must include is checked after.
+// Strings are tried low to high, dropping a branch as soon as it can't
+// work (two strings skipped inside the chord, or more fretted notes above
+// the window's first fret than three fingers can hold) — an 8-string with
+// a 7-note chord is otherwise millions of branches.
+function searchChordShapes(pcs) {
+  const n = STRING_COUNT, found = new Map();
+  const order = Array.from({ length: n }, (_, i) => n - 1 - i); // low string to high
+  const minPlayed = Math.min(n, 3);
+  const lastW = Math.max(1, FRET_COUNT - 3);
+  for (let w = 1; w <= lastW; w++) {
+    const opts = order.map(s => {
+      const o = [null];
+      for (let f = 0; f <= Math.min(w + 3, FRET_COUNT); f++) {
+        if (f !== 0 && f < w) continue;
+        if (pcs.has((effectiveOpenPc(s) + f) % 12)) o.push(f);
+      }
+      return o;
+    });
+    const frets = new Array(n).fill(null);
+    (function dfs(i, started, pending, interior, above, atW) {
+      if (i === n) {
+        // Each fretted shape is found once, in the window starting at its
+        // own lowest fret (the last window takes whatever reaches past it).
+        if (!atW && w > 1 && w < lastW) return;
+        const notes = shapeNotes(frets);
+        if (notes.length < minPlayed) return;
+        const key = shapeKey(frets);
+        if (found.has(key)) return;
+        const score = scoreShape(frets, notes);
+        if (score !== null) found.set(key, { frets: frets.slice(), score, notes });
+        return;
+      }
+      const s = order[i];
+      for (const f of opts[i]) {
+        if (f === null) {
+          frets[s] = null;
+          dfs(i + 1, started, started ? pending + 1 : 0, interior, above, atW);
+          continue;
+        }
+        const inter = interior + (started ? pending : 0);
+        if (inter > 1) continue;
+        const ab = above + (f > w ? 1 : 0);
+        if (ab > 3) continue;
+        frets[s] = f;
+        dfs(i + 1, true, 0, inter, ab, atW || f === w);
+      }
+      frets[s] = null;
+    })(0, false, 0, 0, 0, false);
+  }
+  const byBass = new Map();
+  [...found.values()].sort((a, b) => b.score - a.score).forEach(sh => {
+    const bass = sh.notes[0].pc;
+    if (!byBass.has(bass)) byBass.set(bass, []);
+    byBass.get(bass).push(sh);
+  });
+  return byBass;
+}
+
+// The CAGED forms of this chord that fit the neck drawn, or none off a
+// standard-tuned 6-string guitar.
+function templateShapes(name, pcs, bassPc) {
+  const t = SHAPE_TEMPLATES[name];
+  if (!t || STRING_COUNT !== 6 || STANDARD_GUITAR_MIDI.some((m, s) => effectiveOpenMidi(s) !== m)) return [];
+  const out = [];
+  Object.entries(t).forEach(([form, pattern]) => {
+    const rel = pattern.split(' ').map(v => (v === 'x' ? null : Number(v))).reverse(); // to string order (high first)
+    const rootS = rel.map((_, s) => s).reverse().find(s => rel[s] !== null);
+    const r0 = mod12(rootPitchClass - effectiveOpenPc(rootS));
+    [r0, r0 + 12].forEach(r => {
+      const frets = rel.map(v => (v === null ? null : v + r));
+      if (frets.some(f => f !== null && (f < 0 || f > FRET_COUNT))) return;
+      const notes = shapeNotes(frets);
+      if (notes[0].pc !== bassPc || notes.some(x => !pcs.has(x.pc))) return;
+      out.push({ frets, score: 100 + (scoreShape(frets, notes) ?? 0), form });
+    });
+  });
+  return out;
+}
+
+// All the shapes the stepper offers: per inversion (bass note), the CAGED
+// forms plus the best distinct searched ones — a searched shape that's
+// just a standard one minus a string, or plus one, isn't a new shape.
+function buildChordShapes() {
+  const set = scaleOffsets;
+  const pcs = new Set(set.map(o => (o + rootPitchClass) % 12));
+  const name = nameScale(set).exact ? nameScale(set).name : null;
+  const bassOrder = voicedChordNotes(set, 0).map(v => v.offset); // root, then each tone up the close stack
+  const list = [];
+  const all = searchChordShapes(pcs);
+  bassOrder.forEach((bassOffset, inv) => {
+    const bassPc = (bassOffset + rootPitchClass) % 12;
+    const omit = omittableOffsets(set, bassOffset);
+    const need = new Set(set.filter(o => !omit.has(o)).map(o => (o + rootPitchClass) % 12));
+    const picked = inv === 0 && name ? templateShapes(name, pcs, bassPc) : [];
+    const cells = sh => new Set(sh.frets.map((f, s) => (f === null ? null : s + ':' + f)).filter(Boolean));
+    const similar = (a, b) => {
+      const ca = cells(a), cb = cells(b);
+      let shared = 0;
+      ca.forEach(c => { if (cb.has(c)) shared++; });
+      return shared >= Math.min(ca.size, cb.size) - 1;
+    };
+    const limit = picked.length + (inv === 0 ? 5 : 3);
+    const searched = (all.get(bassPc) || []).filter(sh => {
+      const have = new Set(sh.notes.map(x => x.pc));
+      return [...need].every(pc => have.has(pc));
+    });
+    const floor = searched.length ? 0.6 * searched[0].score : 0; // nothing far worse than the best
+    for (const sh of searched) {
+      if (picked.length >= limit || sh.score < floor) break;
+      if (picked.some(p => similar(p, sh))) continue;
+      picked.push(sh);
+    }
+    picked.forEach(sh => {
+      sh.inv = inv;
+      sh.key = shapeKey(sh.frets);
+      sh.cells = sh.frets.map((f, s) => (f === null ? null : { s, f })).filter(Boolean);
+    });
+    // Low on the neck to high, as the stepper walks them.
+    const pos = sh => Math.min(...sh.frets.filter(f => f !== null).map(f => f || 0.5));
+    list.push(...picked.sort((a, b) => pos(a) - pos(b)));
+  });
+  return list;
+}
+
+// ── scale shapes ──
+// The same outline for a scale: one hand position of it, in whichever of
+// three systems the Instrument menu picks (scaleSystem):
+//   caged   — five positions, one round each CAGED form of the scale's own
+//             tonic chord (the E-form barre, the A-form, …), the way the
+//             major scale is taught with the chord shapes it grows out of;
+//   3nps    — three notes on every string (two for a pentatonic), one
+//             position starting on each scale note: long diagonal shapes
+//             that slide up the neck, built for speed;
+//   berklee — one finger per fret (William Leavitt's positions, as taught
+//             at Berklee): the index finger's fret names the position, and
+//             every note lies under a finger, reaching one fret out only
+//             when it must — one position per scale note on the low string.
+// All three are worked out for whatever scale and tuning is loaded, so
+// they exist for every scale; CAGED needs the chord forms, i.e. a standard-
+// tuned 6-string guitar, and falls back to the Berklee positions elsewhere
+// (as 3-per-string does on a re-entrant tuning like the ukulele's).
+const SCALE_SYSTEMS = ['caged', '3nps', 'berklee'];
+const SCALE_SYSTEM_LABELS = { caged: 'CAGED', '3nps': '3 per string', berklee: 'Berklee' };
+let scaleSystem = SCALE_SYSTEMS.includes(localStorage.getItem('n4a-scale-system')) ? localStorage.getItem('n4a-scale-system') : 'caged';
+function setScaleSystem(sys) {
+  scaleSystem = sys;
+  localStorage.setItem('n4a-scale-system', sys);
+  refreshScaleSystemControls();
+  render();
+}
+function refreshScaleSystemControls() {
+  document.querySelectorAll('#scale-system-toggle [data-system]').forEach(b =>
+    b.classList.toggle('active', b.dataset.system === scaleSystem));
+}
+
+// Strings in order of open pitch — the physical order, except on a
+// re-entrant tuning (the ukulele's high G, the banjo's short 5th string),
+// whose odd string slots in where its pitch belongs, so a position still
+// climbs steadily through the scale.
+const lowToHigh = () => Array.from({ length: STRING_COUNT }, (_, i) => STRING_COUNT - 1 - i)
+  .sort((a, b) => effectiveOpenMidi(a) - effectiveOpenMidi(b));
+const isScalePc = pc => scaleOffsets.includes(semitone(((pc % 12) + 12) % 12));
+function scaleShape(cells, system, label) {
+  cells.sort((a, b) => b.s - a.s || a.f - b.f);
+  const frets = cells.map(c => c.f);
+  return {
+    cells, system, label, key: system + ':' + cells.map(c => c.s + '.' + c.f).join(','),
+    pos: Math.min(...frets.map(f => f || 0.5)), span: Math.max(...frets) - Math.min(...frets),
+  };
+}
+
+// One hand position: every scale note under a four-fret window starting at
+// fret p (index finger at p; p = 0 is the open position), taken in pitch
+// order, low string to high, each played once — on the string it's on now
+// while that string has room (`cap` notes) and it's under a finger, else on
+// the next string. A note no finger reaches is played one fret outside the
+// window, and preferably by the index finger reaching back on the next
+// string rather than the little finger reaching up on this one: in A minor
+// at the 5th fret the B goes on the G string's 4th fret, not the D
+// string's 9th — the way the position is taught, and the easier stretch.
+function positionCells(p, cap) {
+  const order = lowToHigh(), n = order.length;
+  const coreLo = p, coreHi = p + 3, lo = Math.max(0, p - 1), hi = Math.min(FRET_COUNT, p + 4);
+  const pitches = new Set();
+  order.forEach(s => { for (let f = lo; f <= hi; f++) if (isScalePc(effectiveOpenPc(s) + f)) pitches.add(effectiveOpenMidi(s) + f); });
+  const count = new Array(n).fill(0), cells = [];
+  let c = 0, started = false;
+  for (const m of [...pitches].sort((a, b) => a - b)) {
+    const fretOn = i => m - effectiveOpenMidi(order[i]);
+    const core = i => i < n && fretOn(i) >= coreLo && fretOn(i) <= Math.min(coreHi, FRET_COUNT);
+    const reach = i => i < n && fretOn(i) >= lo && fretOn(i) <= hi;
+    const room = i => count[i] < cap;
+    let at = null;
+    if (!started) at = core(0) ? 0 : null; // it starts under the index finger
+    else if (core(c) && room(c)) at = c;
+    else if (core(c + 1)) at = c + 1;
+    else if (reach(c + 1)) at = c + 1;
+    else if (reach(c) && room(c)) at = c;
+    if (at === null) continue;
+    cells.push({ s: order[at], f: fretOn(at) });
+    count[at]++;
+    c = at;
+    started = true;
+  }
+  // A position has to reach across the whole neck.
+  return count.every(k => k > 0) ? cells : null;
+}
+
+// Notes a position plays outside its four frets.
+const reachesOf = (cells, p) => cells.filter(c => c.f < p || c.f > p + 3).length;
+
+// A fret that needs a reach on more than two strings isn't a position of
+// this scale, just the neighbouring one shifted (in C major, "position 8"
+// is the 7th with every string's first note stretched to) — left out.
+// Every fret the index finger could sit at is tried; one that leaves a
+// string with a single note, or a position that's just its neighbour with a note or two moved (all but two notes the same)
+// is dropped in favour of whichever needs fewer reaches.
+function berkleeShapes() {
+  const cap = scaleOffsets.length <= 5 ? 2 : 4, found = [];
+  for (let p = 0; p <= Math.min(12, FRET_COUNT - 3); p++) {
+    const cells = positionCells(p, cap);
+    if (!cells || reachesOf(cells, p) > 2) continue;
+    // A real position has at least two notes on every string.
+    if (Array.from({ length: STRING_COUNT }, (_, s) => cells.filter(c => c.s === s).length).some(k => k < 2)) continue;
+    found.push({ p, cells, reaches: reachesOf(cells, p) });
+  }
+  const key = c => c.s + '.' + c.f;
+  const out = [];
+  found.sort((a, b) => a.reaches - b.reaches || a.p - b.p).forEach(cand => {
+    const mine = new Set(cand.cells.map(key));
+    const near = out.some(o => {
+      const shared = o.cells.filter(c => mine.has(key(c))).length;
+      return Math.max(o.cells.length, cand.cells.length) - shared <= 2;
+    });
+    if (!near) out.push(cand);
+  });
+  return out.map(({ p, cells }) => scaleShape(cells, 'berklee', p ? `Position ${p}` : 'Open position'));
+}
+
+function cagedShapes() {
+  if (STRING_COUNT !== 6 || STANDARD_GUITAR_MIDI.some((m, s) => effectiveOpenMidi(s) !== m)) return [];
+  const minor = scaleOffsets.includes(3) && !scaleOffsets.includes(4);
+  // The minor G-form (open: 310033) is no chord anyone plays, but it's the
+  // fifth CAGED position of a minor scale.
+  const t = minor ? { ...SHAPE_TEMPLATES['Minor triad'], G: '0 -2 -3 -3 0 0' } : SHAPE_TEMPLATES['Major triad'];
+  const cap = scaleOffsets.length <= 5 ? 2 : 3, out = [];
+  Object.entries(t).forEach(([form, pattern]) => {
+    const rel = pattern.split(' ').map(v => (v === 'x' ? null : Number(v))).reverse();
+    const rootS = rel.map((_, s) => s).reverse().find(s => rel[s] !== null);
+    const r0 = mod12(rootPitchClass - effectiveOpenPc(rootS));
+    [r0, r0 + 12].forEach(r => {
+      const frets = rel.filter(v => v !== null).map(v => v + r);
+      if (Math.min(...frets) < 0) return;
+      // The position round the form: the open position for an open form;
+      // otherwise the index finger on the form's lowest fret, or one either
+      // side of it — whichever needs fewest reaches outside the four frets
+      // (the E-form's scale starts a fret below its barre, the minor
+      // G-form's right on it). On a tie the higher one: its reaches are the
+      // index finger stretching back (see positionCells), and A minor's
+      // C-form then comes out the same as C major's D-form, the same notes
+      // under the same hand.
+      const minF = Math.min(...frets.filter(f => f > 0));
+      const tries = frets.includes(0) ? [0] : [minF - 1, minF, minF + 1];
+      let best = null;
+      tries.filter(p => p >= 0 && p + 3 <= FRET_COUNT).forEach(p => {
+        const cells = positionCells(p, cap);
+        if (!cells) return;
+        const reaches = reachesOf(cells, p);
+        if (!best || reaches <= best.reaches) best = { cells, reaches };
+      });
+      if (best) out.push(scaleShape(best.cells, 'caged', `${form} shape`));
+    });
+  });
+  return out;
+}
+
+function threeNpsShapes() {
+  const order = lowToHigh(), low = order[0], nps = scaleOffsets.length <= 5 ? 2 : 3, out = [];
+  for (let f0 = 0; f0 <= 12; f0++) {
+    if (!isScalePc(effectiveOpenPc(low) + f0)) continue;
+    const seq = [];
+    for (let m = effectiveOpenMidi(low) + f0; seq.length < nps * order.length; m++) if (isScalePc(m)) seq.push(m);
+    const cells = [];
+    order.forEach((s, i) => seq.slice(i * nps, i * nps + nps).forEach(m => cells.push({ s, f: m - effectiveOpenMidi(s) })));
+    if (cells.some(c => c.f < 0 || c.f > FRET_COUNT)) continue;
+    const sh = scaleShape(cells, '3nps', `Position ${out.length + 1}`);
+    if (sh.span <= 7) out.push(sh);
+  }
+  return out;
+}
+
+// The shapes a system offers here, low on the neck to high, with the
+// fallback described above when it has none on this instrument.
+function scaleShapesFor(sys) {
+  let list = sys === 'caged' ? cagedShapes() : sys === '3nps' ? threeNpsShapes() : berkleeShapes();
+  if (!list.length && sys !== 'berklee') list = berkleeShapes();
+  const seen = new Set();
+  return list.filter(sh => !seen.has(sh.key) && seen.add(sh.key)).sort((a, b) => a.pos - b.pos);
+}
+
+// ── shape state ──
+// The shapes on offer (chords, or the scale in the current system),
+// recomputed only when the chord/scale, root, system, instrument, tuning or
+// neck length changes; the one on show survives a recompute if it still
+// exists (e.g. rotating to a shorter neck that still has it).
+const chordShapes = { key: null, list: [], idx: 0 };
+function shapeContextKey() {
+  return [chordMode ? 'chord' : 'scale:' + scaleSystem, bitmaskOf(scaleOffsets), rootPitchClass, instrument, STRING_COUNT,
+    OPEN_MIDI.map((_, s) => effectiveOpenMidi(s)).join('.'), FRET_COUNT].join('|');
+}
+function syncChordShapes() {
+  if (!fretted() || scaleOffsets.length === 12) { chordShapes.key = null; chordShapes.list = []; return; }
+  const key = shapeContextKey();
+  if (key === chordShapes.key) return;
+  const current = chordShapes.list[chordShapes.idx];
+  const sameSet = chordShapes.key && chordShapes.key.split('|').slice(0, 3).join('|') === key.split('|').slice(0, 3).join('|');
+  chordShapes.key = key;
+  chordShapes.list = chordMode ? buildChordShapes() : scaleShapesFor(scaleSystem);
+  const keep = sameSet && current ? chordShapes.list.findIndex(sh => sh.key === current.key) : -1;
+  chordShapes.idx = keep >= 0 ? keep : chordMode ? bestShapeIdx(sh => sh.inv === 0) : 0;
+}
+function bestShapeIdx(filter) {
+  let best = -1;
+  chordShapes.list.forEach((sh, i) => {
+    if (filter(sh) && (best < 0 || sh.score > chordShapes.list[best].score)) best = i;
+  });
+  return Math.max(0, best);
+}
+function currentShape() { return shapesActive() ? chordShapes.list[chordShapes.idx] : null; }
+function shapeHas(sh, s, f) { return sh.cells.some(c => c.s === s && c.f === f); }
+
+// Tapping a note in shape mode: the best shape through that exact fret,
+// or — tapping again — the next best, wrapping round. (Scale positions
+// have no "best", so those go up the neck.) A chord shape strums; a scale
+// plays the note tapped.
+function selectShapeAt(s, f) {
+  const through = chordShapes.list.map((sh, i) => ({ sh, i }))
+    .filter(({ sh }) => shapeHas(sh, s, f));
+  if (chordMode) through.sort((a, b) => b.sh.score - a.sh.score);
+  if (!through.length) return false;
+  const at = through.findIndex(t => t.i === chordShapes.idx);
+  chordShapes.idx = through[(at + 1) % through.length].i;
+  render();
+  if (chordMode) strumShape(currentShape());
+  else playFret(s, f).release();
+  return true;
+}
+
+// A swipe in shape mode: the shape that best covers the frets the finger
+// passed over. `cells`: the {s, f} under the path. Each is scored by how far
+// (in frets) the shape's nearest note on that string is — a string the
+// shape leaves out counts as far — and the closest shape overall wins,
+// the smaller one on a tie. For scales every system competes, so the swipe
+// picks the system too: across the neck at one spot, a compact CAGED or
+// Berklee box; slanting up it, a 3-per-string run.
+function selectShapeBySwipe(cells) {
+  if (!cells.length) return false;
+  const pool = chordMode ? chordShapes.list
+    : SCALE_SYSTEMS.flatMap(sys => scaleShapesFor(sys).map(sh => ({ ...sh, sys })));
+  const cost = sh => {
+    let d = 0;
+    cells.forEach(({ s, f }) => {
+      const on = sh.cells.filter(c => c.s === s).map(c => Math.abs(c.f - f));
+      d += on.length ? Math.min(...on) : 3;
+    });
+    return d / cells.length + 0.03 * (sh.span ?? 0) + (!chordMode && sh.sys !== scaleSystem ? 0.05 : 0);
+  };
+  let best = null, bestCost = Infinity;
+  pool.forEach(sh => { const c = cost(sh); if (c < bestCost) { bestCost = c; best = sh; } });
+  if (!best) return false;
+  if (!chordMode && best.sys !== scaleSystem) {
+    scaleSystem = best.sys;
+    localStorage.setItem('n4a-scale-system', scaleSystem);
+    refreshScaleSystemControls();
+    syncChordShapes();
+  }
+  chordShapes.idx = Math.max(0, chordShapes.list.findIndex(sh => sh.key === best.key));
+  render();
+  if (chordMode) strumShape(currentShape());
+  return true;
+}
+
+// The shape strummed low string to high, as a quick down-stroke.
+function strumShape(sh) {
+  if (!sh) return;
+  const order = sh.frets.map((f, s) => ({ f, s })).filter(x => x.f !== null).reverse();
+  order.forEach(({ s, f }, i) => setTimeout(() => {
+    const note = playFret(s, f);
+    setTimeout(() => note.release(), 60);
+  }, i * 28));
+}
+
+// The outline around a shape: its notes' convex hull, pushed out by `pad`
+// on every side (straight edges, round corners) — one closed white line
+// the way a chord box is drawn round a hand position.
+function hullOutlinePath(points, pad) {
+  const pts = points.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lower = [], upper = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  for (const p of pts.slice().reverse()) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  const hull = lower.slice(0, -1).concat(upper.slice(0, -1));
+  if (hull.length < 2) {
+    const p = hull[0] || pts[0];
+    return `M${p.x - pad},${p.y} a${pad},${pad} 0 1 0 ${2 * pad},0 a${pad},${pad} 0 1 0 ${-2 * pad},0Z`;
+  }
+  const m = hull.length;
+  const normal = i => {
+    const a = hull[i], b = hull[(i + 1) % m];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    return { x: (b.y - a.y) / len, y: -(b.x - a.x) / len };
+  };
+  let d = '';
+  for (let i = 0; i < m; i++) {
+    const p = hull[i], nPrev = normal((i - 1 + m) % m), n = normal(i), q = hull[(i + 1) % m];
+    const s0 = { x: p.x + nPrev.x * pad, y: p.y + nPrev.y * pad };
+    const s1 = { x: p.x + n.x * pad, y: p.y + n.y * pad };
+    d += (i ? 'L' : 'M') + `${s0.x},${s0.y} A${pad},${pad} 0 0 1 ${s1.x},${s1.y} L${q.x + n.x * pad},${q.y + n.y * pad} `;
+  }
+  return d + 'Z';
 }
 
 function renderHandToggle() {
@@ -2138,12 +2836,12 @@ function renderInstrumentView() {
 
 // Instrument menu > Frets / Octaves (+ Key length for the piano). The
 // options and the current value are per orientation (see FRETS_VERTICAL/
-// PIANO_OCT_V), so the caption says which one is being edited — same as
+// KEYBOARD_OCT), so the caption says which one is being edited — same as
 // Setup's neck-taper slider does.
 function refreshInstrumentSizeControls() {
   const piano = instrument === 'piano', vertical = verticalInstrumentMode();
   const opts = piano ? PIANO_OCTAVE_OPTIONS : (vertical ? FRET_OPTIONS_V : FRET_OPTIONS_H);
-  const cur = piano ? (vertical ? PIANO_OCT_V : PIANO_OCT_H) : (vertical ? FRETS_VERTICAL : FRETS_HORIZONTAL);
+  const cur = piano ? keyboardOctaves() : (vertical ? FRETS_VERTICAL : FRETS_HORIZONTAL);
   document.getElementById('instrument-size-label').textContent =
     `${piano ? 'Octaves' : 'Frets'} (${vertical ? 'upright' : 'lying down'})`;
   const group = document.getElementById('instrument-size-toggle');
@@ -2195,7 +2893,11 @@ function updateInstrumentUI() {
   const organBtn = document.getElementById('instr-organ');
   organBtn.classList.toggle('active', family === 'piano' && keyboardSound === 'organ');
   organBtn.style.display = tier === 'free' ? 'none' : '';
-  document.getElementById('pedals').hidden = family !== 'piano';
+  // Pedals for the piano; the organ has its bass keys instead (see "organ
+  // bass keys"), set up in this same menu.
+  document.getElementById('pedals').hidden = family !== 'piano' || keyboardSound === 'organ';
+  document.getElementById('organ-bass-group').style.display = family === 'piano' && keyboardSound === 'organ' ? '' : 'none';
+  refreshOrganBassControls();
   document.getElementById('playing-group').style.display = family === 'piano' ? 'none' : '';
   document.getElementById('fretboard-wrap').classList.toggle('keys', family === 'piano');
 
@@ -2245,14 +2947,20 @@ function updateInstrumentUI() {
 // on the whole group) so markers stay circular and text stays upright, same
 // reasoning as the fretboard's handedness mirroring.
 
-const pianoHeld = new Map(); // pointerId -> { midi, note } — see "playing the piano" below
+const pianoHeld = new Map(); // pointerId -> { kid, note } — see "playing the piano" below
 const PIANO_BLACK_HIT_EXTRA = 3; // see the black-key hit areas in renderPiano
 
 // How many octaves to draw, per orientation (Instrument menu > Octaves),
-// same per-orientation split as the fretboard's fret count.
+// same per-orientation split as the fretboard's fret count — and kept
+// separately for the piano and the organ. The organ defaults to one
+// octave fewer: its bass keys (see "organ bass keys") take the room the
+// third octave had, and the left hand's part is played there anyway.
 const PIANO_OCTAVE_OPTIONS = [2, 3, 4, 5];
-let PIANO_OCT_H = Number(localStorage.getItem('n4a-piano-oct-h')) || 3;
-let PIANO_OCT_V = Number(localStorage.getItem('n4a-piano-oct-v')) || 3;
+const KEYBOARD_OCT = {
+  piano: { h: Number(localStorage.getItem('n4a-piano-oct-h')) || 3, v: Number(localStorage.getItem('n4a-piano-oct-v')) || 3 },
+  organ: { h: Number(localStorage.getItem('n4a-organ-oct-h')) || 2, v: Number(localStorage.getItem('n4a-organ-oct-v')) || 2 },
+};
+function keyboardOctaves() { return KEYBOARD_OCT[keyboardSound][verticalInstrumentMode() ? 'v' : 'h']; }
 // Key length (Instrument menu > Keys): 'short' is the compact drawing this
 // app has always used; 'long' is a real keyboard's proportions — a white
 // key's visible length is ~6.4× its width (150 × 23.5 mm), a black key
@@ -2265,7 +2973,7 @@ const PIANO_LENGTHS = { short: [170, 105], long: [294, 185] }; // [white, black]
 let PIANO_OCTAVES = 3, PIANO_BASE_OCTAVE = 3, PIANO_H = 170, PIANO_BLACK_H = 105;
 let PIANO_TOTAL_WHITE = 22, PIANO_CENTER_X = 0;
 function syncPianoMetrics() {
-  PIANO_OCTAVES = verticalInstrumentMode() ? PIANO_OCT_V : PIANO_OCT_H;
+  PIANO_OCTAVES = keyboardOctaves();
   // Leftmost white key is a C; real per-key MIDI climbs from there. Up to
   // 3 octaves start at C3 (so 3 spans C3-C6, middle C — MIDI 60, the same
   // shared center every other playback path uses — at the start of the
@@ -2276,8 +2984,9 @@ function syncPianoMetrics() {
   PIANO_CENTER_X = PIANO_TOTAL_WHITE * PIANO_WHITE_W / 2;
 }
 function setPianoOctaves(n) {
-  if (verticalInstrumentMode()) { PIANO_OCT_V = n; localStorage.setItem('n4a-piano-oct-v', n); }
-  else { PIANO_OCT_H = n; localStorage.setItem('n4a-piano-oct-h', n); }
+  const orient = verticalInstrumentMode() ? 'v' : 'h';
+  KEYBOARD_OCT[keyboardSound][orient] = n;
+  localStorage.setItem(`n4a-${keyboardSound}-oct-${orient}`, n);
   renderInstrumentView();
   refreshInstrumentSizeControls();
 }
@@ -2287,6 +2996,47 @@ function setPianoKeyLength(v) {
   renderInstrumentView();
   refreshInstrumentSizeControls();
 }
+
+// ── organ bass keys ──
+// The piano's pedals (soft, sustain) mean nothing on an organ, whose notes
+// neither decay nor get struck softer. What an organist's other hand (or
+// feet) plays instead is the bass line, on a keyboard of its own — so the
+// organ gets a small bass keyboard split off at the low end, where the
+// piano has pedals: left of the main keys lying down, above them standing
+// up. Keys start on C; the Instrument menu sets how many octaves (0 = no
+// split) and how low it sounds. It's drawn in the piano's colors (light
+// naturals) against the organ's reversed ones, the way combo organs set
+// their bass keys apart.
+let ORGAN_BASS_OCT = (() => { const v = localStorage.getItem('n4a-organ-bass-oct'); return v === null ? 1 : Number(v); })();
+// 1 = deep (lowest key sounds C0), 2 = low (C1) — an octave under the main
+// keyboard, whose lowest C sounds C2 (with up to 3 octaves).
+let ORGAN_BASS_LOW = Number(localStorage.getItem('n4a-organ-bass-low')) || 2;
+const ORGAN_BASS_GAP = 26; // the wooden block between the two keyboards
+function organBassWhiteKeys() {
+  return keyboardSound === 'organ' && ORGAN_BASS_OCT > 0 ? ORGAN_BASS_OCT * 7 + 1 : 0;
+}
+// The key's MIDI before playback's shifts — the organ sounds everything an
+// octave down (samplerOctaveShift), so C1 is written as C2 here.
+function organBassBaseMidi() { return 12 * ORGAN_BASS_LOW - samplerOctaveShift(); }
+function refreshOrganBassControls() {
+  document.querySelectorAll('#organ-bass-toggle [data-bass-oct]').forEach(b =>
+    b.classList.toggle('active', Number(b.dataset.bassOct) === ORGAN_BASS_OCT));
+  document.querySelectorAll('#organ-bass-low-toggle [data-bass-low]').forEach(b =>
+    b.classList.toggle('active', Number(b.dataset.bassLow) === ORGAN_BASS_LOW));
+  document.getElementById('organ-bass-low-field').hidden = ORGAN_BASS_OCT === 0;
+}
+document.querySelectorAll('#organ-bass-toggle [data-bass-oct]').forEach(b => b.addEventListener('click', () => {
+  ORGAN_BASS_OCT = Number(b.dataset.bassOct);
+  localStorage.setItem('n4a-organ-bass-oct', ORGAN_BASS_OCT);
+  refreshOrganBassControls();
+  renderInstrumentView();
+}));
+document.querySelectorAll('#organ-bass-low-toggle [data-bass-low]').forEach(b => b.addEventListener('click', () => {
+  ORGAN_BASS_LOW = Number(b.dataset.bassLow);
+  localStorage.setItem('n4a-organ-bass-low', ORGAN_BASS_LOW);
+  refreshOrganBassControls();
+  renderInstrumentView();
+}));
 // Fraction narrower at the far/back edge vs. the near/front edge — the
 // piano's own equivalent of the fretboard's Neck taper/Fret fan. Used to be
 // user-adjustable (Setup… > Piano > Key fan) with a nonzero shipped
@@ -2329,7 +3079,13 @@ function renderPiano() {
   const vertical = verticalInstrumentMode();
   const H = vertical ? PIANO_H * PIANO_LENGTH_STRETCH_VERTICAL : PIANO_H;
   const BH = vertical ? PIANO_BLACK_H * PIANO_LENGTH_STRETCH_VERTICAL : PIANO_BLACK_H;
-  const width = PIANO_TOTAL_WHITE * PIANO_WHITE_W;
+  // An organ with bass keys (see "organ bass keys" above) draws the small
+  // bass keyboard first, at the low end, then a wooden block, then the
+  // main keys — all one drawing, so the upright layout's rotation puts the
+  // bass keys above the main ones with no extra work.
+  const bassWhite = organBassWhiteKeys();
+  const mainX0 = bassWhite ? bassWhite * PIANO_WHITE_W + ORGAN_BASS_GAP : 0;
+  const width = mainX0 + PIANO_TOTAL_WHITE * PIANO_WHITE_W;
   const height = H + 6;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   svg.setAttribute('width', width);
@@ -2337,7 +3093,8 @@ function renderPiano() {
   // The organ is drawn with its key colors swapped — dark naturals, light
   // sharps — the way harpsichords and many church and chamber organs are
   // built, so it reads as a different instrument at a glance (style.css).
-  svg.classList.toggle('organ', keyboardSound === 'organ');
+  const organ = keyboardSound === 'organ';
+  svg.classList.toggle('organ', organ);
 
   function markerStyle(pc) {
     const st = semitone(pc);
@@ -2345,40 +3102,54 @@ function renderPiano() {
     return { fill: icolor(st), opacity: 1 };
   }
 
-  // white keys — real per-key MIDI (octave = PIANO_BASE_OCTAVE + which of the
-  // PIANO_OCTAVES groups of 7 this key falls in) so the leftmost/rightmost
-  // C's actually sound three octaves apart instead of every C-key on the
-  // keyboard collapsing to the same pitch.
-  const whiteKeys = [];
-  for (let i = 0; i < PIANO_TOTAL_WHITE; i++) {
-    const idx = i % 7;
-    const pc = PIANO_WHITE_STEPS[idx];
-    const octave = PIANO_BASE_OCTAVE + Math.floor(i / 7);
-    const midi = (octave + 1) * 12 + pc;
-    const x = i * PIANO_WHITE_W;
-    whiteKeys.push({ pc, midi, x });
-    const poly = mk('polygon', {
+  // Every key of one keyboard section: `x0` its left edge, `whites` how
+  // many naturals, `baseMidi` the MIDI of its leftmost C — real per-key
+  // MIDI, so the leftmost/rightmost C's actually sound octaves apart
+  // instead of every C-key collapsing to the same pitch. `light` is
+  // whether the key is drawn in a light color (a piano's naturals, an
+  // organ's sharps, the organ's bass naturals): what a bead on it needs
+  // for an outline that shows. `kid` names each key uniquely — the bass
+  // and main keys can share a pitch, so a pitch alone can't say which key
+  // a finger is on (see setPianoKeyPressed).
+  const whiteKeys = [], blackKeys = [];
+  function addSection(section, x0, whites, baseMidi) {
+    const bass = section === 'bass';
+    for (let i = 0; i < whites; i++) {
+      const pc = PIANO_WHITE_STEPS[i % 7];
+      whiteKeys.push({ section, pc, midi: baseMidi + 12 * Math.floor(i / 7) + pc, x: x0 + i * PIANO_WHITE_W,
+        kid: `${section}-w${i}`, light: !organ || bass });
+    }
+    for (let i = 0; i < whites - 1; i++) {
+      if (!PIANO_BLACK_AFTER.has(i % 7)) continue;
+      const pc = PIANO_WHITE_STEPS[i % 7] + 1;
+      blackKeys.push({ section, pc, midi: baseMidi + 12 * Math.floor(i / 7) + pc, x: x0 + (i + 1) * PIANO_WHITE_W - PIANO_BLACK_W / 2,
+        kid: `${section}-b${i}`, light: organ && !bass });
+    }
+  }
+  if (bassWhite) addSection('bass', 0, bassWhite, organBassBaseMidi());
+  addSection('main', mainX0, PIANO_TOTAL_WHITE, (PIANO_BASE_OCTAVE + 1) * 12);
+  const keyClass = (color, section) => `piano-key piano-key-${color}` + (section === 'bass' ? ' piano-key-bass' : '');
+
+  whiteKeys.forEach(({ section, midi, x, kid }) => {
+    svg.appendChild(mk('polygon', {
       points: pianoKeyPoints(x, PIANO_WHITE_W, 0, H),
-      class: 'piano-key piano-key-white', 'data-midi': midi
-    });
-    svg.appendChild(poly);
+      class: keyClass('white', section), 'data-midi': midi, 'data-kid': kid
+    }));
+  });
+  if (bassWhite) {
+    svg.appendChild(mk('rect', {
+      x: bassWhite * PIANO_WHITE_W, y: 0, width: ORGAN_BASS_GAP, height: H,
+      class: 'organ-bass-divider', 'pointer-events': 'none'
+    }));
   }
 
   // black keys (drawn after, so they sit visually in front of the white keys)
-  const blackKeys = [];
-  for (let i = 0; i < PIANO_TOTAL_WHITE - 1; i++) {
-    const idx = i % 7;
-    if (!PIANO_BLACK_AFTER.has(idx)) continue;
-    const pc = (PIANO_WHITE_STEPS[idx] + 1) % 12;
-    const octave = PIANO_BASE_OCTAVE + Math.floor(i / 7);
-    const midi = (octave + 1) * 12 + pc;
-    const x = (i + 1) * PIANO_WHITE_W - PIANO_BLACK_W / 2;
-    blackKeys.push({ pc, midi, x });
+  blackKeys.forEach(({ section, midi, x, kid }) => {
     svg.appendChild(mk('polygon', {
       points: pianoKeyPoints(x, PIANO_BLACK_W, 0, BH),
-      class: 'piano-key piano-key-black', 'data-midi': midi
+      class: keyClass('black', section), 'data-midi': midi, 'data-kid': kid
     }));
-  }
+  });
 
   // note-name labels — absolute, fixed reference, same idea as the fretboard's fret numbers.
   //
@@ -2392,8 +3163,16 @@ function renderPiano() {
   // vertical-after-rotation coordinate) reads as "move down" there for the
   // same reason, and is 0 in landscape so this doesn't touch that layout
   // at all. Reused for both label rows below.
+  //
+  // Label and bead-outline colors follow each key's own shade (`light`),
+  // since the organ's reversed keys — and its bass keys, reversed back —
+  // put dark and light keys in both rows. A bead on a light key gets a
+  // dark outline: a white root bead on the organ's light C♯ key had
+  // nothing to set it apart from the key.
   const labelXNudge = vertical ? 6 : 0;
-  whiteKeys.forEach(({ pc, x }) => {
+  const labelFill = light => light ? '#000000' : '#f4efe4';
+  const beadStroke = light => light ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)';
+  whiteKeys.forEach(({ pc, x, light }) => {
     // 8 (landscape) vs 24 (portrait): portrait's label sits much closer to
     // its own bead (H-38) than landscape's does — see labelXNudge above for
     // why portrait needs its own, smaller gap here to read as "aligned
@@ -2402,7 +3181,7 @@ function renderPiano() {
     const y = H - (vertical ? 24 : 8);
     svg.appendChild(mk('text', {
       x: pianoX(x + PIANO_WHITE_W / 2 + labelXNudge, y), y, class: 'piano-white-label',
-      'text-anchor': 'middle', 'font-size': 12, fill: '#000000', 'pointer-events': 'none'
+      'text-anchor': 'middle', 'font-size': 12, fill: labelFill(light), 'pointer-events': 'none'
     }, keyAwareNoteName(pc)));
   });
   // Black keys previously had no note-name label at all — white text (dark
@@ -2411,14 +3190,14 @@ function renderPiano() {
   // (piano-white-label/piano-black-label classes: same technique as the
   // fretboard's fret-num/tuner-note-name classes — an inline font-size
   // here is just the desktop default, overridden per-breakpoint below.)
-  blackKeys.forEach(({ pc, x }) => {
+  blackKeys.forEach(({ pc, x, light }) => {
     // 8 (landscape, moved up from a too-low 2) vs 20 (portrait, brought
     // in close to its own bead at BH-30 — same "aligned once rotated"
     // reasoning as the white label above).
     const y = BH - (vertical ? 20 : 8);
     svg.appendChild(mk('text', {
       x: pianoX(x + PIANO_BLACK_W / 2 + labelXNudge, y), y, class: 'piano-black-label',
-      'text-anchor': 'middle', 'font-size': 9, fill: '#ffffff', 'pointer-events': 'none'
+      'text-anchor': 'middle', 'font-size': 9, fill: labelFill(light), 'pointer-events': 'none'
     }, keyAwareNoteName(pc)));
   });
 
@@ -2432,17 +3211,17 @@ function renderPiano() {
   // "move up" in landscape (this axis stays vertical there) and "move
   // right" in portrait (this axis becomes horizontal once rotated — see
   // wrapVertical below).
-  whiteKeys.forEach(({ pc, x }) => {
+  whiteKeys.forEach(({ pc, x, light }) => {
     const m = markerStyle(pc);
     if (!m) return;
     const y = H - (vertical ? 46 : 38);
     svg.appendChild(mk('circle', {
       cx: pianoX(x + PIANO_WHITE_W / 2, y), cy: y, r: 9,
-      fill: m.fill, opacity: m.opacity, stroke: 'rgba(0,0,0,0.6)', 'stroke-width': 1.5,
+      fill: m.fill, opacity: m.opacity, stroke: beadStroke(light), 'stroke-width': 1.5,
       'pointer-events': 'none'
     }));
   });
-  blackKeys.forEach(({ pc, x }) => {
+  blackKeys.forEach(({ pc, x, light }) => {
     const m = markerStyle(pc);
     if (!m) return;
     // The big 65 jump last round confirmed the mechanism works and was
@@ -2450,7 +3229,7 @@ function renderPiano() {
     const y = BH - (vertical ? 42 : 30);
     svg.appendChild(mk('circle', {
       cx: pianoX(x + PIANO_BLACK_W / 2, y), cy: y, r: 7,
-      fill: m.fill, opacity: m.opacity, stroke: 'rgba(255,255,255,0.85)', 'stroke-width': 1.5,
+      fill: m.fill, opacity: m.opacity, stroke: beadStroke(light), 'stroke-width': 1.5,
       'pointer-events': 'none'
     }));
   });
@@ -2461,10 +3240,10 @@ function renderPiano() {
   // reach up between the black keys for a white one (any chord mixing the
   // two), and the white key's strip there is only ~19 units wide to begin
   // with — +3 on each side still leaves it 13.
-  blackKeys.forEach(({ midi, x }) => {
+  blackKeys.forEach(({ midi, x, kid }) => {
     svg.appendChild(mk('polygon', {
       points: pianoKeyPoints(x - PIANO_BLACK_HIT_EXTRA, PIANO_BLACK_W + 2 * PIANO_BLACK_HIT_EXTRA, 0, BH),
-      class: 'piano-key-hit', 'data-midi': midi, fill: 'transparent'
+      class: 'piano-key-hit', 'data-midi': midi, 'data-kid': kid, fill: 'transparent'
     }));
   });
 
@@ -2481,7 +3260,7 @@ function renderPiano() {
   }
   // Keys still held across a redraw (e.g. a scale change mid-chord) keep
   // their pressed look.
-  pianoHeld.forEach(({ midi }) => setPianoKeyPressed(midi, true));
+  pianoHeld.forEach(({ kid }) => setPianoKeyPressed(kid, true));
 }
 
 // ── playing the piano ──
@@ -2491,18 +3270,18 @@ function renderPiano() {
 // so a quick tap still rings). Sliding a finger across the keys plays each
 // key it passes over (a glissando). Each finger is tracked separately, so
 // chords work. All handled once on the <svg> itself, which is why the keys
-// carry data-midi rather than their own listeners.
-function setPianoKeyPressed(midi, on) {
-  const key = document.querySelector(`#piano .piano-key[data-midi="${midi}"]`);
+// carry data-midi/data-kid rather than their own listeners.
+function setPianoKeyPressed(kid, on) {
+  const key = document.querySelector(`#piano .piano-key[data-kid="${kid}"]`);
   if (key) key.classList.toggle('pressed', on);
 }
-function pianoMidiAt(x, y) {
-  const el = document.elementFromPoint(x, y);
-  return el && el.closest('#piano') && el.dataset.midi ? Number(el.dataset.midi) : null;
+// The key under a point (or a pointer event's own target): { kid, midi }.
+function pianoKeyOf(el) {
+  return el && el.closest('#piano') && el.dataset.kid ? { kid: el.dataset.kid, midi: Number(el.dataset.midi) } : null;
 }
-function pianoPress(pointerId, midi) {
-  pianoHeld.set(pointerId, { midi, note: noteOn(midi) });
-  setPianoKeyPressed(midi, true);
+function pianoPress(pointerId, key) {
+  pianoHeld.set(pointerId, { kid: key.kid, note: noteOn(key.midi) });
+  setPianoKeyPressed(key.kid, true);
 }
 function pianoLift(pointerId) {
   const held = pianoHeld.get(pointerId);
@@ -2510,27 +3289,27 @@ function pianoLift(pointerId) {
   pianoHeld.delete(pointerId);
   held.note.release();
   // Another finger may still be on the same key (a glissando crossing it).
-  if (![...pianoHeld.values()].some(h => h.midi === held.midi)) setPianoKeyPressed(held.midi, false);
+  if (![...pianoHeld.values()].some(h => h.kid === held.kid)) setPianoKeyPressed(held.kid, false);
 }
 (function wirePiano() {
   const svg = document.getElementById('piano');
   svg.addEventListener('pointerdown', e => {
-    const midi = e.target.dataset && e.target.dataset.midi ? Number(e.target.dataset.midi) : null;
-    if (midi == null) return;
+    const key = pianoKeyOf(e.target);
+    if (!key) return;
     e.preventDefault();
     // Capture so a slide keeps reporting to us even past the edge of the
     // key it started on; which key is under the finger is then looked up
-    // by position (pianoMidiAt).
+    // by position (elementFromPoint).
     try { svg.setPointerCapture(e.pointerId); } catch (_) { /* not a live pointer */ }
-    pianoPress(e.pointerId, midi);
+    pianoPress(e.pointerId, key);
   });
   svg.addEventListener('pointermove', e => {
     const held = pianoHeld.get(e.pointerId);
     if (!held) return;
-    const midi = pianoMidiAt(e.clientX, e.clientY);
-    if (midi == null || midi === held.midi) return;
+    const key = pianoKeyOf(document.elementFromPoint(e.clientX, e.clientY));
+    if (!key || key.kid === held.kid) return;
     pianoLift(e.pointerId);
-    pianoPress(e.pointerId, midi);
+    pianoPress(e.pointerId, key);
   });
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type =>
     svg.addEventListener(type, e => pianoLift(e.pointerId)));
@@ -2542,10 +3321,10 @@ let refRowMode = 'modes';   // 'families' | 'modes' — Modes is the default: it
 // The library's note-count filter: 'all', or one count (scales 5/6/7/8/12,
 // chords 3/4/5/6). Only filters the list — see #lib-count-toggle.
 let libCount = 'all';
-const LIB_SCALE_COUNTS = [5, 6, 7, 8, 12], LIB_CHORD_COUNTS = [3, 4, 5, 6];
+const LIB_SCALE_COUNTS = [5, 6, 7, 8, 12], LIB_CHORD_COUNTS = [3, 4, 5, 6, 7];
 const LIB_COUNT_NAMES = {
   scale: { 5: 'pentatonic', 6: 'hexatonic', 7: 'heptatonic', 8: 'octatonic', 12: 'chromatic' },
-  chord: { 3: 'triads', 4: 'sevenths & sixths', 5: 'ninths', 6: 'elevenths & thirteenths' },
+  chord: { 3: 'triads', 4: 'sevenths & sixths', 5: 'ninths', 6: 'elevenths & thirteenths', 7: 'full thirteenths' },
 };
 // "A three-note scale is just a chord" — chordMode swaps which catalog the
 // library offers, reusing every other mechanism (abacus, fretboard
@@ -2569,6 +3348,12 @@ function syncChordModeUI() {
   // both (it used to say a neutral "Browse" in Beginner, back when that
   // list mixed scales and chords together).
   document.getElementById('ref-library-label').textContent = on ? 'Browse chords' : 'Browse scales';
+  // What Basic and Full each hold, in numbers, for the kind being listed.
+  const kind = on ? 'chords' : 'scales';
+  const basicCount = BEGINNER_SCALES.filter(b => !!b.chord === on).length;
+  const fullCount = DICT_ENTRIES.filter(e => e.isChord === on).length;
+  document.getElementById('view-mode-desc-beginner').textContent = `${basicCount} essential ${kind}`;
+  document.getElementById('view-mode-desc-advanced').textContent = `all ${fullCount} ${kind}`;
   // Families/Modes has no chord-mode equivalent (see the HTML comment) —
   // hidden rather than left showing a control that does nothing.
   document.getElementById('rowmode-switch').hidden = on;
@@ -2576,14 +3361,24 @@ function syncChordModeUI() {
   document.getElementById('voicing-select').hidden = !on;
 }
 
-// Switching Scale/Chord loads a sensible starting point for that kind —
-// the major scale, or a dominant 7th — and resets the library filter.
+// Switching Scale/Chord brings back whatever was last loaded in that mode —
+// flipping to Scale and straight back to Chord shows the same chord again,
+// not a fresh default. Only the first visit to a mode loads a starting
+// point (the major scale, or a dominant 7th). The shape is remembered per
+// mode; the root is shared, so a scale moved to G comes back to a chord
+// on G. Picking the mode that's already active changes nothing.
+const shapeByMode = { scale: null, chord: null };
+let chordModeLoaded = false; // false until the first call, which loads the persisted mode
 function setChordMode(on) {
+  if (chordModeLoaded && on === chordMode) return;
+  if (chordModeLoaded) shapeByMode[chordMode ? 'chord' : 'scale'] = scaleOffsets.slice();
+  chordModeLoaded = true;
   chordMode = on;
   localStorage.setItem('n4a-chord-mode', chordMode);
   syncChordModeUI();
   libCount = 'all';
-  scaleOffsets = on ? dictEntryByName('Dominant 7th').set.slice() : [0, 2, 4, 5, 7, 9, 11];
+  const saved = shapeByMode[on ? 'chord' : 'scale'];
+  scaleOffsets = saved ? saved.slice() : on ? dictEntryByName('Dominant 7th').set.slice() : [0, 2, 4, 5, 7, 9, 11];
   render();
   renderTable();
 }
@@ -2610,6 +3405,18 @@ function renderTable() {
   const list = document.createElement('div');
   list.className = 'ref-list';
   const container = list;
+  // Where the next row goes. Each note count's rows sit in a .ref-section,
+  // and each family's (heading + modes) in a .ref-family inside it — no
+  // boxes of their own in a single-column list, but under the instrument
+  // (html.lib-below) a section flows into columns top-to-bottom and a
+  // family is kept together in one column.
+  let section = null, target = list;
+  function startSection() {
+    section = document.createElement('div');
+    section.className = 'ref-section';
+    list.appendChild(section);
+    target = section;
+  }
 
   // The mobile list's own column header. The dot strip dropped the desktop
   // grid's borders and column headings, which reads cleanly but leaves
@@ -2625,31 +3432,42 @@ function renderTable() {
   // tracks as the 12 dots below them rather than being separately
   // hand-aligned (which would need re-tuning every time a row's padding or
   // the play button's size changed).
+  //
+  // With the library under the instrument (html.lib-below) the cards flow
+  // into several columns, so the header holds one copy of the labels per
+  // column — as many as could ever fit; CSS lays them on the same grid as
+  // the cards and clips the copies that wrap past the first row. Elsewhere
+  // only the first copy shows, and it lays out exactly as it always has.
   {
     const head = document.createElement('div');
     head.className = 'ref-card ref-head';
-    const btnSpacer = document.createElement('span');
-    btnSpacer.className = 'ref-head-btn-spacer';
-    head.appendChild(btnSpacer);
-    const headInfo = document.createElement('div');
-    headInfo.className = 'ref-card-info';
-    const nameSpacer = document.createElement('div');
-    nameSpacer.className = 'ref-card-name ref-head-name-spacer';
-    headInfo.appendChild(nameSpacer);
-    const headDots = document.createElement('div');
-    headDots.className = 'ref-card-dots';
-    // TABLE_LABELS is the same fixed R/♭2/2/♭3… sequence the desktop
-    // table's own column headings use — these are positions on the
-    // 12-semitone track, not members of any one scale, so they don't vary
-    // per row (which is exactly why one shared header works at all).
-    TABLE_LABELS.forEach(lbl => {
-      const cell = document.createElement('span');
-      cell.className = 'ref-head-label';
-      cell.textContent = lbl;
-      headDots.appendChild(cell);
-    });
-    headInfo.appendChild(headDots);
-    head.appendChild(headInfo);
+    for (let i = 0; i < 8; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'ref-head-cell';
+      const btnSpacer = document.createElement('span');
+      btnSpacer.className = 'ref-head-btn-spacer';
+      cell.appendChild(btnSpacer);
+      const headInfo = document.createElement('div');
+      headInfo.className = 'ref-card-info';
+      const nameSpacer = document.createElement('div');
+      nameSpacer.className = 'ref-card-name ref-head-name-spacer';
+      headInfo.appendChild(nameSpacer);
+      const headDots = document.createElement('div');
+      headDots.className = 'ref-card-dots';
+      // TABLE_LABELS is the same fixed R/♭2/2/♭3… sequence the desktop
+      // table's own column headings use — these are positions on the
+      // 12-semitone track, not members of any one scale, so they don't vary
+      // per row (which is exactly why one shared header works at all).
+      TABLE_LABELS.forEach(lbl => {
+        const label = document.createElement('span');
+        label.className = 'ref-head-label';
+        label.textContent = lbl;
+        headDots.appendChild(label);
+      });
+      headInfo.appendChild(headDots);
+      cell.appendChild(headInfo);
+      head.appendChild(cell);
+    }
     list.appendChild(head);
   }
 
@@ -2745,7 +3563,7 @@ function renderTable() {
       setTimeout(() => dot.classList.remove('ref-dot-pulse'), 150);
     }
 
-    list.appendChild(card);
+    target.appendChild(card);
     return card;
   }
 
@@ -2754,6 +3572,7 @@ function renderTable() {
   // tagged chord:true, a couple of triads), regardless of the Notes filter
   // and refRowMode (those controls are hidden in this view).
   if (viewMode === 'beginner') {
+    startSection();
     // Split by the Scale/Chord toggle, exactly as Advanced is. As one
     // undivided list it was genuinely ambiguous which kind a row was — a
     // user pointed out that "Major" and "Minor" appear in both halves and
@@ -2780,7 +3599,10 @@ function renderTable() {
     const h = document.createElement('div');
     h.className = 'ref-list-group-header';
     h.textContent = label;
-    list.appendChild(h);
+    target = document.createElement('div');
+    target.className = 'ref-family';
+    section.appendChild(target);
+    target.appendChild(h);
   }
 
   // Everything else: the whole catalog, in one section per note count —
@@ -2793,6 +3615,7 @@ function renderTable() {
     h.className = 'ref-list-count-header';
     h.textContent = `${n} notes · ${LIB_COUNT_NAMES[chordMode ? 'chord' : 'scale'][n]}`;
     list.appendChild(h);
+    startSection();
   }
 
   // Chords: a chord type has no modal rotations to group by the way a
@@ -2802,9 +3625,10 @@ function renderTable() {
     3: ['Major triad', 'Minor triad', 'Diminished triad', 'Augmented triad', 'Suspended 2nd', 'Suspended 4th'],
     4: ['Major 7th', 'Dominant 7th', 'Minor 7th', 'Half-diminished 7th', 'Diminished 7th', 'Minor-major 7th',
         'Augmented major 7th', 'Dominant 7♯5', 'Dominant 7♭5', 'Major 6th', 'Minor 6th', 'Major add9', 'Minor add9'],
-    5: ['Major 9th', 'Dominant 9th', 'Dominant 7♭9', 'Dominant 7♯9', 'Minor 9th', 'Minor 11th', 'Major 6/9', 'Minor 6/9', 'Minor-major 9th'],
-    6: ['Major 13th', 'Dominant 13th', 'Minor 13th', 'Minor 11th (full)',
-        'Dominant 9♯11', 'Dominant 13♭9', 'Minor-major 13th', 'Minor-major 11th (full)'],
+    5: ['Major 9th', 'Dominant 9th', 'Dominant 7♭9', 'Dominant 7♯9', 'Minor 9th', 'Minor 11th (no 9th)', 'Major 6/9', 'Minor 6/9', 'Minor-major 9th'],
+    6: ['Minor 11th', 'Minor-major 11th', 'Dominant 9♯11', 'Major 13th (no 11th)', 'Dominant 13th (no 11th)',
+        'Minor 13th (no 5th)', 'Minor-major 13th (no 5th)', 'Dominant 13♭9 (no 11th)'],
+    7: ['Major 13th', 'Dominant 13th', 'Minor 13th', 'Minor-major 13th', 'Major 13♯11', 'Dominant 13♯11'],
   };
 
   function addScaleCount(n) {
@@ -3257,13 +4081,19 @@ function setChordVoicing(v) {
   chordVoicing = v;
   localStorage.setItem('n4a-chord-voicing', v);
   refreshVoicingSelectUI();
+  renderVoicingView();
 }
 // Custom dropdown (see wireDropdown) — not a native <select>, same
 // reasoning as the root picker (renderRoot's own comment has the story).
 function refreshVoicingSelectUI() {
-  document.getElementById('voicing-select-value').textContent = VOICING_LABELS[chordVoicing];
+  // Drop voicings stop at four notes (see voicingFor): bigger chords show
+  // Close, with the drops greyed out, while the choice itself is kept for
+  // the next four-note chord.
+  const v = voicingFor(scaleOffsets);
+  document.getElementById('voicing-select-value').textContent = VOICING_LABELS[v];
   document.querySelectorAll('#voicing-select-list .dropdown-option').forEach(opt => {
-    opt.classList.toggle('active', opt.dataset.value === chordVoicing);
+    opt.classList.toggle('active', opt.dataset.value === v);
+    opt.classList.toggle('disabled', opt.dataset.value !== 'close' && scaleOffsets.length > 4);
   });
 }
 
@@ -3287,6 +4117,299 @@ function applyVoicing(midis, voicing) {
   out[byPitch[rank]] -= 12;
   return out;
 }
+
+// Which chord tone is in the bass: 0 = root position, k = the k-th tone up
+// from the root in close position (1st inversion = the 3rd in a triad or
+// seventh chord). Belongs to one chord shape — a different chord resets it
+// to root position, a different root keeps it (same shape, moved).
+let chordInversion = 0;
+let chordInversionShape = null;
+function syncChordInversion() {
+  const shape = bitmaskOf(scaleOffsets);
+  if (shape !== chordInversionShape) chordInversion = 0;
+  chordInversionShape = shape;
+  if (chordInversion >= scaleOffsets.length) chordInversion = 0;
+}
+
+// Drop voicings are defined on a four-voice chord (and open up a triad the
+// same way); on a 5-7 note chord "the 2nd/3rd voice from the top" isn't a
+// voicing anyone means — it dragged a C Minor 13th's ♭7 under its root.
+// Those just play close.
+function voicingFor(set) { return set.length > 4 ? 'close' : chordVoicing; }
+
+// The active chord as the current voicing stacks it: one entry per chord
+// tone ({ idx into set, offset, midi }), lowest first. The written pitch —
+// before the Setup octave or an instrument's own octave shift, which move
+// every note alike and so don't change the voicing. previewScale plays
+// exactly this, shifted; the voicing view draws it.
+// Inversion first (the lowest `inversion` tones of the close stack go up an
+// octave), then the drop — the way drop-2/drop-3 inversions are built.
+// The library's preview buttons pass other chords, which play in root
+// position; only the loaded chord has an inversion.
+// On a fretboard in shape mode the loaded chord is voiced as the shape on
+// show instead — the notes that shape actually sounds (see chord shapes).
+// Passing an inversion asks for the close stack regardless.
+function voicedChordNotes(set, inversion) {
+  if (inversion === undefined) {
+    const sh = set === scaleOffsets && chordMode ? currentShape() : null;
+    if (sh) return shapeNotes(sh.frets).map(n => ({ idx: set.indexOf(semitone(n.pc)), offset: semitone(n.pc), midi: n.midi }));
+    inversion = set === scaleOffsets ? chordInversion : 0;
+  }
+  const octUp = chordVoicingOctaveUp(set);
+  const base = 60 + centeredPc(rootPitchClass);
+  const close = set.map(offset => base + offset + (octUp && octUp.includes(offset) ? 12 : 0));
+  const byPitch = close.map((_, i) => i).sort((a, b) => close[a] - close[b]);
+  byPitch.slice(0, inversion).forEach(i => { close[i] += 12; });
+  const voiced = applyVoicing(close, voicingFor(set));
+  // Keep the bass near where the root would be: an inversion whose bass
+  // landed more than a tritone above it moves down an octave (C/G has its G
+  // below middle C, not above it).
+  if (Math.min(...voiced) > base + 6) voiced.forEach((m, i) => { voiced[i] = m - 12; });
+  return set.map((offset, idx) => ({ idx, offset, midi: voiced[idx] })).sort((a, b) => a.midi - b.midi);
+}
+
+// ── voicing view ──
+// Beside the abacus (lying down) or under it (upright), chord mode only:
+// which chord tone sits where in the current voicing, low to high — the
+// one thing the abacus can't show, being a single octave. Two looks,
+// swapped by tapping it:
+//   beads — the chord tones as small labelled beads on a compact grand
+//           staff, left to right in the order they're stacked, each on its
+//           own line or space, so a drop voicing shows its gap;
+//   score — the same notes as one engraved chord, noteheads in the notes'
+//           own colors.
+let voicingViewMode = localStorage.getItem('n4a-voicing-view') === 'score' ? 'score' : 'beads';
+let voicingViewMarks = []; // idx into the chord -> the drawn bead/notehead, for pulseVoicingView
+const LETTER_PC = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
+const STAFF_ACCIDENTAL = { '-2': '𝄫', '-1': '♭', '1': '♯', '2': '𝄪' };
+
+// Where a chord tone goes on a staff: its letter comes from its degree
+// counted up from the root's letter (a ♭7 over C is a B-something, never
+// an A♯), and the accidental is whatever it takes to reach the real pitch.
+// step: diatonic steps above C0 (middle C = 28).
+function staffSpelling(label, midi) {
+  const rootLetter = 'CDEFGAB'.indexOf(keyAwareNoteName(rootPitchClass)[0]);
+  const m = label.match(/(\d+)$/);
+  const degree = label === 'R' || !m ? 1 : Number(m[1]);
+  const letter = (rootLetter + degree - 1) % 7;
+  let acc = mod12(midi - LETTER_PC[letter]);
+  if (acc > 6) acc -= 12;
+  const natural = midi - acc;
+  return { step: (Math.floor(natural / 12) - 1) * 7 + letter, acc };
+}
+
+// A chord tone's name as it's spelled on the staff: E♭ (not D♯) for a
+// C minor chord's ♭3.
+function spelledNoteName(label, midi) {
+  const { step, acc } = staffSpelling(label, midi);
+  return 'CDEFGAB'[step % 7] + (STAFF_ACCIDENTAL[acc] || '');
+}
+
+function renderVoicingView() {
+  const view = document.getElementById('voicing-view');
+  voicingViewMarks = [];
+  view.hidden = !chordMode;
+  if (!chordMode) return;
+  refreshVoicingSelectUI();
+  const svg = document.getElementById('voicing-view-svg');
+  svg.innerHTML = '';
+  const notes = voicedChordNotes(scaleOffsets).map(n => ({
+    ...n, label: chordAwareBeadLabel(n.idx, n.offset, scaleOffsets, 'relative', rootPitchClass),
+  }));
+  const names = notes.map(n => n.label).join(' ');
+  svg.setAttribute('aria-label', `${VOICING_LABELS[chordVoicing]} voicing, low to high: ${names}`);
+  view.title = voicingViewMode === 'beads' ? 'Tap for the score' : 'Tap for beads';
+  if (voicingViewMode === 'score') drawVoicingScore(svg, notes); else drawVoicingBeads(svg, notes);
+}
+
+function drawVoicingBeads(svg, notes) { drawVoicingStaff(svg, notes, true); }
+function drawVoicingScore(svg, notes) { drawVoicingStaff(svg, notes, false); }
+
+// Both looks share one staff (treble E4..F5 and/or bass G2..A3, as the
+// notes need, plus whatever ledger room they reach past them), drawn as
+// large as the panel allows — no margin beyond what the clefs and outer
+// notes need, and the staff lines run the panel's full width:
+//   beads — each chord tone a labelled bead exactly one staff space tall
+//           (so it sits on its line or in its space the way a notehead
+//           does), spread left to right in the order they're stacked,
+//           with the accidental its spelling needs in front of it;
+//   score — plain coloured noteheads stacked as one chord, as engraved.
+function drawVoicingStaff(svg, notes, beads) {
+  const HALF = beads ? 6 : 3; // half a staff space: one diatonic step
+  const k = HALF / 3;         // everything else grows with the staff
+  const spelled = notes.map(n => ({ ...n, ...staffSpelling(n.label, n.midi) }));
+  // Only the staves the chord needs: middle C and up read on the treble
+  // staff, B3 and down on the bass — a close voicing around middle C is
+  // treble-only, and drawn at twice the size for it.
+  // A chord that would need both staves but fits the treble staff an
+  // octave up (down to three ledger lines under it — a guitar's low E) is
+  // written there with an ottava-bassa treble clef (the 8 under it: sounds
+  // an octave lower) — how guitar music is written, and one staff drawn
+  // large instead of a grand staff too small to read.
+  const ottava = spelled.some(n => n.step >= 28) && spelled.some(n => n.step < 28) && spelled.every(n => n.step + 7 >= 23);
+  if (ottava) spelled.forEach(n => { n.step += 7; });
+  const steps = spelled.map(n => n.step);
+  const treble = ottava || steps.some(s => s >= 28), bass = !ottava && steps.some(s => s < 28);
+  const lines = [...(bass ? [18, 20, 22, 24, 26] : []), ...(treble ? [30, 32, 34, 36, 38] : [])];
+  const topLine = lines[lines.length - 1], bottomLine = lines[0];
+  // Room for the outer notes (a bead or notehead reaches one step past its
+  // own line) and for the clefs: the treble clef's curl reaches about a
+  // step and a half above its staff, and its tail as far below.
+  const top = Math.max(topLine + (treble ? 1.6 : 0.5), ...steps.map(s => s + 1.1));
+  const bottom = Math.min(bottomLine - (ottava ? 3 : treble && !bass ? 1.9 : 0.5), ...steps.map(s => s - 1.1));
+  const y = s => (top - s) * HALF;
+  const h = y(bottom);
+  const ink = 'rgba(255,255,255,0.7)';
+  const clefW = 17 * k, accW = (beads ? 5.5 : 6.5) * k;
+  const accFont = (beads ? 8 : 9) * k;
+
+  const r = HALF;                       // a bead: one staff space across
+  const headHalf = beads ? r : 3.9;    // half a notehead's width
+  const box = svg.getBoundingClientRect();
+  const aspect = box.height > 0 ? box.width / box.height : 0;
+
+  // Two horizontal layouts. Each sets n.x (the head) and n.accX (its
+  // accidental, if any) and returns the drawing's width.
+  //
+  // Spread (beads only): left to right in the order they're stacked,
+  // packed as tight as they go without touching — each bead moves right
+  // until neither it nor its accidental overlaps anything placed before
+  // it, so one far up the staff can tuck in close.
+  function layoutSpread() {
+    const pad = 0.6 * k, boxes = [];
+    const hits = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+    const boxesAt = (n, x) => {
+      const ny = y(n.step), out = [{ x0: x - r - pad, x1: x + r + pad, y0: ny - r - pad, y1: ny + r + pad }];
+      if (n.acc) out.push({ x0: x - r - accW - pad, x1: x - r, y0: ny - 2.6 * HALF, y1: ny + 2.2 * HALF });
+      return out;
+    };
+    let x = clefW + 3 * k;
+    spelled.forEach(n => {
+      x = Math.max(x, clefW + 3 * k + (n.acc ? accW : 0) + r);
+      while (boxesAt(n, x).some(b => boxes.some(p => hits(b, p)))) x += 0.5;
+      n.x = x;
+      n.accX = x - r - accW / 2 - 0.3 * k;
+      boxes.push(...boxesAt(n, x));
+    });
+    spelled.forEach(n => { n.shifted = false; });
+    return x + r + 2 * k;
+  }
+  // Stacked: one chord, as engraved — heads a third apart touch, a second
+  // between neighbours puts the upper one beside the lower, and
+  // accidentals stack leftward in columns: each takes the first column
+  // with no other accidental within a sixth of it.
+  function layoutStacked() {
+    const cols = [];
+    spelled.slice().reverse().forEach(n => {
+      if (!n.acc) return;
+      let c = 0;
+      while ((cols[c] || []).some(s => Math.abs(s - n.step) < 6)) c++;
+      (cols[c] = cols[c] || []).push(n.step);
+      n.accCol = c;
+    });
+    spelled.forEach((n, i) => {
+      const prev = spelled[i - 1];
+      n.shifted = !!prev && n.step - prev.step === 1 && !prev.shifted;
+    });
+    const noteX = clefW + 4 * k + cols.length * accW + 1.5 * k + headHalf;
+    spelled.forEach(n => {
+      n.x = noteX + (n.shifted ? 1.85 * headHalf : 0);
+      n.accX = noteX - headHalf - 1 * k - accW / 2 - (n.accCol || 0) * accW;
+    });
+    return noteX + headHalf * (spelled.some(n => n.shifted) ? 2.85 : 1) + 2 * k;
+  }
+  // Beads spread out when the panel is wide enough to show them that way
+  // at (nearly) the size a stacked chord would get; a narrow panel, as
+  // upright on a phone, stacks them instead of shrinking them to dots.
+  const fit = ww => Math.min(1 / h, aspect ? aspect / ww : 1 / h); // drawn scale at width ww
+  const wStacked = layoutStacked();
+  const spread = beads && fit(layoutSpread()) >= 0.85 * fit(wStacked);
+  let w = spread ? layoutSpread() : layoutStacked();
+  // The staff fills the panel: a panel wider than the drawing gets longer
+  // staff lines, with spread-out beads spaced further apart — up to
+  // double their packed spacing — rather than a shrunken, centred staff.
+  const panelW = aspect ? h * aspect : w;
+  if (panelW > w) {
+    if (spread && spelled.length > 1) {
+      const x0 = spelled[0].x, used = spelled[spelled.length - 1].x - x0;
+      const f = Math.min(2, 1 + (panelW - w) / used);
+      spelled.forEach(n => {
+        const dx = (n.x - x0) * (f - 1);
+        n.x += dx;
+        n.accX += dx;
+      });
+    }
+    w = panelW;
+  }
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+  const lineW = 0.2 * k, edge = lineW;
+  lines.forEach(s =>
+    svg.appendChild(mk('line', { x1: edge, x2: w, y1: y(s), y2: y(s), stroke: ink, 'stroke-width': lineW })));
+  svg.appendChild(mk('line', { x1: edge, x2: edge, y1: y(topLine), y2: y(bottomLine), stroke: ink, 'stroke-width': lineW * 1.4 }));
+  if (treble) svg.appendChild(mk('text', { x: 1.5 * k, y: y(30.4), 'font-size': 27 * k, fill: ink, class: 'vv-clef' }, '𝄞'));
+  if (ottava) svg.appendChild(mk('text', { x: 6.4 * k, y: y(bottomLine - 2.6), 'text-anchor': 'middle', 'font-size': 4.6 * k, 'font-weight': 600, fill: ink }, '8'));
+  if (bass) svg.appendChild(mk('text', { x: 2 * k, y: y(21.2), 'font-size': 17 * k, fill: ink, class: 'vv-clef' }, '𝄢'));
+
+  const ledgerHalf = headHalf * 1.4;
+  spelled.forEach(n => {
+    const ny = y(n.step);
+    // Ledger lines: anything past the outer lines drawn (middle C
+    // included, when it isn't between two staves).
+    const ledgers = [];
+    for (let s = topLine + 2; s <= n.step; s += 2) ledgers.push(s);
+    for (let s = bottomLine - 2; s >= n.step; s -= 2) ledgers.push(s);
+    if (n.step === 28 && treble && bass) ledgers.push(28);
+    ledgers.forEach(s => svg.appendChild(mk('line', {
+      x1: n.x - ledgerHalf, x2: n.x + ledgerHalf, y1: y(s), y2: y(s), stroke: ink, 'stroke-width': lineW * 1.3
+    })));
+    if (n.acc) {
+      svg.appendChild(mk('text', {
+        x: n.accX, y: ny + (n.acc < 0 ? 0.5 : 1) * HALF, 'text-anchor': 'middle', 'font-size': accFont, fill: ink
+      }, STAFF_ACCIDENTAL[n.acc]));
+    }
+    let mark;
+    if (beads) {
+      mark = mk('circle', { cx: n.x, cy: ny, r: r - 0.2 * k, fill: icolor(n.offset), stroke: '#111', 'stroke-width': 0.35 * k, class: 'vv-mark' });
+      svg.appendChild(mark);
+      svg.appendChild(mk('text', {
+        x: n.x, y: ny + 0.36 * r, 'text-anchor': 'middle', 'font-size': (n.label.length > 2 ? 0.8 : 1) * r, 'font-weight': 700,
+        fill: textColorFor(n.offset), 'pointer-events': 'none'
+      }, n.label));
+    } else {
+      // Tilted about its own centre: .vv-mark sets transform-origin there
+      // (for the pulse), so a rotate(a, cx, cy) would turn it about the
+      // wrong point.
+      mark = mk('ellipse', {
+        cx: n.x, cy: ny, rx: 3.9, ry: 2.8, transform: 'rotate(-20)',
+        fill: icolor(n.offset), stroke: '#111', 'stroke-width': 0.7, class: 'vv-mark'
+      });
+      svg.appendChild(mark);
+    }
+    voicingViewMarks[n.idx] = mark;
+  });
+}
+
+// Lights up chord tone `idx` as it sounds during Play — same idea as the
+// abacus's own pulseBead.
+function pulseVoicingView(idx) {
+  const el = voicingViewMarks[idx];
+  if (!el) return;
+  el.classList.remove('vv-pulse');
+  void el.getBoundingClientRect();
+  el.classList.add('vv-pulse');
+}
+
+// The drawing is laid out for the panel's shape (see drawVoicingStaff), so
+// a resized panel redraws. The SVG is out of flow, so redrawing can't
+// resize the panel back.
+new ResizeObserver(() => renderVoicingView()).observe(document.getElementById('voicing-view'));
+
+document.getElementById('voicing-view').addEventListener('click', () => {
+  voicingViewMode = voicingViewMode === 'beads' ? 'score' : 'beads';
+  localStorage.setItem('n4a-voicing-view', voicingViewMode);
+  renderVoicingView();
+});
 
 const droneFilter = new Tone.Filter(droneConfig.cutoff, 'lowpass').connect(reverb);
 const droneBody = new Tone.Synth().connect(droneFilter);
@@ -3315,7 +4438,14 @@ const droneEdgeUp = new Tone.Synth({ oscillator: { type: 'sawtooth' } }).connect
 // URL — replaces the old ChemiCloud/LiteSpeed host (samples.10keyz.com),
 // which had no Cache-Control header and no CDN in front of it. If a custom
 // domain ever gets attached to the bucket, this is the one line to change.
-const SAMPLES_BASE_URL = 'https://pub-28f7a744940144149ef7eb6aaea39678.r2.dev';
+// The bucket's CORS policy only admits the live site's origin, so a local
+// dev server (localhost) loads the same files from the git-ignored
+// full-sample-packs/ folder instead. (http: only — the Capacitor app is
+// also served as "localhost", but over capacitor:/https:, and doesn't
+// bundle that folder.)
+const SAMPLES_BASE_URL = location.protocol === 'http:' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+  ? 'full-sample-packs'
+  : 'https://pub-28f7a744940144149ef7eb6aaea39678.r2.dev';
 
 const DRONE_SAMPLE_SOURCES = {
   harmonium: { url: SAMPLES_BASE_URL + '/harmonium/C3.mp3', baseMidi: 48, loopStart: 0.8, loopEnd: 11.7, fade: 0.02 },
@@ -3587,7 +4717,14 @@ const SAMPLER_CONFIG = {
     },
     // An organ pipe stops the moment the key comes up — no decay tail.
     release: 0.08,
-    volume: -12 // its samples are ~6 dB hotter than the piano's, and it doesn't decay
+    // The raw recordings are bright and buzzy, which on a phone speaker
+    // (little bass, lots of 2-4 kHz) came out harsh. The drone plays the
+    // very same recordings and sounds mellow because it runs them through
+    // a dark low-pass (350 Hz — see DRONE_DEFAULTS.cutoff); melody notes
+    // need more of their upper harmonics than a drone to stay distinct, so
+    // this sits higher, taking off the edge rather than all the brightness.
+    lowpass: 1100,
+    volume: -9 // its samples are ~6 dB hotter than the piano's, and it doesn't decay; the filter takes back ~3 dB
   },
   // Volumes matched by measurement to the guitar's loudness (RMS over the
   // first second of a C4).
@@ -3622,8 +4759,10 @@ function getSampler(family) {
     baseUrl: cfg.baseUrl || '',
     onload: refreshSampleLoadingIndicator
   });
-  if (cfg.highpass) sampler.chain(new Tone.Filter(cfg.highpass, 'highpass'), reverb);
-  else sampler.connect(reverb);
+  const filters = [];
+  if (cfg.highpass) filters.push(new Tone.Filter(cfg.highpass, 'highpass'));
+  if (cfg.lowpass) filters.push(new Tone.Filter({ frequency: cfg.lowpass, type: 'lowpass', rolloff: -24, Q: 0.5 }));
+  sampler.chain(...filters, reverb);
   sampler.volume.value = cfg.volume ?? -4;
   samplerCache[family] = sampler;
   refreshSampleLoadingIndicator();
@@ -4015,7 +5154,10 @@ function previewScale(set, pulse) {
     // already ~0.1s in the future) and the output device's own latency — a
     // Bluetooth speaker can add half a second (see §7's output latency).
     const pulseAt = (idx, t) => {
-      const fire = () => { if (pulseAbacus) abacusController.pulseBead(idx); if (pulse) pulse(idx); };
+      const fire = () => {
+        if (pulseAbacus) { abacusController.pulseBead(idx); pulseVoicingView(idx); }
+        if (pulse) pulse(idx);
+      };
       const delayMs = audibleDelayMs(t);
       if (delayMs <= 0) fire(); else setTimeout(fire, delayMs);
     };
@@ -4031,8 +5173,7 @@ function previewScale(set, pulse) {
     const organ = INSTRUMENT_FAMILY[instrument] === 'piano' && keyboardSound === 'organ';
     if (organ) {
       if (chordMode) {
-        const midis = applyVoicing(set.map(offset => midiFor(bumpedOffset(offset))), chordVoicing);
-        const run = set.map((_, idx) => ({ midi: midis[idx], idx })).sort((a, b) => a.midi - b.midi);
+        const run = voicedChordNotes(set).map(({ midi, idx }) => ({ midi: midi + 12 * playbackOctave + shift, idx }));
         const end = now + run.length * step * 1.5 + 1.2;
         run.forEach(({ midi, idx }, i) => {
           const t = now + i * step * 1.5;
@@ -4064,7 +5205,6 @@ function previewScale(set, pulse) {
       // "next octave" story to tell — it's just the same chord tone
       // twice).
       const pause = 0.36; // doubled per request from the original 0.18 first guess
-      const arpMidis = set.map(offset => midiFor(bumpedOffset(offset)));
       // The voicing choice (see applyVoicing) reshapes the simultaneous
       // strike — and the arpeggio afterward now plays THOSE SAME voiced
       // pitches too (sorted by actual pitch, not by scale-degree order), so
@@ -4072,23 +5212,35 @@ function previewScale(set, pulse) {
       // than its close-position neighbors, not still slotted in at its
       // original root-to-top position. A user asked for this explicitly
       // after finding the strike honored the voicing but the arpeggio
-      // didn't.
-      const strikeMidis = applyVoicing(arpMidis, chordVoicing);
+      // didn't. voicedChordNotes is the same list the voicing view draws.
+      const run = voicedChordNotes(set).map(({ midi, idx }) => ({ midi: midi + 12 * playbackOctave + shift, idx }));
       // A short ring tail (not just enough to cover the arpeggio) is what
       // makes it actually sound like "ringing OUT" rather than cutting off
       // right as the arpeggio ends.
       const ringTail = 0.5;
       const chordRing = pause + set.length * step + ringTail;
-      set.forEach((_, idx) => {
-        sampler.triggerAttackRelease(midiToFreq(strikeMidis[idx]), chordRing, now);
+      run.forEach(({ midi, idx }) => {
+        sampler.triggerAttackRelease(midiToFreq(midi), chordRing, now);
         pulseAt(idx, now);
       });
-      const run = set
-        .map((_, idx) => ({ midi: strikeMidis[idx], idx }))
-        .sort((a, b) => a.midi - b.midi);
       run.forEach(({ midi, idx }, i) => {
         sampler.triggerAttackRelease(midiToFreq(midi), step * 0.9, now + pause + i * step);
         pulseAt(idx, now + pause + i * step);
+      });
+      return;
+    }
+
+    // A scale position on show plays as fingered: its notes low to high,
+    // at the pitches the neck gives them, each bead lighting as it sounds.
+    const pos = pulseAbacus ? currentShape() : null;
+    if (pos) {
+      const notes = pos.cells.map(({ s, f }) => ({ s, f, midi: effectiveOpenMidi(s) + f })).sort((a, b) => a.midi - b.midi);
+      notes.forEach(({ s, f, midi }, i) => {
+        const t = now + i * step;
+        sampler.triggerAttackRelease(midiToFreq(midi + 12 * playbackOctave + shift), step * 0.9, t);
+        pulseAt(set.indexOf(semitone((effectiveOpenPc(s) + f) % 12)), t);
+        const delayMs = audibleDelayMs(t);
+        setTimeout(() => shakeFretBead(s, f), Math.max(0, delayMs));
       });
       return;
     }
@@ -4367,12 +5519,43 @@ function wireSynthDialog() {
 
 // ── main render ───────────────────────────────────────────────────────────────
 
+// The Play / Shape switch shows for a fretted instrument in chord mode;
+// the Voicing picker steps aside while a shape is the voicing.
+function syncFretTapToggle() {
+  const t = document.getElementById('fret-tap-toggle');
+  t.hidden = !fretted() || scaleOffsets.length === 12;
+  t.querySelectorAll('[data-tap]').forEach(b => {
+    const on = b.dataset.tap === fretTapMode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on);
+  });
+  document.getElementById('voicing-select').hidden = !chordMode || shapesActive();
+}
+document.querySelectorAll('#scale-system-toggle [data-system]').forEach(b =>
+  b.addEventListener('click', () => setScaleSystem(b.dataset.system)));
+refreshScaleSystemControls();
+document.querySelectorAll('#fret-tap-toggle [data-tap]').forEach(b =>
+  b.addEventListener('click', () => setFretTapMode(b.dataset.tap)));
+
 function render() {
   syncArmband();
+  syncChordInversion();
+  syncChordShapes();
+  // A shape's own bass note is its inversion (for the name, and for the
+  // inversion to come back to in play mode).
+  const sh = currentShape();
+  if (sh && chordMode) {
+    const bass = semitone(shapeNotes(sh.frets)[0].pc);
+    chordInversion = Math.max(0, voicedChordNotes(scaleOffsets, 0).findIndex(v => v.offset === bass));
+  }
   renderRoot();
   abacusController.sync({ scaleOffsets, rootPitchClass, labelMode });
   renderName();
   renderModeLabel();
+  syncFretTapToggle();
+  // Before the instrument: showing/hiding it resizes the abacus, and
+  // renderInstrumentView re-measures every drawing's text scale.
+  renderVoicingView();
   renderInstrumentView();
   updateDronePitch();
   // Was gated on labelMode === 'absolute' (that mode's own reference-table
@@ -4406,7 +5589,8 @@ document.getElementById('hand-right').onclick = () => setOrientation('right');
 
 
 // wire up view mode toggle (beginner vs advanced)
-document.getElementById('view-mode-switch').onclick = () => setViewMode(viewMode === 'beginner' ? 'advanced' : 'beginner');
+document.querySelectorAll('#view-mode-switch .view-mode-opt').forEach(o =>
+  o.addEventListener('click', () => { if (o.dataset.mode !== viewMode) setViewMode(o.dataset.mode); }));
 
 // wire up instrument toggle (family buttons + string-count sub-toggles)
 document.getElementById('instr-guitar').onclick   = () => setInstrumentFamily('guitar');
@@ -4483,15 +5667,29 @@ function closeDropdown(btn, list) {
 // any other dropdown), and close on scroll/rotate, since the fixed
 // coordinates above are a snapshot taken at open time and would otherwise
 // leave the panel stranded away from its own button.
+//
+// The list itself lives directly under <body>, not beside its button.
+// Lying down, both buttons sit in .quickbar, a sideways-scrolling row, and
+// the two lists were reported invisible there on the phone (upright, in
+// #root-row, which doesn't scroll, they worked). Desktop Chromium shows
+// them fine either way — iOS WebKit can clip even a position:fixed
+// descendant to a scrolling ancestor's layer. With no scrolling (or any
+// other) ancestor left between the list and <body>, nothing can clip it.
+//
+// Scrolling the list's own options (12 roots don't fit above a landscape
+// toolbar) mustn't count as "the page scrolled" and close it.
 function wireDropdown(btn, list, wrapper) {
+  document.body.appendChild(list);
   btn.addEventListener('click', () => {
     if (list.hidden) openDropdown(btn, list); else closeDropdown(btn, list);
   });
   document.addEventListener('pointerdown', e => {
-    if (!list.hidden && !wrapper.contains(e.target)) closeDropdown(btn, list);
+    if (!list.hidden && !wrapper.contains(e.target) && !list.contains(e.target)) closeDropdown(btn, list);
   });
   window.addEventListener('resize', () => { if (!list.hidden) closeDropdown(btn, list); });
-  document.addEventListener('scroll', () => { if (!list.hidden) closeDropdown(btn, list); }, true);
+  document.addEventListener('scroll', e => {
+    if (!list.hidden && !list.contains(e.target)) closeDropdown(btn, list);
+  }, true);
 }
 
 const rootSelectBtn = document.getElementById('root-select-btn');
@@ -4511,7 +5709,11 @@ Object.entries(VOICING_LABELS).forEach(([value, label]) => {
   opt.setAttribute('role', 'option');
   opt.dataset.value = value;
   opt.textContent = label;
-  opt.addEventListener('click', () => { setChordVoicing(value); closeVoicingSelect(); });
+  opt.addEventListener('click', () => {
+    if (opt.classList.contains('disabled')) return;
+    setChordVoicing(value);
+    closeVoicingSelect();
+  });
   voicingSelectList.appendChild(opt);
 });
 refreshVoicingSelectUI();
@@ -4644,6 +5846,24 @@ parkNodes([document.getElementById('notecount-group')], scaleNameActions);
 const rootRow = document.getElementById('root-row');
 const modeControls = document.getElementById('mode-controls');
 let restoreModeControlsNodes = null;
+// The Play / Shape switch: in the quickbar lying down; upright, where the
+// quickbar is full, beside Scale / Chord at the top.
+const fretTapToggle = document.getElementById('fret-tap-toggle');
+let restoreFretTapNodes = null;
+function applyFretTapPlacement() {
+  if (verticalInstrumentMode()) {
+    if (!restoreFretTapNodes) {
+      const parent = fretTapToggle.parentNode, next = fretTapToggle.nextSibling;
+      const browse = document.getElementById('reflib-open-btn');
+      browse.parentNode.insertBefore(fretTapToggle, browse);
+      restoreFretTapNodes = () => parent.insertBefore(fretTapToggle, next);
+    }
+  } else if (restoreFretTapNodes) {
+    restoreFretTapNodes();
+    restoreFretTapNodes = null;
+  }
+}
+
 function applyModeControlsPlacement() {
   if (verticalInstrumentMode()) {
     if (!restoreModeControlsNodes) {
@@ -4712,6 +5932,7 @@ function applyLayout() {
   if (L.sidebar && reflibPopup.open) reflibPopup.close();
   if (!prev || prev.vertical !== L.vertical) {
     applyModeControlsPlacement();
+    applyFretTapPlacement();
     applyRootSelectorPlacement();
     applyInstrumentOrientation();
   }
@@ -4729,7 +5950,7 @@ const LIB_MIN_W = 240, LIB_MAX_W = 520;
 function sizeLibrarySidebar() {
   const layout = document.getElementById('layout');
   const L = currentLayout;
-  if (!L.sidebar) { layout.style.gridTemplateColumns = ''; return; }
+  if (!L.sidebar || L.below) { layout.style.gridTemplateColumns = ''; return; }
   if (!L.vertical) {
     layout.style.gridTemplateColumns = 'clamp(300px, 28vw, 400px) minmax(0, 1fr)';
     return;

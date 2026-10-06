@@ -238,29 +238,25 @@
        display:none here would be wrong the moment JS parks content into
        it, so this is overridden back to flex inside each app-mode query. */
     .scale-name-row-left { display: none; }
-    /* Parked into .scale-name-row-left in app mode only — see
-       applyHeaderPlacement() in app.js — inert on desktop otherwise. */
-    #view-mode-switch { display: inline-flex; flex: 0 0 auto; }
-    /* Library title with the Basic/Full switch at its right. */
-    .ref-lib-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    /* Library title, with Basic/Full on its own row right under it. */
+    .ref-lib-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
     html .col-ref .ref-lib-head #ref-library-label { margin-bottom: 0; }
     /* In the popup the close button floats top-right; keep clear of it. */
     dialog.mobile-popup .ref-lib-head { margin-right: 44px; }
-    /* Basic/Full switch: a small pill with both labels, the current one
-       filled. Sized to sit under the title without making the row any
-       taller than the buttons to its right already do. */
-    .mode-switch {
-      padding: 1px; border: 1px solid var(--surface-border); border-radius: 999px;
-      background: var(--surface); cursor: pointer; font: inherit;
+    /* Basic/Full: two halves of one segmented control, each its name over
+       a few words on what it holds; the current one filled in. */
+    .view-mode-toggle { display: flex; gap: 0; margin-bottom: 12px; }
+    .view-mode-opt {
+      flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+      padding: 5px 10px; font: inherit; text-align: left; cursor: pointer;
+      background: var(--surface); color: var(--surface-text); border: 1px solid var(--surface-border);
       -webkit-tap-highlight-color: transparent;
     }
-    .mode-switch-opt {
-      padding: 1px 6px; border-radius: 999px;
-      font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
-      color: var(--text-muted); opacity: 0.6; line-height: 1.3;
-      transition: background 0.12s ease, color 0.12s ease, opacity 0.12s ease;
-    }
-    .mode-switch-opt.active { background: var(--accent-bg); color: var(--accent-text); opacity: 1; }
+    .view-mode-opt:first-child { border-radius: 6px 0 0 6px; }
+    .view-mode-opt:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+    .view-mode-opt.active { background: var(--accent-bg); color: var(--accent-text); border-color: var(--accent-border); }
+    .view-mode-name { font-size: var(--ui-font); font-weight: 700; }
+    .view-mode-desc { font-size: var(--ui-font-sm); opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
     /* margin-left:auto (not the row's own justify-content:space-between)
        is what actually pins this to the right edge — with 3 items in app
        mode (title+icon block, scale name, this), space-between was
@@ -302,6 +298,14 @@
     .quickbar #synth-settings-btn { order: 1; }
 
     .hand-toggle { display: flex; flex-wrap: wrap; gap: 5px; }
+    /* Play / Shape: what a tap on the fretboard does (chord mode). Two
+       icon buttons joined into one switch. */
+    #fret-tap-toggle { flex-wrap: nowrap; gap: 0; flex: 0 0 auto; }
+    #fret-tap-toggle[hidden] { display: none; }
+    .fret-tap-toggle .hand-btn { min-width: 0; padding: 5px 8px; display: inline-flex; align-items: center; }
+    .fret-tap-toggle .hand-btn:first-child { border-radius: 3px 0 0 3px; }
+    .fret-tap-toggle .hand-btn:last-child { border-radius: 0 3px 3px 0; margin-left: -1px; }
+    .fret-tap-toggle svg { width: 16px; height: 16px; display: block; }
     /* The old min-width here existed because the label used to read "Drone
        on"/"Drone off" — a one-character difference that was still enough to
        resize the button and nudge every sibling along the row on each
@@ -356,13 +360,21 @@
     #piano .piano-key-white.pressed { fill: #cfc9bc; }
     #piano .piano-key-black.pressed { fill: #4a4a4a; }
     /* Organ (see renderPiano): key colors swapped — dark naturals, light
-       sharps — and the key names recolored to stay readable on them. */
+       sharps. (Key names and bead outlines follow each key's shade from
+       app.js, not from here.) */
     #piano.organ .piano-key-white { fill: #2b2420; stroke: #f4efe4; } /* light outlines, so the dark keys read as separate keys */
     #piano.organ .piano-key-black { fill: #ece5d3; stroke: #8a8272; }
     #piano.organ .piano-key-white.pressed { fill: #4a3f37; }
     #piano.organ .piano-key-black.pressed { fill: #cbc2ab; }
-    #piano.organ text.piano-white-label { fill: #f4efe4; }
-    #piano.organ text.piano-black-label { fill: #1c1c1c; }
+    /* The organ's bass keys swap back to the piano's colors, so the two
+       keyboards read as separate at a glance, with a block of wood
+       between them. */
+    #piano.organ .piano-key-bass.piano-key-white { fill: #efe9dc; stroke: #6b5a44; }
+    #piano.organ .piano-key-bass.piano-key-black { fill: #1c1c1c; stroke: #000000; }
+    #piano.organ .piano-key-bass.piano-key-white.pressed { fill: #cfc6b4; }
+    #piano.organ .piano-key-bass.piano-key-black.pressed { fill: #4a4a4a; }
+    #piano .organ-bass-divider { fill: #4a3322; }
+    #organ-bass-low-field { margin-top: 12px; }
     /* Piano/organ pedals, in a narrow column to the right of the keys
        (#fretboard-wrap.keys lays the keyboard and pedals side by side).
        Brass, the lower edge thicker like a pedal's foot plate; pushed
@@ -396,6 +408,23 @@
        needed here for that. Custom dropdown, not a native <select> — see
        .root-select-mobile's comment above for why. */
     .voicing-select { position: relative; }
+    /* The voicing view (see renderVoicingView): a quiet panel, tap to swap
+       beads/score. Its size comes from the layout blocks below. */
+    .voicing-view {
+      position: relative; min-width: 0; min-height: 0;
+      background: rgba(255, 255, 255, 0.04); border-radius: 6px; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .voicing-view[hidden] { display: none; }
+    /* Out of flow, so the drawing fits whatever box the layout gives the
+       panel rather than sizing it: lying down, an in-flow SVG's own aspect
+       ratio made the abacus row taller than the abacus. */
+    .voicing-view svg { position: absolute; inset: 0; width: 100%; height: 100%; padding: 2px 0; box-sizing: border-box; }
+    .voicing-view text { font-family: system-ui, -apple-system, sans-serif; }
+    .voicing-view text.vv-clef { font-family: 'Apple Symbols', 'Noto Music', 'Segoe UI Symbol', serif; }
+    .voicing-view .vv-mark { transform-box: fill-box; transform-origin: center; }
+    .voicing-view .vv-mark.vv-pulse { animation: vv-pulse 0.3s ease-out; }
+    @keyframes vv-pulse { 0% { scale: 1.6; } 100% { scale: 1; } }
     .voicing-select .dropdown-btn { padding: 4px 6px; font-size: var(--ui-font); }
 
     .ref-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 12px; margin-bottom: 10px; }
@@ -445,7 +474,9 @@
       padding: 12px 4px 12px 16px; border-bottom: 1px solid var(--panel-border);
       cursor: pointer;
     }
-    .ref-list .ref-card:last-child { border-bottom: none; }
+    /* Rows sit inside .ref-section/.ref-family wrappers (see renderTable). */
+    .ref-list > .ref-section:last-child > .ref-card:last-child,
+    .ref-list > .ref-section:last-child > .ref-family:last-child > .ref-card:last-child { border-bottom: none; }
     .ref-card:active { background: var(--surface-hover-bg); }
     /* Same "this is what's currently loaded" highlight as the desktop
        table (see the matching table.ref-table rule and addRow's own
@@ -553,14 +584,13 @@
       padding: 14px 4px 4px; color: var(--text-muted);
       text-transform: uppercase; letter-spacing: 0.06em; font-size: var(--ui-font-sm);
     }
-    .ref-list .ref-list-group-header:first-child { padding-top: 4px; }
     /* One per note count ("7 notes · heptatonic") — a level above the
        family headings inside it. */
     .ref-list-count-header {
       padding: 18px 4px 2px; font-size: var(--title-font); font-weight: 700; color: var(--text);
     }
     .ref-list .ref-list-count-header:first-child { padding-top: 6px; }
-    .ref-list-count-header + .ref-list-group-header { padding-top: 6px; }
+    .ref-list-count-header + .ref-section > .ref-family:first-child > .ref-list-group-header { padding-top: 6px; }
     .ref-controls-line { display: flex; align-items: center; gap: 8px; flex-basis: 100%; }
     #lib-count-toggle .hand-btn { min-width: 30px; padding: 4px 7px; }
 
@@ -672,7 +702,9 @@
        <select> would do) ran off the bottom of the viewport.
        The left/bottom/min-width/max-height below are all overwritten by
        openDropdown on each open — kept here so the panel is still sanely
-       placed if it's ever shown before that runs. */
+       placed if it's ever shown before that runs. The list element itself
+       is moved to <body> by wireDropdown, since on iOS even a fixed panel
+       could still be clipped by the scrolling toolbar it started in. */
     .dropdown-list {
       position: fixed; z-index: 20;
       /* width:max-content (with a min-width floor set from the button's own
@@ -691,6 +723,7 @@
     }
     .dropdown-option:active { background: var(--surface-hover-bg); }
     .dropdown-option.active { background: var(--accent-border); color: #ffffff; font-weight: 700; }
+    .dropdown-option.disabled { opacity: 0.35; cursor: default; }
 
     .root-select-mobile { display: none; position: relative; }
     /* min-width (not 100%, and not a bare width either) — a fixed floor
@@ -913,7 +946,11 @@
           "quickbar   quickbar";
       }
       html.lay-v .scale-name-row { grid-area: title; margin-bottom: 0; }
-      html.lay-v #abacus { grid-area: abacus; width: 100%; height: 100%; max-width: 100%; min-width: 0; min-height: 0; }
+      /* The abacus column also holds the voicing view (chord mode only),
+         under the abacus, which gives up that much of its height. */
+      html.lay-v .abacus-row { grid-area: abacus; display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
+      html.lay-v #abacus { flex: 1 1 0; width: 100%; height: 100%; max-width: 100%; min-width: 0; min-height: 0; }
+      html.lay-v .voicing-view { flex: 0 0 auto; width: 100%; height: clamp(84px, 12vh, 140px); }
       html.lay-v #fretboard-wrap { grid-area: instrument; min-width: 0; min-height: 0; }
       html.lay-v #root-row { grid-area: root; }
       /* #mode-controls is parked in here (see applyModeControlsPlacement
@@ -1071,8 +1108,8 @@
          looked cramped against the edge. Keyed off the same cam-left/
          cam-right class that decides the padding, so the two can't drift
          apart. */
-      html.lay-h.cam-right #abacus, html.lay-h.cam-right #fretboard-wrap { margin-left: -8px; }
-      html.lay-h.cam-left #abacus, html.lay-h.cam-left #fretboard-wrap { margin-right: -8px; }
+      html.lay-h.cam-right .abacus-row, html.lay-h.cam-right #fretboard-wrap { margin-left: -8px; }
+      html.lay-h.cam-left .abacus-row, html.lay-h.cam-left #fretboard-wrap { margin-right: -8px; }
       /* Inside the wrapped native app there's no browser chrome to collapse,
          so the dvh/lvh gap above has nothing to do except sit there as a
          scrollbar that moves a pixel or two and goes nowhere — cut it. */
@@ -1113,7 +1150,12 @@
       /* Displays on top, controls at the bottom — same reasoning as
          portrait above: occlusion by the hand applies in any orientation. */
       html.lay-h .scale-name-row { order: 1; margin-bottom: 0; }
-      html.lay-h #abacus { order: 2; flex: 0 0 auto; }
+      /* The voicing view (chord mode only) sits to the right of the
+         abacus, as tall as it is; the abacus narrows to make room, which
+         only makes it shorter too. */
+      html.lay-h .abacus-row { order: 2; flex: 0 0 auto; display: flex; align-items: stretch; gap: 8px; min-width: 0; }
+      html.lay-h #abacus { flex: 1 1 auto; min-width: 0; }
+      html.lay-h .voicing-view { flex: 0 0 auto; width: clamp(96px, 15vw, 160px); }
       html.lay-h #fretboard-wrap { order: 3; }
       html.lay-h #root-row { order: 4; }
       html.lay-h .quickbar { order: 5; }
@@ -1251,7 +1293,8 @@
        the abacus stretches to the same width as the fretboard. */
     html.lay-h:not(.phone) #fretboard-wrap { flex: 0 1 auto; }
     html.lay-h:not(.phone) #fretboard, html.lay-h:not(.phone) #piano { flex: 0 1 auto; height: auto; }
-    html.lay-h:not(.phone) #abacus { width: 100%; height: auto; margin-top: auto; }
+    html.lay-h:not(.phone) .abacus-row { margin-top: auto; }
+    html.lay-h:not(.phone) #abacus { width: 100%; height: auto; }
     html.lay-h:not(.phone) .quickbar { margin-bottom: auto; }
     html.lay-h:not(.phone) .col-main { gap: 14px; }
 
@@ -1305,6 +1348,69 @@
     /* The sticky column header pins to the top of the sidebar itself (in
        the popup it sits below the close button instead). */
     html.lib-side .layout > .col-ref .ref-head { top: -12px; }
+    /* The list header's label copies (see renderTable): only the first is
+       used, except under html.lib-below below. */
+    .ref-head-cell { display: contents; }
+    .ref-head-cell + .ref-head-cell { display: none; }
+
+    /* ── library underneath (html.lib-below) ─────────────────────────────
+       Lying down on a laptop/desktop, a fretboard sized by the window's
+       width only fills about half its height. Instead the instrument block
+       (title, abacus, instrument, toolbar) takes the top — at most 60% of
+       the height — with a longer neck (more frets, see FRETS_H_KEY in
+       app.js) drawn at a smaller scale, and the library fills the rest
+       underneath in up to three columns. */
+    html.lib-below .layout {
+      grid-template-columns: minmax(0, 1fr); grid-template-rows: fit-content(60%) minmax(0, 1fr);
+      /* Generous, so the toolbar reads as the end of the instrument block
+         rather than running into the library's labels below it. */
+      gap: 28px;
+    }
+    /* min-height:0 lets the block shrink into its 60%, the fretboard giving
+       up the height (letterboxed by its own preserveAspectRatio). */
+    html.lib-below .col-main {
+      height: auto; min-height: 0; overflow: hidden;
+      width: min(100%, 1240px); justify-self: center; gap: 10px;
+    }
+    /* The abacus is one octave — it doesn't need the neck's full width,
+       and at that width it would be as tall as half the fretboard. */
+    html.lib-below .abacus-row { width: min(100%, 760px); align-self: center; }
+    html.lib-below .abacus-row, html.lib-below .quickbar { margin: 0; }
+    /* Same width as the instrument block above it, and clear of the
+       window's bottom edge. */
+    html.lib-below .layout > .col-ref {
+      order: 1; padding: 12px 16px 0;
+      width: min(100%, 1240px); justify-self: center; margin-bottom: 16px;
+    }
+    /* Library controls on one line above the cards rather than stacked. */
+    html.lib-below .col-ref > .section {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px;
+    }
+    html.lib-below .col-ref .ref-lib-head,
+    html.lib-below .col-ref .view-mode-toggle,
+    html.lib-below .col-ref .ref-controls { margin-bottom: 0; }
+    html.lib-below .col-ref .ref-controls { gap: 8px 24px; }
+    html.lib-below .col-ref .view-mode-toggle { flex: 0 0 auto; }
+    html.lib-below .col-ref .view-mode-opt { flex: 0 0 auto; min-width: 120px; }
+    html.lib-below .col-ref .ref-controls-line { flex-basis: auto; }
+    html.lib-below #ref-table-wrap { flex: 1 0 100%; }
+    /* Columns about as wide as the old sidebar, never more than three. */
+    html.lib-below { --lib-cols: repeat(auto-fill, minmax(max(340px, calc((100% - 56px) / 3)), 1fr)); }
+    /* Each note count's rows fill the columns top to bottom (same widths
+       as --lib-cols below), a family never split across two. */
+    html.lib-below .ref-section { column-count: 3; column-width: 340px; column-gap: 28px; }
+    html.lib-below .ref-family, html.lib-below .ref-section > .ref-card { break-inside: avoid; }
+    /* The sticky header spans every column, with a copy of the 12 labels
+       over each one — laid on the same grid as the cards, extra copies
+       wrapping into zero-height rows and clipped. */
+    html.lib-below .ref-head {
+      display: grid;
+      grid-template-columns: var(--lib-cols); column-gap: 28px;
+      grid-template-rows: auto; grid-auto-rows: 0; row-gap: 0; align-items: start; overflow: hidden; padding: 0;
+    }
+    html.lib-below .ref-head-cell {
+      display: flex; align-items: center; gap: 12px; padding: 6px 4px 4px 16px;
+    }
 
     /* Rotate: flips the instrument between standing up and lying down on
        screens big enough for either (hidden on phones — there, turning the

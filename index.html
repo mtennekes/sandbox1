@@ -41,6 +41,9 @@
   //              it, remembered separately per screen orientation.
   //   sidebar  — room to keep the scale library open on the left
   //              (html.lib-side) instead of behind the Browse button.
+  //   below    — lying down on a tablet/desktop with height to spare: the
+  //              library sits under the instrument instead, full width
+  //              (html.lib-below, together with lib-side).
   window.spicemapLayout = function () {
     var w = window.innerWidth, h = window.innerHeight;
     var portrait = h > w;
@@ -48,8 +51,9 @@
     var pref = null;
     try { pref = localStorage.getItem('n4a-instr-orient-' + (portrait ? 'portrait' : 'landscape')); } catch (e) {}
     var vertical = phone ? portrait : (pref ? pref === 'v' : portrait);
-    var sidebar = !phone && w >= (vertical ? 700 : 1000);
-    return { phone: phone, portrait: portrait, vertical: vertical, sidebar: sidebar };
+    var below = !phone && !vertical && h >= 600;
+    var sidebar = below || (!phone && w >= (vertical ? 700 : 1000));
+    return { phone: phone, portrait: portrait, vertical: vertical, sidebar: sidebar, below: below };
   };
   window.spicemapApplyLayoutClasses = function (L) {
     var c = document.documentElement.classList;
@@ -57,6 +61,7 @@
     c.toggle('lay-v', L.vertical);
     c.toggle('lay-h', !L.vertical);
     c.toggle('lib-side', L.sidebar);
+    c.toggle('lib-below', !!L.below);
   };
   window.spicemapApplyLayoutClasses(window.spicemapLayout());
 </script>
@@ -120,7 +125,19 @@
             <button id="reflib-open-btn" class="hand-btn reflib-open-btn" aria-expanded="false" title="Browse scales &amp; chords">&#128214; Browse</button>
           </div>
         </div>
-        <svg id="abacus" viewBox="0 0 760 80" width="760" height="80"></svg>
+        <!-- The abacus shares its row (lying down) or column (upright) with
+             the voicing view: the active chord's notes in the order the
+             current voicing stacks them, low to high — as beads, or as a
+             compact grand staff (tap to switch). Chord mode only; hidden
+             for scales, where the abacus has the space to itself. No
+             caption: the voicing's name is on the Voicing button already.
+             See renderVoicingView in app.js. -->
+        <div class="abacus-row" id="abacus-row">
+          <svg id="abacus" viewBox="0 0 760 80" width="760" height="80"></svg>
+          <div id="voicing-view" class="voicing-view" hidden>
+            <svg id="voicing-view-svg" role="img"></svg>
+          </div>
+        </div>
 
         <!-- Mode stepper, labels toggle, and sound controls all in one row —
              each used to be its own stacked block (with an optional caption
@@ -154,6 +171,16 @@
               </button>
               <div id="voicing-select-list" class="dropdown-list" role="listbox" tabindex="-1" aria-label="Chord voicing" hidden></div>
             </div>
+          </div>
+
+          <!-- What tapping the fretboard does in chord mode: play the
+               note, or pick a chord shape through it (outlined on the neck,
+               and what Play, the staff and the stepper then follow). Icons
+               only; fretted instruments in chord mode only — see
+               syncFretTapToggle in app.js. -->
+          <div id="fret-tap-toggle" class="hand-toggle fret-tap-toggle" role="group" aria-label="Tapping the fretboard" hidden>
+            <button type="button" class="hand-btn" data-tap="play" title="Tap plays notes" aria-label="Tap plays notes"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 12.2a2.2 2.2 0 1 1-1.2-1.95V3.2l7.4-1.6v8.6a2.2 2.2 0 1 1-1.2-1.95V4.3L6 5.4z" fill="currentColor"/></svg></button>
+            <button type="button" class="hand-btn" data-tap="shape" title="Tap shows chord shapes" aria-label="Tap shows chord shapes"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="4.5" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="5.3" cy="10" r="1.6" fill="currentColor"/><circle cx="8" cy="5.6" r="1.6" fill="currentColor"/><circle cx="10.7" cy="10" r="1.6" fill="currentColor"/></svg></button>
           </div>
 
           <!-- A Relative/Absolute label toggle used to sit here, then moved
@@ -243,6 +270,16 @@
               <button type="button" class="hand-btn" data-strum="exact">Exact frets</button>
             </div>
           </div>
+          <!-- Which system a scale's shapes follow when the fretboard's
+               tap switch is on shapes (see scaleSystem in app.js). A swipe
+               can switch it too: it picks whichever shape fits best. -->
+          <div class="inline-field strum-field">Scale shapes
+            <div class="hand-toggle" id="scale-system-toggle">
+              <button type="button" class="hand-btn" data-system="caged" title="Five positions, one round each chord shape of the scale's tonic">CAGED</button>
+              <button type="button" class="hand-btn" data-system="3nps" title="Three notes on every string">3 per string</button>
+              <button type="button" class="hand-btn" data-system="berklee" title="One finger per fret (Leavitt's positions)">Berklee</button>
+            </div>
+          </div>
         </div>
 
         <div class="setup-group" id="instrument-size-group">
@@ -253,6 +290,26 @@
             <div class="hand-toggle" id="piano-keys-toggle">
               <button type="button" class="hand-btn" data-keys="short">Short</button>
               <button type="button" class="hand-btn" data-keys="long">Realistic</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Organ only (see updateInstrumentUI): the small bass keyboard
+             split off below the main one — in place of the piano's
+             pedals, which do nothing for an organ. How many keys it has,
+             and how low it sounds. See "organ bass keys" in app.js. -->
+        <div class="setup-group" id="organ-bass-group">
+          <div class="label">Bass keys</div>
+          <div class="hand-toggle" id="organ-bass-toggle">
+            <button type="button" class="hand-btn" data-bass-oct="0">Off</button>
+            <button type="button" class="hand-btn" data-bass-oct="1">1 octave</button>
+            <button type="button" class="hand-btn" data-bass-oct="2">2 octaves</button>
+          </div>
+          <div id="organ-bass-low-field">
+            <div class="label">Bass starts at</div>
+            <div class="hand-toggle" id="organ-bass-low-toggle">
+              <button type="button" class="hand-btn" data-bass-low="1">C0 · deep</button>
+              <button type="button" class="hand-btn" data-bass-low="2">C1 · low</button>
             </div>
           </div>
         </div>
@@ -314,12 +371,18 @@
     <div class="section">
       <!-- Basic/Full is about what this list offers (a short curated list,
            or the whole catalog), so it lives here, at the top of it, not
-           on the main screen. Both labels always showing, the current one
-           filled in; the whole switch is the tap target. -->
+           on the main screen — its own row right under the title, each
+           half with a few words saying what it holds (the counts are
+           filled in by syncViewModeUI in app.js). -->
       <div class="ref-lib-head">
         <div class="label" id="ref-library-label">Browse scales</div>
-        <button type="button" id="view-mode-switch" class="mode-switch" role="switch" aria-checked="false" aria-label="Basic list">
-          <span class="mode-switch-opt" data-mode="beginner">Basic</span><span class="mode-switch-opt" data-mode="advanced">Full</span>
+      </div>
+      <div id="view-mode-switch" class="view-mode-toggle" role="radiogroup" aria-label="List">
+        <button type="button" class="view-mode-opt" role="radio" data-mode="beginner">
+          <span class="view-mode-name">Basic</span><span class="view-mode-desc" id="view-mode-desc-beginner"></span>
+        </button>
+        <button type="button" class="view-mode-opt" role="radio" data-mode="advanced">
+          <span class="view-mode-name">Full</span><span class="view-mode-desc" id="view-mode-desc-advanced"></span>
         </button>
       </div>
       <div class="ref-controls">
