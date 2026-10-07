@@ -198,9 +198,14 @@ const EXOTIC = {
   }
 };
 
+// One-off scales: each its own set of notes, not a mode of a family above
+// or of one another (their other modes have no established names).
 const EXTRA_SINGLE = {
   'Neapolitan minor': [0,1,3,5,7,8,11],
   'Neapolitan major': [0,1,3,5,7,9,11],
+  'Persian':          [0,1,4,5,6,8,11],
+  'Hungarian major':  [0,3,4,6,7,9,10],
+  'Enigmatic':        [0,1,4,6,8,10,11],
 };
 
 const SCALE_DICT = {};   // bitmask -> entry
@@ -274,6 +279,25 @@ const PENTATONIC = {
 };
 PENTATONIC.modes.forEach((name, k) => addDictEntry(name, 'pentatonic', rotateToDegree(PENTATONIC.base, k), 'core'));
 
+// Japanese pentatonics, in their most widely cited forms (sources vary,
+// Kumoi most of all — some give it In's notes). Two necklaces between
+// them: Hirajoshi, Iwato and In are modes of one, Kumoi and Insen of
+// another (their remaining modes have no established names). Yo is the
+// Zhi mode above (see SCALE_ALIASES).
+const JAPANESE_PENTATONIC = {
+  'Hirajoshi':        [0, 2, 3, 7, 8],
+  'In (Miyako-bushi)': [0, 1, 5, 7, 8],
+  'Iwato':            [0, 1, 5, 6, 10],
+  'Kumoi':            [0, 2, 3, 7, 9],
+  'Insen':            [0, 1, 5, 7, 10],
+};
+Object.entries(JAPANESE_PENTATONIC).forEach(([name, set]) => addDictEntry(name, 'japanese', set, 'exotic'));
+// Balinese pelog, as five notes of 12-tone equal temperament: the gamelan
+// tuning itself is seven unevenly spaced tones that no 12-tone scale
+// matches exactly, and pieces use five-note selections of it — this is
+// the usual Western rendering of the main one (pelog selisir).
+addDictEntry('Pelog (Balinese)', 'pelog', [0, 1, 3, 7, 8], 'exotic');
+
 // 6 notes. Whole-tone and augmented are `symmetric` (affects rotation
 // naming, not spelling — see below); blues is
 // ordinary `stepwise`. All three, including blues' repeated-degree blue
@@ -291,7 +315,14 @@ addDictEntry('Augmented (inverse)', 'augmented', [0, 1, 4, 5, 8, 9], 'core', { k
 // Augmented has period 4 (2 distinct shapes, 4 transpositions total) — both
 // shapes need their own entry since rotating the abacus can land on either.
 
-addDictEntry('Blues', 'blues', [0, 3, 5, 6, 7, 10], 'core');
+// "The blues scale" without qualification means the minor one; the major
+// blues is a mode of it (starting on its ♭3).
+addDictEntry('Minor blues', 'blues', [0, 3, 5, 6, 7, 10], 'core');
+addDictEntry('Major blues', 'blues', [0, 2, 3, 4, 7, 9], 'core');
+// Scriabin's "mystic chord" as a scale; and the tritone scale, two major
+// triads a tritone apart (symmetric, like the octatonic).
+addDictEntry('Prometheus', 'hexatonic', [0, 2, 4, 6, 9, 10], 'exotic');
+addDictEntry('Tritone', 'hexatonic', [0, 1, 4, 6, 7, 10], 'exotic', { kind: 'symmetric' });
 
 // 8 notes — octatonic (symmetric) + composite (parent + added tone).
 addDictEntry('Octatonic (half-whole)', 'octatonic', [0, 1, 3, 4, 6, 7, 9, 10], 'core', { kind: 'symmetric' });
@@ -472,6 +503,26 @@ addDictEntry('Chromatic', 'chromatic', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], '
 
 function dictEntryByName(name) { return DICT_ENTRIES.find(e => e.name === name); }
 
+// Other names a scale goes by — the "world" and jazz names people search
+// for — shown dim after its name in the library (see addMobileCard).
+const SCALE_ALIASES = {
+  'Ionian': ['Major'],
+  'Aeolian': ['Natural minor'],
+  'Lydian dominant': ['Overtone', 'Acoustic'],
+  'Altered scale': ['Super Locrian'],
+  'Locrian ♮2': ['Half-diminished'],
+  'Mixolydian ♭6': ['Hindu', 'Aeolian dominant'],
+  'Dorian ♯4': ['Romanian minor', 'Ukrainian Dorian'],
+  'Phrygian dominant': ['Spanish', 'Freygish', 'Hijaz'],
+  'Double harmonic major': ['Byzantine', 'Arabic', 'Bhairav'],
+  'Hungarian minor': ['Gypsy minor'],
+  'Shang (Suspended pentatonic)': ['Egyptian'],
+  'Zhi (Dominant pentatonic)': ['Yo'],
+  'Octatonic (half-whole)': ['Dominant diminished'],
+  'Octatonic (whole-half)': ['Diminished'],
+  'Prometheus': ['Mystic'],
+};
+
 // Beginner view's curated reference table — the 5 scales most people reach
 // for, deliberately labeled without any "mode" terminology (Major/Minor
 // rather than Ionian/Aeolian) even though they're drawn from the same
@@ -487,7 +538,7 @@ const BEGINNER_SCALES = [
   { label: 'Minor',             set: rotateToDegree(FAMILIES.major.base, 5) }, // Aeolian
   { label: 'Major pentatonic',  set: PENTATONIC.base },                        // Gong
   { label: 'Minor pentatonic',  set: rotateToDegree(PENTATONIC.base, 4) },     // Yu
-  { label: 'Blues',             set: dictEntryByName('Blues').set },
+  { label: 'Blues',             set: dictEntryByName('Minor blues').set },
   // All 12. Not a scale anyone plays through as such, but it's the one
   // that shows what every other row is a SELECTION FROM — which is
   // exactly the point a beginner needs, and why it belongs in this list
@@ -1324,6 +1375,11 @@ function setFretCount(n) {
 // with only a small, honest margin — and never distorts a circle or a
 // glyph. Bonus: string spacing (a touch target) grows with this too.
 const NECK_SQUEEZE_VERTICAL = 1.7;
+// On a phone, upright, the strings were ~30% further apart than the same
+// phone draws them lying down, which reads as a different instrument; this
+// brings them to the same spacing (the neck then needs less of the screen's
+// width, which goes to the abacus column — see sizePhoneColumns).
+const NECK_SQUEEZE_VERTICAL_PHONE = 1.3;
 // Landscape's "instrument" row ended up with more height available than a
 // 15-fret neck's own (very wide/flat) natural aspect ratio needs — since
 // preserveAspectRatio:meet fits BOTH dimensions, that spare height went
@@ -1375,7 +1431,8 @@ let EFFECTIVE_NECK_TAPER = 0;
 function syncNeckMetrics() {
   const vertical = verticalInstrumentMode();
   FRET_COUNT = vertical ? FRETS_VERTICAL : FRETS_HORIZONTAL;
-  NECK_SQUEEZE = vertical ? NECK_SQUEEZE_VERTICAL : NECK_STRETCH_HORIZONTAL;
+  const phone = document.documentElement.classList.contains('phone');
+  NECK_SQUEEZE = vertical ? (phone ? NECK_SQUEEZE_VERTICAL_PHONE : NECK_SQUEEZE_VERTICAL) : NECK_STRETCH_HORIZONTAL;
   // Fret fan reads as "the low string reaches farther than the high one" —
   // a cue that depends on seeing the strings run left-to-right, side by
   // side. Standing upright in a narrow column that comparison isn't legible
@@ -1385,7 +1442,8 @@ function syncNeckMetrics() {
   // it stays on.
   EFFECTIVE_FRET_FAN = vertical ? 0 : FRET_FAN;
   EFFECTIVE_NECK_TAPER = vertical ? NECK_TAPER_V : NECK_TAPER_H;
-  BASE_MARKER_R = vertical ? BASE_MARKER_R_VERTICAL : BASE_MARKER_R_HORIZONTAL;
+  // (beads shrink with the closer phone strings, keeping their proportion)
+  BASE_MARKER_R = vertical ? BASE_MARKER_R_VERTICAL * NECK_SQUEEZE / NECK_SQUEEZE_VERTICAL : BASE_MARKER_R_HORIZONTAL;
   END_X = fbFX(FRET_COUNT);
 }
 
@@ -1513,19 +1571,44 @@ function wrapVertical(svg, rot) {
   });
 }
 
-// Every fretboard note goes through here: it sounds (noteOn), its bead
-// shivers, and its string visibly vibrates.
+// Every fretboard note goes through here: it sounds (noteOn), a white ring
+// ripples out from where it was played, and (Instrument menu > Playing >
+// Vibrate strings) its string visibly vibrates.
 function playFret(s, f) {
-  shakeFretBead(s, f);
-  vibrateString(s, f);
+  ringFretNote(s, f);
+  if (vibrateStrings) vibrateString(s, f);
   return noteOn(effectiveOpenMidi(s) + f);
 }
-function shakeFretBead(s, f) {
-  const bead = document.querySelector(`#fretboard .fb-bead[data-s="${s}"][data-f="${f}"]`);
-  if (!bead) return;
-  bead.classList.remove('fb-shake');
-  void bead.getBoundingClientRect(); // restart the animation if it's still running
-  bead.classList.add('fb-shake');
+// A white ring grows out from the note and fades — the same on every side,
+// so it reads as "this one sounded" without nudging the bead anywhere. A
+// note with no bead of its own (outside the scale/chord — a strum in Exact
+// mode, say) also gets a small white dot at its spot, fading with the
+// ring, so it's clear where it was even with nothing drawn there.
+function ringFretNote(s, f) {
+  const svg = document.getElementById('fretboard');
+  const layer = svg.querySelector('.fb-string')?.parentNode;
+  if (!layer) return;
+  const bead = svg.querySelector(`.fb-bead[data-s="${s}"][data-f="${f}"]`);
+  const cx = bead ? +bead.getAttribute('cx') : mirror(fbMXs(f, s));
+  const cy = bead ? +bead.getAttribute('cy') : STRING_Y(s, fbMX(f));
+  const r0 = fbR(s);
+  const ring = mk('circle', { cx, cy, r: r0, fill: 'none', stroke: '#fff', 'stroke-width': 2.5, 'pointer-events': 'none' });
+  const dot = bead ? null : mk('circle', { cx, cy, r: r0 * 0.55, fill: '#fff', 'pointer-events': 'none' });
+  if (dot) layer.appendChild(dot);
+  layer.appendChild(ring);
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const DUR = 550, start = performance.now();
+  const done = () => { ring.remove(); if (dot) dot.remove(); };
+  setTimeout(done, DUR + 100); // backstop, as in vibrateString
+  (function frame(now) {
+    const t = Math.min(1, (now - start) / DUR);
+    if (t >= 1 || !ring.isConnected) { done(); return; }
+    const ease = 1 - (1 - t) ** 3;
+    ring.setAttribute('r', r0 * (reduce ? 1.3 : 1.15 + 0.9 * ease));
+    ring.setAttribute('opacity', 1 - t);
+    if (dot) dot.setAttribute('opacity', 1 - t * t);
+    requestAnimationFrame(frame);
+  })(start);
 }
 // A plucked string bends into a shallow triangle between the fret it's
 // stopped at and the bridge, swinging back and forth and dying away. The
@@ -1592,9 +1675,14 @@ function vibrateString(s, f) {
 //               chord note nearest to where the finger crosses; 'exact' =
 //               whatever fret it crosses at, in the scale or not.
 let moveBeads = localStorage.getItem('n4a-move-beads') !== 'false';
+// vibrateStrings — a played string swings (vibrateString). Off by default:
+// the beads further along that string stay put while it moves, which
+// reads as the string sliding out from under them.
+let vibrateStrings = localStorage.getItem('n4a-vibrate-strings') === 'true';
 let strumMode = localStorage.getItem('n4a-strum-mode') === 'exact' ? 'exact' : 'scale';
 function refreshPlayingControls() {
   document.getElementById('move-beads-toggle').checked = moveBeads;
+  document.getElementById('vibrate-strings-toggle').checked = vibrateStrings;
   document.querySelectorAll('#strum-mode-toggle [data-strum]').forEach(b =>
     b.classList.toggle('active', b.dataset.strum === strumMode));
 }
@@ -1602,6 +1690,10 @@ document.getElementById('move-beads-toggle').addEventListener('change', e => {
   moveBeads = e.target.checked;
   localStorage.setItem('n4a-move-beads', moveBeads);
   renderFretboard();
+});
+document.getElementById('vibrate-strings-toggle').addEventListener('change', e => {
+  vibrateStrings = e.target.checked;
+  localStorage.setItem('n4a-vibrate-strings', vibrateStrings);
 });
 document.querySelectorAll('#strum-mode-toggle [data-strum]').forEach(b => b.addEventListener('click', () => {
   strumMode = b.dataset.strum;
@@ -2252,7 +2344,7 @@ function renderFretboard() {
 // tuning. Everything else — other chords, inversions, other instruments
 // and tunings — is found by searching the neck for fingerings a hand can
 // actually hold (see findChordShapes), so every chord gets shapes.
-let fretTapMode = localStorage.getItem('n4a-fret-tap') === 'play' ? 'play' : 'shape';
+let fretTapMode = localStorage.getItem('n4a-fret-tap') === 'shape' ? 'shape' : 'play';
 function setFretTapMode(mode) {
   fretTapMode = mode;
   localStorage.setItem('n4a-fret-tap', mode);
@@ -2431,10 +2523,12 @@ function buildChordShapes() {
   const bassOrder = voicedChordNotes(set, 0).map(v => v.offset); // root, then each tone up the close stack
   const list = [];
   const all = searchChordShapes(pcs);
+  chordShapeSearch = { all, invs: [] };
   bassOrder.forEach((bassOffset, inv) => {
     const bassPc = (bassOffset + rootPitchClass) % 12;
     const omit = omittableOffsets(set, bassOffset);
     const need = new Set(set.filter(o => !omit.has(o)).map(o => (o + rootPitchClass) % 12));
+    chordShapeSearch.invs.push({ inv, bassPc, need });
     const picked = inv === 0 && name ? templateShapes(name, pcs, bassPc) : [];
     const cells = sh => new Set(sh.frets.map((f, s) => (f === null ? null : s + ':' + f)).filter(Boolean));
     const similar = (a, b) => {
@@ -2454,16 +2548,36 @@ function buildChordShapes() {
       if (picked.some(p => similar(p, sh))) continue;
       picked.push(sh);
     }
-    picked.forEach(sh => {
-      sh.inv = inv;
-      sh.key = shapeKey(sh.frets);
-      sh.cells = sh.frets.map((f, s) => (f === null ? null : { s, f })).filter(Boolean);
-    });
+    picked.forEach(sh => finishShape(sh, inv));
     // Low on the neck to high, as the stepper walks them.
-    const pos = sh => Math.min(...sh.frets.filter(f => f !== null).map(f => f || 0.5));
-    list.push(...picked.sort((a, b) => pos(a) - pos(b)));
+    list.push(...picked.sort((a, b) => shapePos(a) - shapePos(b)));
   });
   return list;
+}
+function finishShape(sh, inv) {
+  sh.inv = inv;
+  sh.key = shapeKey(sh.frets);
+  sh.cells = sh.frets.map((f, s) => (f === null ? null : { s, f })).filter(Boolean);
+  return sh;
+}
+function shapePos(sh) { return Math.min(...sh.frets.filter(f => f !== null).map(f => f || 0.5)); }
+
+// The whole search behind the current chord's shapes (buildChordShapes),
+// kept so a tap on a chord tone that none of the offered shapes passes
+// through — high up the neck, say, where only a few per inversion are
+// kept — can still find the best fingerings that do (extraShapesAt).
+let chordShapeSearch = null;
+function extraShapesAt(s, f) {
+  if (!chordShapeSearch) return [];
+  const out = [];
+  chordShapeSearch.invs.forEach(({ inv, bassPc, need }) => {
+    (chordShapeSearch.all.get(bassPc) || []).forEach(sh => {
+      if (sh.frets[s] !== f) return;
+      const have = new Set(sh.notes.map(x => x.pc));
+      if ([...need].every(pc => have.has(pc))) out.push(finishShape({ ...sh }, inv));
+    });
+  });
+  return out.sort((a, b) => b.score - a.score).slice(0, 3);
 }
 
 // ── scale shapes ──
@@ -2678,8 +2792,20 @@ function shapeHas(sh, s, f) { return sh.cells.some(c => c.s === s && c.f === f);
 // have no "best", so those go up the neck.) A chord shape strums; a scale
 // plays the note tapped.
 function selectShapeAt(s, f) {
-  const through = chordShapes.list.map((sh, i) => ({ sh, i }))
+  let through = chordShapes.list.map((sh, i) => ({ sh, i }))
     .filter(({ sh }) => shapeHas(sh, s, f));
+  // None of the offered shapes passes through here: add the best few that
+  // do, each among its own inversion's shapes at its place up the neck.
+  if (!through.length && chordMode) {
+    extraShapesAt(s, f).forEach(sh => {
+      const list = chordShapes.list;
+      let at = list.findIndex(o => o.inv > sh.inv || (o.inv === sh.inv && shapePos(o) > shapePos(sh)));
+      if (at < 0) at = list.length;
+      list.splice(at, 0, sh);
+      if (at <= chordShapes.idx) chordShapes.idx++;
+    });
+    through = chordShapes.list.map((sh, i) => ({ sh, i })).filter(({ sh }) => shapeHas(sh, s, f));
+  }
   if (chordMode) through.sort((a, b) => b.sh.score - a.sh.score);
   if (!through.length) return false;
   const at = through.findIndex(t => t.i === chordShapes.idx);
@@ -2830,7 +2956,7 @@ function renderInstrumentView() {
   // Upright with the library sidebar, the instrument's column is sized to
   // its own drawing (see sizeLibrarySidebar) — a different instrument or
   // string count changes that.
-  if (currentLayout) sizeLibrarySidebar();
+  if (currentLayout) { sizeLibrarySidebar(); sizePhoneColumns(); }
   syncSvgTextScale();
 }
 
@@ -2978,7 +3104,10 @@ function syncPianoMetrics() {
   // 3 octaves start at C3 (so 3 spans C3-C6, middle C — MIDI 60, the same
   // shared center every other playback path uses — at the start of the
   // middle octave); 4-5 octaves reach one octave lower, C2.
-  PIANO_BASE_OCTAVE = PIANO_OCTAVES >= 4 ? 2 : 3;
+  // An organ with bass keys keeps C3 (it sounds an octave down: C2) even
+  // then — the bass keys are the part below it, and reaching down to C2
+  // too would put the two keyboards on the same notes.
+  PIANO_BASE_OCTAVE = PIANO_OCTAVES >= 4 && !organBassWhiteKeys() ? 2 : 3;
   [PIANO_H, PIANO_BLACK_H] = PIANO_LENGTHS[PIANO_KEY_LENGTH];
   PIANO_TOTAL_WHITE = PIANO_OCTAVES * 7 + 1;
   PIANO_CENTER_X = PIANO_TOTAL_WHITE * PIANO_WHITE_W / 2;
@@ -3011,7 +3140,7 @@ let ORGAN_BASS_OCT = (() => { const v = localStorage.getItem('n4a-organ-bass-oct
 // 1 = deep (lowest key sounds C0), 2 = low (C1) — an octave under the main
 // keyboard, whose lowest C sounds C2 (with up to 3 octaves).
 let ORGAN_BASS_LOW = Number(localStorage.getItem('n4a-organ-bass-low')) || 2;
-const ORGAN_BASS_GAP = 26; // the wooden block between the two keyboards
+const ORGAN_BASS_GAP = 18; // the space between the two keyboards
 function organBassWhiteKeys() {
   return keyboardSound === 'organ' && ORGAN_BASS_OCT > 0 ? ORGAN_BASS_OCT * 7 + 1 : 0;
 }
@@ -3087,7 +3216,10 @@ function renderPiano() {
   const mainX0 = bassWhite ? bassWhite * PIANO_WHITE_W + ORGAN_BASS_GAP : 0;
   const width = mainX0 + PIANO_TOTAL_WHITE * PIANO_WHITE_W;
   const height = H + 6;
-  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  // A pixel of room each side: the outer keys' outlines are centred on the
+  // drawing's edges, so without it half of each was cut off — the right
+  // end's border vanishing whenever it fell just past a pixel boundary.
+  svg.setAttribute('viewBox', `-1 0 ${width + 2} ${height}`);
   svg.setAttribute('width', width);
   svg.setAttribute('height', height);
   // The organ is drawn with its key colors swapped — dark naturals, light
@@ -3126,7 +3258,10 @@ function renderPiano() {
         kid: `${section}-b${i}`, light: organ && !bass });
     }
   }
-  if (bassWhite) addSection('bass', 0, bassWhite, organBassBaseMidi());
+  if (bassWhite) {
+    addSection('bass', 0, bassWhite, organBassBaseMidi());
+    getSampler('organBass'); // start loading its voice before the first key
+  }
   addSection('main', mainX0, PIANO_TOTAL_WHITE, (PIANO_BASE_OCTAVE + 1) * 12);
   const keyClass = (color, section) => `piano-key piano-key-${color}` + (section === 'bass' ? ' piano-key-bass' : '');
 
@@ -3136,12 +3271,6 @@ function renderPiano() {
       class: keyClass('white', section), 'data-midi': midi, 'data-kid': kid
     }));
   });
-  if (bassWhite) {
-    svg.appendChild(mk('rect', {
-      x: bassWhite * PIANO_WHITE_W, y: 0, width: ORGAN_BASS_GAP, height: H,
-      class: 'organ-bass-divider', 'pointer-events': 'none'
-    }));
-  }
 
   // black keys (drawn after, so they sit visually in front of the white keys)
   blackKeys.forEach(({ section, midi, x, kid }) => {
@@ -3280,7 +3409,9 @@ function pianoKeyOf(el) {
   return el && el.closest('#piano') && el.dataset.kid ? { kid: el.dataset.kid, midi: Number(el.dataset.midi) } : null;
 }
 function pianoPress(pointerId, key) {
-  pianoHeld.set(pointerId, { kid: key.kid, note: noteOn(key.midi) });
+  // The organ's bass keys have a voice of their own (organBass).
+  const voice = key.kid.startsWith('bass-') ? 'organBass' : undefined;
+  pianoHeld.set(pointerId, { kid: key.kid, note: noteOn(key.midi, voice) });
   setPianoKeyPressed(key.kid, true);
 }
 function pianoLift(pointerId) {
@@ -3321,6 +3452,11 @@ let refRowMode = 'modes';   // 'families' | 'modes' — Modes is the default: it
 // The library's note-count filter: 'all', or one count (scales 5/6/7/8/12,
 // chords 3/4/5/6). Only filters the list — see #lib-count-toggle.
 let libCount = 'all';
+// The library's search box: while it holds text, the list shows every
+// scale/chord (all note counts, modes included) whose name, symbol or
+// other names contain it.
+let libQuery = '';
+const searchKey = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/♯/g, '#').replace(/♭/g, 'b');
 const LIB_SCALE_COUNTS = [5, 6, 7, 8, 12], LIB_CHORD_COUNTS = [3, 4, 5, 6, 7];
 const LIB_COUNT_NAMES = {
   scale: { 5: 'pentatonic', 6: 'hexatonic', 7: 'heptatonic', 8: 'octatonic', 12: 'chromatic' },
@@ -3386,6 +3522,9 @@ function setChordMode(on) {
 function renderTable() {
   const wrap = document.getElementById('ref-table-wrap');
   wrap.innerHTML = '';
+  const query = searchKey(libQuery.trim());
+  const rowMode = query ? 'modes' : refRowMode; // a search looks through every mode
+  document.getElementById('lib-search').placeholder = chordMode ? 'Search chords' : 'Search scales';
 
   const countToggle = document.getElementById('lib-count-toggle');
   countToggle.replaceChildren(...['all', ...(chordMode ? LIB_CHORD_COUNTS : LIB_SCALE_COUNTS)].map(n => {
@@ -3475,6 +3614,11 @@ function renderTable() {
   // shown dim/small after the name rather than replacing it, so both a
   // symbol-literate jazz player and someone who isn't can read the row.
   function addRow(label, set, symbol) {
+    if (query) {
+      const entry = (chordMode ? CHORD_DICT : SCALE_DICT)[bitmaskOf(set)];
+      const text = [label, symbol, entry && entry.name, ...(entry && SCALE_ALIASES[entry.name] || [])].filter(Boolean).join(' ');
+      if (!searchKey(text).includes(query)) return document.createElement('div'); // not shown
+    }
     const el = addMobileCard(label, set, symbol);
     // Highlights whichever row's own note-set exactly matches what's
     // CURRENTLY loaded — both are always stored the same way (ascending
@@ -3522,7 +3666,23 @@ function renderTable() {
     info.className = 'ref-card-info';
     const name = document.createElement('div');
     name.className = 'ref-card-name';
-    name.appendChild(document.createTextNode(label));
+    const entry = !chordMode && viewMode !== 'beginner' ? SCALE_DICT[bitmaskOf(set)] : null;
+    const aliases = entry && SCALE_ALIASES[entry.name];
+    if (aliases) {
+      // Dim, at the right end of the name's line (over the dot strip's
+      // end), cut short (…) when the line is too full — except on the
+      // current row, where it wraps to show them all (no hover on a phone).
+      const main = document.createElement('span');
+      main.className = 'ref-card-label';
+      main.textContent = label;
+      const also = document.createElement('span');
+      also.className = 'ref-row-alias';
+      also.textContent = aliases.join(', ');
+      name.classList.add('has-alias');
+      name.append(main, also);
+    } else {
+      name.appendChild(document.createTextNode(label));
+    }
     if (symbol) {
       const sym = document.createElement('span');
       sym.className = 'ref-row-symbol';
@@ -3582,7 +3742,7 @@ function renderTable() {
     BEGINNER_SCALES.filter(b => !!b.chord === chordMode).forEach(({ label, set, chord }) => {
       addRow(label, set, chord ? CHORD_SYMBOL[label] : null);
     });
-    wrap.appendChild(container);
+    finishList();
     return;
   }
 
@@ -3595,10 +3755,20 @@ function renderTable() {
   // The sticky column header (see buildListHeader above) answers that for
   // every row at once now, so the inline copy was saying the same thing
   // again, less precisely, on every family heading.
-  function addGroupHeader(label) {
+  // modes: for a family whose rows are all modes of one scale (the same
+  // notes, each starting on a different one), how many there are — said
+  // on the heading, which is what sets a family apart from a heading that
+  // just collects unrelated scales (Other exotic scales, …).
+  function addGroupHeader(label, modes) {
     const h = document.createElement('div');
     h.className = 'ref-list-group-header';
     h.textContent = label;
+    if (modes) {
+      const tag = document.createElement('span');
+      tag.className = 'ref-group-modes';
+      tag.textContent = ` · ${modes} modes`;
+      h.appendChild(tag);
+    }
     target = document.createElement('div');
     target.className = 'ref-family';
     section.appendChild(target);
@@ -3633,49 +3803,56 @@ function renderTable() {
 
   function addScaleCount(n) {
     if (n === 7) {
-      if (refRowMode === 'families') {
+      if (rowMode === 'families') {
         Object.entries(FAMILIES).forEach(([key, fam]) => addRow(FAMILY_LABEL[key], fam.base, null, true));
         Object.entries(EXOTIC).forEach(([key, fam]) => addRow(FAMILY_LABEL[key], fam.base, null, true));
         Object.entries(EXTRA_SINGLE).forEach(([name, set]) => addRow(name, set, null, true));
       } else {
         Object.entries(FAMILIES).forEach(([key, fam]) => {
-          addGroupHeader(FAMILY_LABEL[key]);
+          addGroupHeader(FAMILY_LABEL[key], fam.modes.length);
           fam.modes.forEach((name, k) => addRow(name, rotateToDegree(fam.base, k)));
         });
         Object.entries(EXOTIC).forEach(([key, fam]) => {
-          addGroupHeader(FAMILY_LABEL[key]);
+          addGroupHeader(FAMILY_LABEL[key], fam.modes.length);
           fam.modes.forEach((name, k) => addRow(name, rotateToDegree(fam.base, k)));
         });
         addGroupHeader('Other exotic scales');
         Object.entries(EXTRA_SINGLE).forEach(([name, set]) => addRow(name, set));
       }
     } else if (n === 5) {
-      if (refRowMode === 'families') {
+      const pelog = dictEntryByName('Pelog (Balinese)');
+      if (rowMode === 'families') {
         addRow('Major pentatonic (Gong family)', PENTATONIC.base);
+        addRow('Hirajoshi (with In, Iwato)', JAPANESE_PENTATONIC['Hirajoshi']);
+        addRow('Kumoi (with Insen)', JAPANESE_PENTATONIC['Kumoi']);
+        addRow(pelog.name, pelog.set);
       } else {
-        addGroupHeader('Pentatonic (Gong family)');
+        addGroupHeader('Pentatonic (Gong family)', PENTATONIC.modes.length);
         PENTATONIC.modes.forEach((name, k) => addRow(name, rotateToDegree(PENTATONIC.base, k)));
+        addGroupHeader('Japanese (Hirajoshi family)', 3);
+        ['Hirajoshi', 'Iwato', 'In (Miyako-bushi)'].forEach(name => addRow(name, JAPANESE_PENTATONIC[name]));
+        addGroupHeader('Japanese (Kumoi family)', 2);
+        ['Kumoi', 'Insen'].forEach(name => addRow(name, JAPANESE_PENTATONIC[name]));
+        addGroupHeader('Indonesian');
+        addRow(pelog.name, pelog.set);
       }
     } else if (n === 6) {
       // Symmetric scales (whole-tone, augmented) are the headline rows at this
-      // count — they're the ones with real identity here — with blues (an
-      // ordinary stepwise hexatonic) listed separately (Increment 3 §8).
-      const wholeTone = dictEntryByName('Whole-tone');
-      const augA = dictEntryByName('Augmented');
-      const augB = dictEntryByName('Augmented (inverse)');
-      const blues = dictEntryByName('Blues');
-      if (refRowMode === 'families') {
-        addRow(wholeTone.name, wholeTone.set);
-        addRow(augA.name, augA.set);
-        addRow(blues.name, blues.set);
+      // count — they're the ones with real identity here — with the blues
+      // scales (ordinary stepwise hexatonics) and the rest listed separately
+      // (Increment 3 §8).
+      const e = name => dictEntryByName(name);
+      if (rowMode === 'families') {
+        ['Whole-tone', 'Augmented', 'Minor blues', 'Prometheus', 'Tritone'].forEach(name => addRow(name, e(name).set));
       } else {
         addGroupHeader('Whole-tone');
-        addRow(wholeTone.name, wholeTone.set);
-        addGroupHeader('Augmented');
-        addRow(augA.name, augA.set);
-        addRow(augB.name, augB.set);
+        addRow('Whole-tone', e('Whole-tone').set);
+        addGroupHeader('Augmented', 2);
+        ['Augmented', 'Augmented (inverse)'].forEach(name => addRow(name, e(name).set));
+        addGroupHeader('Blues', 2);
+        ['Minor blues', 'Major blues'].forEach(name => addRow(name, e(name).set));
         addGroupHeader('Other hexatonic scales');
-        addRow(blues.name, blues.set);
+        ['Prometheus', 'Tritone'].forEach(name => addRow(name, e(name).set));
       }
     } else if (n === 8) {
       // Octatonic (symmetric) as headline rows; composite scales listed
@@ -3683,6 +3860,7 @@ function renderTable() {
       // the symmetric families (Increment 3 §8).
       const octHW = dictEntryByName('Octatonic (half-whole)');
       const octWH = dictEntryByName('Octatonic (whole-half)');
+      addGroupHeader('Octatonic', 2);
       addRow(octHW.name, octHW.set);
       addRow(octWH.name, octWH.set);
       addGroupHeader('Composite (parent + added tone)');
@@ -3696,7 +3874,7 @@ function renderTable() {
     }
   }
 
-  const counts = (chordMode ? LIB_CHORD_COUNTS : LIB_SCALE_COUNTS).filter(n => libCount === 'all' || n === libCount);
+  const counts = (chordMode ? LIB_CHORD_COUNTS : LIB_SCALE_COUNTS).filter(n => query || libCount === 'all' || n === libCount);
   counts.forEach(n => {
     addCountHeader(n);
     if (chordMode) {
@@ -3706,8 +3884,110 @@ function renderTable() {
     }
   });
 
-  wrap.appendChild(container);
+  finishList();
+
+  // A search leaves out what doesn't match: drop the families, sections
+  // and note-count headings left with no rows, and say so if nothing did.
+  function finishList() {
+    if (query) {
+      list.querySelectorAll('.ref-family').forEach(f => { if (!f.querySelector('.ref-card')) f.remove(); });
+      list.querySelectorAll('.ref-section').forEach(sec => {
+        if (sec.querySelector('.ref-card')) return;
+        const prev = sec.previousElementSibling;
+        if (prev && prev.classList.contains('ref-list-count-header')) prev.remove();
+        sec.remove();
+      });
+      if (!list.querySelector('.ref-card:not(.ref-head)')) {
+        const none = document.createElement('div');
+        none.className = 'ref-list-empty';
+        none.textContent = `No ${chordMode ? 'chords' : 'scales'} match “${libQuery.trim()}”.`;
+        list.appendChild(none);
+      }
+    }
+    wrap.appendChild(container);
+    layoutLibColumns();
+    syncLibHeadLabels();
+  }
 }
+
+// With the library under the instrument (html.lib-below), each note
+// count's rows are dealt into up to three columns, filled top to bottom,
+// a family (heading and modes) never split between two. Done here rather
+// than with CSS multi-column layout: Safari repaints a multi-column box
+// wrongly while something inside it animates — after a row's Play, its
+// dots were left with stray marks or vanished altogether. The column count
+// follows the same rule as the sticky header's label copies (--lib-cols).
+const LIB_COL_MIN = 340, LIB_COL_GAP = 28;
+function layoutLibColumns() {
+  const list = document.querySelector('.col-ref .ref-list');
+  if (!list) return;
+  const cols = document.documentElement.classList.contains('lib-below')
+    ? Math.max(1, Math.min(3, Math.floor((list.clientWidth + LIB_COL_GAP) / (LIB_COL_MIN + LIB_COL_GAP))))
+    : 1;
+  list.querySelectorAll('.ref-section').forEach(sec => {
+    if (Number(sec.dataset.cols || 1) === cols) return;
+    sec.dataset.cols = cols;
+    const blocks = [...sec.children].flatMap(ch => ch.classList.contains('ref-col') ? [...ch.children] : [ch]);
+    sec.style.gridTemplateColumns = '';
+    if (cols === 1) { sec.replaceChildren(...blocks); return; }
+    // Balanced by rows: a family weighs its rows plus a bit for its heading.
+    const weight = el => el.classList.contains('ref-family') ? el.querySelectorAll('.ref-card').length + 0.6 : 1;
+    const target = blocks.reduce((t, b) => t + weight(b), 0) / cols;
+    const columns = [[]];
+    let done = 0;
+    blocks.forEach(b => {
+      const w = weight(b);
+      if (columns[columns.length - 1].length && columns.length < cols && done + w / 2 > target * columns.length) columns.push([]);
+      columns[columns.length - 1].push(b);
+      done += w;
+    });
+    while (columns.length < cols) columns.push([]);
+    sec.replaceChildren(...columns.map(c => {
+      const d = document.createElement('div');
+      d.className = 'ref-col';
+      d.append(...c);
+      return d;
+    }));
+    sec.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+  });
+}
+
+// With the library under the instrument (html.lib-below), the sticky
+// header has a copy of the 12 degree labels over each column — but near
+// the top of a section, a column can still be empty (a single family
+// fills only the first). A column's labels show only while the topmost
+// note-count section still on screen has rows in that column below the
+// header; they appear as you scroll down to where it does.
+function syncLibHeadLabels() {
+  const head = document.querySelector('.col-ref .ref-head');
+  if (!head) return;
+  const cells = [...head.querySelectorAll('.ref-head-cell')];
+  if (!document.documentElement.classList.contains('lib-below')) {
+    cells.forEach(c => c.classList.remove('ref-head-empty'));
+    return;
+  }
+  const headBottom = head.getBoundingClientRect().bottom;
+  const lefts = cells.map(c => c.getBoundingClientRect().left);
+  const columnOf = x => {
+    let best = 0;
+    lefts.forEach((l, i) => { if (Math.abs(l - x) < Math.abs(lefts[best] - x)) best = i; });
+    return best;
+  };
+  const section = [...document.querySelectorAll('.col-ref .ref-section')]
+    .find(sec => sec.getBoundingClientRect().bottom > headBottom + 4);
+  const filled = new Set();
+  if (section) {
+    section.querySelectorAll('.ref-card, .ref-list-group-header').forEach(el => {
+      const r = el.getBoundingClientRect();
+      if (r.bottom > headBottom + 4) filled.add(columnOf(r.left));
+    });
+  }
+  cells.forEach((c, i) => c.classList.toggle('ref-head-empty', !!section && !filled.has(i)));
+}
+let libHeadRaf = 0;
+document.querySelector('.col-ref').addEventListener('scroll', () => {
+  if (!libHeadRaf) libHeadRaf = requestAnimationFrame(() => { libHeadRaf = 0; syncLibHeadLabels(); });
+}, { passive: true });
 
 
 // ── §7 audio (Tone.js) ────────────────────────────────────────────────────────
@@ -4169,19 +4449,73 @@ function voicedChordNotes(set, inversion) {
 }
 
 // ── voicing view ──
-// Beside the abacus (lying down) or under it (upright), chord mode only:
-// which chord tone sits where in the current voicing, low to high — the
-// one thing the abacus can't show, being a single octave. Two looks,
-// swapped by tapping it:
-//   beads — the chord tones as small labelled beads on a compact grand
-//           staff, left to right in the order they're stacked, each on its
-//           own line or space, so a drop voicing shows its gap;
-//   score — the same notes as one engraved chord, noteheads in the notes'
-//           own colors.
-let voicingViewMode = localStorage.getItem('n4a-voicing-view') === 'score' ? 'score' : 'beads';
-let voicingViewMarks = []; // idx into the chord -> the drawn bead/notehead, for pulseVoicingView
+// Beside the abacus (lying down) or under it (upright): the notes on a
+// compact staff, as plain noteheads in the notes' own colours — which
+// octave each note sits in, the one thing the abacus can't show.
+//   chord mode — the chord as one engraved stack, then (lying down, where
+//                the row has the width for it) the same notes one by one,
+//                low to high: what Play sounds, strike then arpeggio;
+//   scale mode — lying down only: the scale written out root to octave,
+//                as Play runs it.
+let voicingViewMarks = { chord: [], arp: [] }; // for pulseVoicingView
 const LETTER_PC = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
-const STAFF_ACCIDENTAL = { '-2': '𝄫', '-1': '♭', '1': '♯', '2': '𝄪' };
+const STAFF_ACCIDENTAL = { '-2': '𝄫', '-1': '♭', '0': '♮', '1': '♯', '2': '𝄪' };
+
+// A scale is written with a key signature (Setup > Staff), one of two
+// ways:
+//   parent    — (the default) the signature of the scale it's a mode of,
+//               as jazz charts and method books write modes: D Dorian with
+//               no sharps or flats (it's C major's notes), E Dorian with
+//               D major's two sharps. Worked out as the signature that
+//               leaves the fewest notes needing an accidental, so modes of
+//               harmonic/melodic minor get their parent minor key's (plus
+//               its raised notes) too; ties go to the classical choice.
+//   classical — the tonic's own major key, or its minor key for a scale
+//               with a minor 3rd and no major one, as scale books teach
+//               modes against major and minor: E Dorian as E minor's one
+//               sharp plus a C♯, E harmonic minor E minor's plus a D♯.
+// Returns the signature as fifths (+ sharps, − flats), or null where none
+// would do (a tonic like A♯ whose major key would need more than seven).
+let keySigStyle = localStorage.getItem('n4a-key-sig') === 'classical' ? 'classical' : 'parent';
+function scaleKeyFifths(set, notes) {
+  const { step, acc } = staffSpelling('R', 60 + rootPitchClass);
+  const tonic = [0, 2, 4, -1, 1, 3, 5][step % 7] + 7 * acc - (!set.includes(4) && set.includes(3) ? 3 : 0);
+  if (keySigStyle === 'parent') {
+    const spelled = notes.map(n => staffSpelling(n.label, n.midi));
+    let best = null, bestCost = null;
+    for (let k = -7; k <= 7; k++) {
+      const letters = keyLettersFor(k);
+      const cost = [spelled.filter(n => n.acc !== letters[n.step % 7]).length, Math.abs(k - tonic), Math.abs(k)];
+      const i = bestCost ? cost.findIndex((c, j) => c !== bestCost[j]) : 0;
+      if (i >= 0 && (!bestCost || cost[i] < bestCost[i])) { best = k; bestCost = cost; }
+    }
+    return best;
+  }
+  return Math.abs(tonic) <= 7 ? tonic : null;
+}
+// Which letters a key signature alters, in the order they're written.
+const SHARP_ORDER = [3, 0, 4, 1, 5, 2, 6], FLAT_ORDER = [6, 2, 5, 1, 4, 0, 3]; // letter indices, C = 0
+// Each letter's accidental under a key signature of `fifths` (C = 0).
+function keyLettersFor(fifths) {
+  const out = new Array(7).fill(0);
+  if (fifths > 0) SHARP_ORDER.slice(0, fifths).forEach(l => { out[l] = 1; });
+  if (fifths < 0) FLAT_ORDER.slice(0, -fifths).forEach(l => { out[l] = -1; });
+  return out;
+}
+function refreshKeySigControls() {
+  document.querySelectorAll('#key-sig-toggle [data-keysig]').forEach(b =>
+    b.classList.toggle('active', b.dataset.keysig === keySigStyle));
+}
+document.querySelectorAll('#key-sig-toggle [data-keysig]').forEach(b => b.addEventListener('click', () => {
+  keySigStyle = b.dataset.keysig;
+  localStorage.setItem('n4a-key-sig', keySigStyle);
+  refreshKeySigControls();
+  renderVoicingView();
+}));
+refreshKeySigControls();
+// Where each is written on the treble staff (steps, as staffSpelling);
+// the bass staff's are two octaves lower.
+const SHARP_STEPS = [38, 35, 39, 36, 33, 37, 34], FLAT_STEPS = [34, 37, 33, 36, 32, 35, 31];
 
 // Where a chord tone goes on a staff: its letter comes from its degree
 // counted up from the root's letter (a ♭7 over C is a B-something, never
@@ -4207,42 +4541,53 @@ function spelledNoteName(label, midi) {
 
 function renderVoicingView() {
   const view = document.getElementById('voicing-view');
-  voicingViewMarks = [];
-  view.hidden = !chordMode;
-  if (!chordMode) return;
-  refreshVoicingSelectUI();
+  voicingViewMarks = { chord: [], arp: [] };
+  const wide = document.documentElement.classList.contains('lay-h');
+  view.hidden = false;
+  view.classList.toggle('vv-scale', !chordMode);
+  if (chordMode) refreshVoicingSelectUI();
   const svg = document.getElementById('voicing-view-svg');
   svg.innerHTML = '';
-  const notes = voicedChordNotes(scaleOffsets).map(n => ({
-    ...n, label: chordAwareBeadLabel(n.idx, n.offset, scaleOffsets, 'relative', rootPitchClass),
-  }));
+  let notes;
+  if (chordMode) {
+    notes = voicedChordNotes(scaleOffsets);
+  } else {
+    const base = 60 + centeredPc(rootPitchClass);
+    notes = scaleOffsets.map((offset, idx) => ({ idx, offset, midi: base + offset }))
+      .concat([{ idx: 0, offset: 0, midi: base + 12 }]);
+  }
+  notes = notes.map(n => ({ ...n, label: chordAwareBeadLabel(n.idx, n.offset, scaleOffsets, 'relative', rootPitchClass) }));
   const names = notes.map(n => n.label).join(' ');
-  svg.setAttribute('aria-label', `${VOICING_LABELS[chordVoicing]} voicing, low to high: ${names}`);
-  view.title = voicingViewMode === 'beads' ? 'Tap for the score' : 'Tap for beads';
-  if (voicingViewMode === 'score') drawVoicingScore(svg, notes); else drawVoicingBeads(svg, notes);
+  svg.setAttribute('aria-label', chordMode
+    ? `${VOICING_LABELS[chordVoicing]} voicing, low to high: ${names}`
+    : `The scale, root to octave: ${names}`);
+  // Upright, a chord is just its stack (the box under the abacus has no
+  // width for both); a scale is always its run, squeezed to fit.
+  drawVoicingStaff(svg, notes, { chord: chordMode, arp: wide || !chordMode, keyFifths: chordMode ? null : scaleKeyFifths(scaleOffsets, notes) });
 }
 
-function drawVoicingBeads(svg, notes) { drawVoicingStaff(svg, notes, true); }
-function drawVoicingScore(svg, notes) { drawVoicingStaff(svg, notes, false); }
-
-// Both looks share one staff (treble E4..F5 and/or bass G2..A3, as the
-// notes need, plus whatever ledger room they reach past them), drawn as
-// large as the panel allows — no margin beyond what the clefs and outer
-// notes need, and the staff lines run the panel's full width:
-//   beads — each chord tone a labelled bead exactly one staff space tall
-//           (so it sits on its line or in its space the way a notehead
-//           does), spread left to right in the order they're stacked,
-//           with the accidental its spelling needs in front of it;
-//   score — plain coloured noteheads stacked as one chord, as engraved.
-function drawVoicingStaff(svg, notes, beads) {
-  const HALF = beads ? 6 : 3; // half a staff space: one diatonic step
-  const k = HALF / 3;         // everything else grows with the staff
-  const spelled = notes.map(n => ({ ...n, ...staffSpelling(n.label, n.midi) }));
-  // Only the staves the chord needs: middle C and up read on the treble
+// One staff (treble E4..F5 and/or bass G2..A3, as the notes need, plus
+// whatever ledger room they reach past them), drawn as large as the panel
+// allows — no margin beyond what the clefs and outer notes need, and the
+// staff lines run the panel's full width. `chord`: the notes stacked as
+// one chord, as engraved; `arp`: then each on its own, left to right, its
+// accidental in front of it. `keyFifths`: a key signature (see
+// scaleKeyFifths) — notes then carry only the accidentals it doesn't
+// already give them (a natural where it cancels one). A chord is written
+// without one, the way a chord chart shows a voicing out of any key.
+function drawVoicingStaff(svg, notes, { chord, arp, keyFifths = null }) {
+  const HALF = 3; // half a staff space: one diatonic step
+  const keyLetters = keyLettersFor(keyFifths || 0);
+  const spelled = notes.map(n => {
+    const sp = staffSpelling(n.label, n.midi);
+    // sign: the accidental written in front of it, if any.
+    return { ...n, ...sp, sign: sp.acc === keyLetters[sp.step % 7] ? null : sp.acc };
+  });
+  // Only the staves the notes need: middle C and up read on the treble
   // staff, B3 and down on the bass — a close voicing around middle C is
   // treble-only, and drawn at twice the size for it.
-  // A chord that would need both staves but fits the treble staff an
-  // octave up (down to three ledger lines under it — a guitar's low E) is
+  // Notes that would need both staves but fit the treble staff an octave
+  // up (down to three ledger lines under it — a guitar's low E) are
   // written there with an ottava-bassa treble clef (the 8 under it: sounds
   // an octave lower) — how guitar music is written, and one staff drawn
   // large instead of a grand staff too small to read.
@@ -4252,107 +4597,119 @@ function drawVoicingStaff(svg, notes, beads) {
   const treble = ottava || steps.some(s => s >= 28), bass = !ottava && steps.some(s => s < 28);
   const lines = [...(bass ? [18, 20, 22, 24, 26] : []), ...(treble ? [30, 32, 34, 36, 38] : [])];
   const topLine = lines[lines.length - 1], bottomLine = lines[0];
-  // Room for the outer notes (a bead or notehead reaches one step past its
-  // own line) and for the clefs: the treble clef's curl reaches about a
-  // step and a half above its staff, and its tail as far below.
+  // Room for the outer notes (a notehead reaches one step past its own
+  // line) and for the clefs: the treble clef's curl reaches about a step
+  // and a half above its staff, and its tail as far below.
   const top = Math.max(topLine + (treble ? 1.6 : 0.5), ...steps.map(s => s + 1.1));
   const bottom = Math.min(bottomLine - (ottava ? 3 : treble && !bass ? 1.9 : 0.5), ...steps.map(s => s - 1.1));
   const y = s => (top - s) * HALF;
   const h = y(bottom);
   const ink = 'rgba(255,255,255,0.7)';
-  const clefW = 17 * k, accW = (beads ? 5.5 : 6.5) * k;
-  const accFont = (beads ? 8 : 9) * k;
-
-  const r = HALF;                       // a bead: one staff space across
-  const headHalf = beads ? r : 3.9;    // half a notehead's width
+  const clefW = 17, accW = 6.5, accFont = 9;
+  const keyCount = Math.abs(keyFifths || 0), keyW = 4.2; // the key signature, right after the clef
+  const startX = clefW + 4 + (keyCount ? keyCount * keyW + 2 : 0);
+  const headHalf = 3.9; // half a notehead's width
   const box = svg.getBoundingClientRect();
   const aspect = box.height > 0 ? box.width / box.height : 0;
 
-  // Two horizontal layouts. Each sets n.x (the head) and n.accX (its
-  // accidental, if any) and returns the drawing's width.
-  //
-  // Spread (beads only): left to right in the order they're stacked,
-  // packed as tight as they go without touching — each bead moves right
-  // until neither it nor its accidental overlaps anything placed before
-  // it, so one far up the staff can tuck in close.
-  function layoutSpread() {
-    const pad = 0.6 * k, boxes = [];
-    const hits = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
-    const boxesAt = (n, x) => {
-      const ny = y(n.step), out = [{ x0: x - r - pad, x1: x + r + pad, y0: ny - r - pad, y1: ny + r + pad }];
-      if (n.acc) out.push({ x0: x - r - accW - pad, x1: x - r, y0: ny - 2.6 * HALF, y1: ny + 2.2 * HALF });
-      return out;
-    };
-    let x = clefW + 3 * k;
-    spelled.forEach(n => {
-      x = Math.max(x, clefW + 3 * k + (n.acc ? accW : 0) + r);
-      while (boxesAt(n, x).some(b => boxes.some(p => hits(b, p)))) x += 0.5;
-      n.x = x;
-      n.accX = x - r - accW / 2 - 0.3 * k;
-      boxes.push(...boxesAt(n, x));
-    });
-    spelled.forEach(n => { n.shifted = false; });
-    return x + r + 2 * k;
-  }
-  // Stacked: one chord, as engraved — heads a third apart touch, a second
-  // between neighbours puts the upper one beside the lower, and
-  // accidentals stack leftward in columns: each takes the first column
-  // with no other accidental within a sixth of it.
-  function layoutStacked() {
+  // The stacked chord: heads a third apart touch, a second between
+  // neighbours puts the upper one beside the lower, and accidentals stack
+  // leftward in columns — each takes the first column with no other
+  // accidental within a sixth of it. Returns where it ends.
+  function layoutStacked(list, x0) {
     const cols = [];
-    spelled.slice().reverse().forEach(n => {
-      if (!n.acc) return;
+    list.slice().reverse().forEach(n => {
+      if (n.sign === null) return;
       let c = 0;
       while ((cols[c] || []).some(s => Math.abs(s - n.step) < 6)) c++;
       (cols[c] = cols[c] || []).push(n.step);
       n.accCol = c;
     });
-    spelled.forEach((n, i) => {
-      const prev = spelled[i - 1];
+    list.forEach((n, i) => {
+      const prev = list[i - 1];
       n.shifted = !!prev && n.step - prev.step === 1 && !prev.shifted;
     });
-    const noteX = clefW + 4 * k + cols.length * accW + 1.5 * k + headHalf;
-    spelled.forEach(n => {
+    const noteX = x0 + cols.length * accW + 1.5 + headHalf;
+    list.forEach(n => {
       n.x = noteX + (n.shifted ? 1.85 * headHalf : 0);
-      n.accX = noteX - headHalf - 1 * k - accW / 2 - (n.accCol || 0) * accW;
+      n.accX = noteX - headHalf - 1 - accW / 2 - (n.accCol || 0) * accW;
     });
-    return noteX + headHalf * (spelled.some(n => n.shifted) ? 2.85 : 1) + 2 * k;
+    return noteX + headHalf * (list.some(n => n.shifted) ? 2.85 : 1) + 2;
   }
-  // Beads spread out when the panel is wide enough to show them that way
-  // at (nearly) the size a stacked chord would get; a narrow panel, as
-  // upright on a phone, stacks them instead of shrinking them to dots.
-  const fit = ww => Math.min(1 / h, aspect ? aspect / ww : 1 / h); // drawn scale at width ww
-  const wStacked = layoutStacked();
-  const spread = beads && fit(layoutSpread()) >= 0.85 * fit(wStacked);
-  let w = spread ? layoutSpread() : layoutStacked();
+  const NOTE_STEP = 2 * headHalf + 2.5;
+  // The run: one note after another, each with its accidental in front,
+  // `step` apart (see below).
+  function layoutRun(list, x0, step) {
+    let x = x0;
+    list.forEach(n => {
+      if (n.sign !== null) { n.accX = x + accW / 2; x += accW; }
+      n.x = x + headHalf;
+      x += step;
+    });
+    return x - step + 2 * headHalf + 2.5;
+  }
+
+  const stack = chord ? spelled.map(n => ({ ...n })) : [];
+  const run = arp ? spelled.map(n => ({ ...n })) : [];
+  // Within the run an accidental holds for the rest of the bar, so a note
+  // is signed whenever it differs from what's in force on its line or
+  // space by then — an E after an E♭ gets its natural back.
+  const inForce = new Map();
+  run.forEach(n => {
+    const cur = inForce.has(n.step) ? inForce.get(n.step) : keyLetters[n.step % 7];
+    n.sign = n.acc === cur ? null : n.acc;
+    inForce.set(n.step, n.acc);
+  });
+  let w = startX, barX = null;
+  if (stack.length) w = layoutStacked(stack, w);
+  if (stack.length && run.length) { barX = w + 2; w += 6; }
+  // A run too long for the panel closes up rather than shrinking the whole
+  // staff: down to heads overlapping by half — a quick run up the staff,
+  // still one note after the next, as in the narrow box under an upright
+  // abacus.
+  const panelW = aspect ? h * aspect : 0;
+  if (run.length) {
+    const room = panelW - w - 2 - 2 * headHalf - 2.5 - run.filter(n => n.sign !== null).length * accW;
+    const step = panelW && run.length > 1 ? Math.max(headHalf * 1.1, Math.min(NOTE_STEP, room / (run.length - 1))) : NOTE_STEP;
+    w = layoutRun(run, w, step);
+  }
+  w += 2;
   // The staff fills the panel: a panel wider than the drawing gets longer
-  // staff lines, with spread-out beads spaced further apart — up to
-  // double their packed spacing — rather than a shrunken, centred staff.
-  const panelW = aspect ? h * aspect : w;
+  // staff lines, with the run's notes spaced further apart — up to double
+  // their packed spacing — rather than a shrunken, centred staff.
   if (panelW > w) {
-    if (spread && spelled.length > 1) {
-      const x0 = spelled[0].x, used = spelled[spelled.length - 1].x - x0;
-      const f = Math.min(2, 1 + (panelW - w) / used);
-      spelled.forEach(n => {
-        const dx = (n.x - x0) * (f - 1);
-        n.x += dx;
-        n.accX += dx;
-      });
+    if (run.length > 1) {
+      const extra = Math.min(NOTE_STEP, (panelW - w) / run.length);
+      const lead = barX === null ? 0 : extra / 2;
+      run.forEach((n, i) => { n.x += lead + extra * i; n.accX += lead + extra * i; });
+      if (barX !== null) barX += lead / 2;
     }
     w = panelW;
   }
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
 
-  const lineW = 0.2 * k, edge = lineW;
+  const lineW = 0.2, edge = lineW;
   lines.forEach(s =>
     svg.appendChild(mk('line', { x1: edge, x2: w, y1: y(s), y2: y(s), stroke: ink, 'stroke-width': lineW })));
-  svg.appendChild(mk('line', { x1: edge, x2: edge, y1: y(topLine), y2: y(bottomLine), stroke: ink, 'stroke-width': lineW * 1.4 }));
-  if (treble) svg.appendChild(mk('text', { x: 1.5 * k, y: y(30.4), 'font-size': 27 * k, fill: ink, class: 'vv-clef' }, '𝄞'));
-  if (ottava) svg.appendChild(mk('text', { x: 6.4 * k, y: y(bottomLine - 2.6), 'text-anchor': 'middle', 'font-size': 4.6 * k, 'font-weight': 600, fill: ink }, '8'));
-  if (bass) svg.appendChild(mk('text', { x: 2 * k, y: y(21.2), 'font-size': 17 * k, fill: ink, class: 'vv-clef' }, '𝄢'));
+  [edge, barX].forEach(x => {
+    if (x !== null) svg.appendChild(mk('line', { x1: x, x2: x, y1: y(topLine), y2: y(bottomLine), stroke: ink, 'stroke-width': lineW * 1.4 }));
+  });
+  if (treble) svg.appendChild(mk('text', { x: 1.5, y: y(30.4), 'font-size': 27, fill: ink, class: 'vv-clef' }, '𝄞'));
+  if (ottava) svg.appendChild(mk('text', { x: 6.4, y: y(bottomLine - 2.6), 'text-anchor': 'middle', 'font-size': 4.6, 'font-weight': 600, fill: ink }, '8'));
+  if (bass) svg.appendChild(mk('text', { x: 2, y: y(21.2), 'font-size': 17, fill: ink, class: 'vv-clef' }, '𝄢'));
+  const keySign = keyFifths > 0 ? 1 : -1;
+  [treble ? 0 : null, bass ? -14 : null].forEach(shift => {
+    if (shift === null) return;
+    (keySign > 0 ? SHARP_STEPS : FLAT_STEPS).slice(0, keyCount).forEach((st, i) => {
+      svg.appendChild(mk('text', {
+        x: clefW + 1 + keyW * (i + 0.5), y: y(st + shift) + (keySign > 0 ? 1 : 0.5) * HALF,
+        'text-anchor': 'middle', 'font-size': accFont, fill: ink
+      }, STAFF_ACCIDENTAL[keySign]));
+    });
+  });
 
   const ledgerHalf = headHalf * 1.4;
-  spelled.forEach(n => {
+  const drawHead = n => {
     const ny = y(n.step);
     // Ledger lines: anything past the outer lines drawn (middle C
     // included, when it isn't between two staves).
@@ -4363,53 +4720,45 @@ function drawVoicingStaff(svg, notes, beads) {
     ledgers.forEach(s => svg.appendChild(mk('line', {
       x1: n.x - ledgerHalf, x2: n.x + ledgerHalf, y1: y(s), y2: y(s), stroke: ink, 'stroke-width': lineW * 1.3
     })));
-    if (n.acc) {
+    if (n.sign !== null) {
       svg.appendChild(mk('text', {
-        x: n.accX, y: ny + (n.acc < 0 ? 0.5 : 1) * HALF, 'text-anchor': 'middle', 'font-size': accFont, fill: ink
-      }, STAFF_ACCIDENTAL[n.acc]));
+        x: n.accX, y: ny + (n.sign < 0 ? 0.5 : 1) * HALF, 'text-anchor': 'middle', 'font-size': accFont, fill: ink
+      }, STAFF_ACCIDENTAL[n.sign]));
     }
-    let mark;
-    if (beads) {
-      mark = mk('circle', { cx: n.x, cy: ny, r: r - 0.2 * k, fill: icolor(n.offset), stroke: '#111', 'stroke-width': 0.35 * k, class: 'vv-mark' });
-      svg.appendChild(mark);
-      svg.appendChild(mk('text', {
-        x: n.x, y: ny + 0.36 * r, 'text-anchor': 'middle', 'font-size': (n.label.length > 2 ? 0.8 : 1) * r, 'font-weight': 700,
-        fill: textColorFor(n.offset), 'pointer-events': 'none'
-      }, n.label));
-    } else {
-      // Tilted about its own centre: .vv-mark sets transform-origin there
-      // (for the pulse), so a rotate(a, cx, cy) would turn it about the
-      // wrong point.
-      mark = mk('ellipse', {
-        cx: n.x, cy: ny, rx: 3.9, ry: 2.8, transform: 'rotate(-20)',
-        fill: icolor(n.offset), stroke: '#111', 'stroke-width': 0.7, class: 'vv-mark'
-      });
-      svg.appendChild(mark);
-    }
-    voicingViewMarks[n.idx] = mark;
-  });
+    // Tilted about its own centre: .vv-mark sets transform-origin there
+    // (for the pulse), so a rotate(a, cx, cy) would turn it about the
+    // wrong point.
+    const mark = mk('ellipse', {
+      cx: n.x, cy: ny, rx: 3.9, ry: 2.8, transform: 'rotate(-20)',
+      fill: icolor(n.offset), stroke: '#111', 'stroke-width': 0.7, class: 'vv-mark'
+    });
+    svg.appendChild(mark);
+    return mark;
+  };
+  stack.forEach(n => { voicingViewMarks.chord[n.idx] = drawHead(n); });
+  run.forEach((n, i) => { voicingViewMarks.arp[i] = { idx: n.idx, mark: drawHead(n) }; });
 }
 
-// Lights up chord tone `idx` as it sounds during Play — same idea as the
-// abacus's own pulseBead.
-function pulseVoicingView(idx) {
-  const el = voicingViewMarks[idx];
-  if (!el) return;
-  el.classList.remove('vv-pulse');
-  void el.getBoundingClientRect();
-  el.classList.add('vv-pulse');
+// Lights up a note as it sounds during Play — same idea as the abacus's
+// own pulseBead. `at`: 'chord' for the struck chord, a number for that
+// note of the run, or nothing (a note by degree alone): wherever that
+// degree is drawn.
+function pulseVoicingView(idx, at) {
+  const marks = at === 'chord' ? [voicingViewMarks.chord[idx]]
+    : typeof at === 'number' ? [voicingViewMarks.arp[at]?.mark ?? voicingViewMarks.chord[idx]] // no run drawn: the chord's
+    : [voicingViewMarks.chord[idx], ...voicingViewMarks.arp.filter(a => a.idx === idx).map(a => a.mark)];
+  marks.forEach(el => {
+    if (!el) return;
+    el.classList.remove('vv-pulse');
+    void el.getBoundingClientRect();
+    el.classList.add('vv-pulse');
+  });
 }
 
 // The drawing is laid out for the panel's shape (see drawVoicingStaff), so
 // a resized panel redraws. The SVG is out of flow, so redrawing can't
 // resize the panel back.
 new ResizeObserver(() => renderVoicingView()).observe(document.getElementById('voicing-view'));
-
-document.getElementById('voicing-view').addEventListener('click', () => {
-  voicingViewMode = voicingViewMode === 'beads' ? 'score' : 'beads';
-  localStorage.setItem('n4a-voicing-view', voicingViewMode);
-  renderVoicingView();
-});
 
 const droneFilter = new Tone.Filter(droneConfig.cutoff, 'lowpass').connect(reverb);
 const droneBody = new Tone.Synth().connect(droneFilter);
@@ -4726,6 +5075,22 @@ const SAMPLER_CONFIG = {
     lowpass: 1100,
     volume: -9 // its samples are ~6 dB hotter than the piano's, and it doesn't decay; the filter takes back ~3 dB
   },
+  // The organ's bass keys (see "organ bass keys"): the same pipes, but the
+  // round, dark voice a combo organ gives its bass section — most of the
+  // upper harmonics filtered off so the bass line sits under the chords
+  // instead of buzzing alongside them, and a little louder to make up for
+  // what the filter takes.
+  organBass: {
+    baseUrl: SAMPLES_BASE_URL + '/organ/',
+    urls: {
+      C1: 'C1.mp3', 'D#1': 'Ds1.mp3', 'F#1': 'Fs1.mp3', A1: 'A1.mp3',
+      C2: 'C2.mp3', 'D#2': 'Ds2.mp3', 'F#2': 'Fs2.mp3', A2: 'A2.mp3',
+      C3: 'C3.mp3'
+    },
+    release: 0.12,
+    lowpass: 420,
+    volume: -5
+  },
   // Volumes matched by measurement to the guitar's loudness (RMS over the
   // first second of a C4).
   ukulele:  { synth: 'ukulele', volume: -6 },
@@ -4977,7 +5342,8 @@ document.querySelectorAll('#pedals [data-pedal]').forEach(p => {
     p.addEventListener(type, () => { if (p.classList.contains('down')) setPedal(which, false); }));
   p.addEventListener('contextmenu', e => e.preventDefault()); // long-press menu
 });
-function noteOn(midi) {
+// voice: a sampler other than the current instrument's (see getSampler).
+function noteOn(midi, voice) {
   const pressedAt = performance.now();
   let started = null, released = false;
   const releaseNow = () => {
@@ -4992,7 +5358,7 @@ function noteOn(midi) {
     pendingNoteRelease.set(shifted, id);
   };
   ensureAudio().then(() => {
-    const sampler = currentNoteSampler();
+    const sampler = voice ? getSampler(voice) : currentNoteSampler();
     if (!sampler.loaded) return; // see playScaleDegree — .loaded is the reliable per-instrument check
     const shifted = midi + 12 * playbackOctave + samplerOctaveShift();
     const freq = midiToFreq(shifted);
@@ -5153,9 +5519,10 @@ function previewScale(set, pulse) {
     // actually be HEARD", which also covers Tone's lookAhead (Tone.now() is
     // already ~0.1s in the future) and the output device's own latency — a
     // Bluetooth speaker can add half a second (see §7's output latency).
-    const pulseAt = (idx, t) => {
+    // vv: where on the voicing view's staff (see pulseVoicingView).
+    const pulseAt = (idx, t, vv) => {
       const fire = () => {
-        if (pulseAbacus) { abacusController.pulseBead(idx); pulseVoicingView(idx); }
+        if (pulseAbacus) { abacusController.pulseBead(idx); pulseVoicingView(idx, vv); }
         if (pulse) pulse(idx);
       };
       const delayMs = audibleDelayMs(t);
@@ -5178,7 +5545,7 @@ function previewScale(set, pulse) {
         run.forEach(({ midi, idx }, i) => {
           const t = now + i * step * 1.5;
           sampler.triggerAttackRelease(midiToFreq(midi), end - t, t);
-          pulseAt(idx, t);
+          pulseAt(idx, t, 'chord');
         });
       } else {
         const run = set
@@ -5188,7 +5555,7 @@ function previewScale(set, pulse) {
         run.forEach(({ offset, idx }, i) => {
           const last = i === run.length - 1;
           sampler.triggerAttackRelease(midiToFreq(midiFor(offset)), last ? step * 3 : step, now + i * step);
-          pulseAt(idx, now + i * step);
+          pulseAt(idx, now + i * step, i);
         });
       }
       return;
@@ -5221,11 +5588,11 @@ function previewScale(set, pulse) {
       const chordRing = pause + set.length * step + ringTail;
       run.forEach(({ midi, idx }) => {
         sampler.triggerAttackRelease(midiToFreq(midi), chordRing, now);
-        pulseAt(idx, now);
+        pulseAt(idx, now, 'chord');
       });
       run.forEach(({ midi, idx }, i) => {
         sampler.triggerAttackRelease(midiToFreq(midi), step * 0.9, now + pause + i * step);
-        pulseAt(idx, now + pause + i * step);
+        pulseAt(idx, now + pause + i * step, i);
       });
       return;
     }
@@ -5240,7 +5607,7 @@ function previewScale(set, pulse) {
         sampler.triggerAttackRelease(midiToFreq(midi + 12 * playbackOctave + shift), step * 0.9, t);
         pulseAt(set.indexOf(semitone((effectiveOpenPc(s) + f) % 12)), t);
         const delayMs = audibleDelayMs(t);
-        setTimeout(() => shakeFretBead(s, f), Math.max(0, delayMs));
+        setTimeout(() => ringFretNote(s, f), Math.max(0, delayMs));
       });
       return;
     }
@@ -5253,7 +5620,7 @@ function previewScale(set, pulse) {
       .sort((a, b) => a.offset - b.offset);
     run.forEach(({ offset, idx }, i) => {
       sampler.triggerAttackRelease(midiToFreq(midiFor(offset)), step * 0.9, now + i * step);
-      pulseAt(idx, now + i * step);
+      pulseAt(idx, now + i * step, i);
     });
   }).catch(() => {});
 }
@@ -5616,6 +5983,11 @@ document.getElementById('rowmode-toggle').addEventListener('change', e => {
   refRowMode = e.target.checked ? 'modes' : 'families';
   renderTable();
 });
+{
+  const search = document.getElementById('lib-search');
+  search.addEventListener('input', () => { libQuery = search.value; renderTable(); });
+  search.addEventListener('keydown', e => { if (e.key === 'Escape' && search.value) { search.value = ''; libQuery = ''; renderTable(); } });
+}
 document.getElementById('mode-scale-btn').onclick = () => setChordMode(false);
 document.getElementById('mode-chord-btn').onclick = () => setChordMode(true);
 setChordMode(chordMode); // syncs button/hidden states to the persisted mode and loads a matching default
@@ -5756,7 +6128,12 @@ function wireMobilePopup(dialog, closeBtnId) {
   // Clicking the backdrop (outside the dialog's own box) closes it — native
   // <dialog> reports such clicks with target === the dialog element itself,
   // so distinguishing them from a click inside needs a bounding-box check.
+  // Only for clicks on the dialog itself: a button inside can change the
+  // dialog's size before its click gets here (picking a short palette in
+  // Colors shrinks the table), leaving the click "outside" the new box —
+  // which used to close the popup under the user's finger.
   dialog.addEventListener('click', e => {
+    if (e.target !== dialog) return;
     const r = dialog.getBoundingClientRect();
     if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close();
   });
@@ -5935,9 +6312,13 @@ function applyLayout() {
     applyFretTapPlacement();
     applyRootSelectorPlacement();
     applyInstrumentOrientation();
+    renderVoicingView(); // scale mode shows it lying down only
   }
   sizeLibrarySidebar();
+  sizePhoneColumns();
   syncSvgTextScale();
+  layoutLibColumns();
+  syncLibHeadLabels();
 }
 
 // Column sizes for the sidebar layout. Lying down, the fretboard is
@@ -5947,6 +6328,29 @@ function applyLayout() {
 // and the library takes the rest. If that would leave the library too
 // narrow to read, it goes back behind Browse instead.
 const LIB_MIN_W = 240, LIB_MAX_W = 520;
+// Upright on a phone the instrument fills the column's height, and most
+// instruments (all but a guitar, or a long-keyed piano) are then narrower
+// than their column. That spare width goes to the abacus column instead,
+// where the staff under the abacus can use it. Never narrower than the
+// stylesheet's own column, never more than ~42% of the screen.
+function sizePhoneColumns() {
+  const col = document.querySelector('.col-main');
+  const L = currentLayout;
+  if (!L || !L.phone || !L.vertical) { col.style.gridTemplateColumns = ''; return; }
+  col.style.gridTemplateColumns = '';
+  const base = document.getElementById('abacus-row').getBoundingClientRect().width;
+  const svg = document.getElementById(instrument === 'piano' ? 'piano' : 'fretboard');
+  const vb = svg.viewBox.baseVal;
+  if (!vb || !vb.height) return;
+  const pedals = document.getElementById('pedals');
+  const needed = svg.getBoundingClientRect().height * vb.width / vb.height
+    + (instrument === 'piano' && !pedals.hidden ? pedals.getBoundingClientRect().width + 8 : 0);
+  const gap = parseFloat(getComputedStyle(col).columnGap) || 0;
+  const total = col.clientWidth;
+  const ab = Math.max(base, Math.min(0.42 * total, total - gap - Math.ceil(needed) - 2));
+  if (ab > base + 1) col.style.gridTemplateColumns = `${Math.floor(ab)}px minmax(0, 1fr)`;
+}
+
 function sizeLibrarySidebar() {
   const layout = document.getElementById('layout');
   const L = currentLayout;
@@ -6106,36 +6510,7 @@ function renderColorsPopup() {
     rest.querySelector('.legend-swatch').style.background = DIM;
     tbody.replaceChildren(...rows, rest);
   }
-  const parts = [table];
-  // The longer write-up (feeling / function / where you hear it) that used
-  // to sit under the instrument on the old desktop page — for the full
-  // Sentiment12 palette only, folded away until asked for.
-  if (!info.degrees) {
-    const more = document.createElement('details');
-    more.className = 'colors-full-explainer';
-    const summary = document.createElement('summary');
-    summary.textContent = 'Full explainer';
-    // Read out of the desktop legend's 4-column table, but laid out as one
-    // small block per degree: four columns of long text don't fit a phone.
-    const blocks = [...document.querySelectorAll('#legend-full-wrap tbody tr')].map(tr => {
-      const [degree, feeling, fn, use] = tr.children;
-      const block = document.createElement('div');
-      block.className = 'explainer-degree';
-      const head = document.createElement('div');
-      head.className = 'explainer-head';
-      head.append(...[...degree.cloneNode(true).childNodes], ' — ', feeling.textContent);
-      const f = document.createElement('p');
-      f.textContent = fn.textContent;
-      const u = document.createElement('p');
-      u.className = 'explainer-use';
-      u.innerHTML = use.innerHTML; // keeps its <em>
-      block.append(head, f, u);
-      return block;
-    });
-    more.append(summary, ...blocks);
-    parts.push(more);
-  }
-  document.getElementById('colors-popup-body').replaceChildren(...parts);
+  document.getElementById('colors-popup-body').replaceChildren(table);
 }
 const colorsPopup = document.getElementById('colors-popup');
 wireMobilePopup(colorsPopup, 'colors-popup-close');
@@ -6145,15 +6520,6 @@ document.getElementById('colors-btn').addEventListener('click', () => {
   colorsPopup.showModal();
 });
 renderLegendSwatches();
-let legendExpanded = localStorage.getItem('n4a-legend-expanded') === 'true';
-document.getElementById('legend-full-wrap').style.display = legendExpanded ? 'block' : 'none';
-document.getElementById('legend-chevron').innerHTML = legendExpanded ? '&#9660;' : '&#9654;';
-document.getElementById('legend-header').addEventListener('click', () => {
-  legendExpanded = !legendExpanded;
-  localStorage.setItem('n4a-legend-expanded', legendExpanded);
-  document.getElementById('legend-full-wrap').style.display = legendExpanded ? 'block' : 'none';
-  document.getElementById('legend-chevron').innerHTML = legendExpanded ? '&#9660;' : '&#9654;';
-});
 
 // wire up drone toggle + sequential playback
 document.getElementById('drone-toggle').onclick = () => toggleDrone();

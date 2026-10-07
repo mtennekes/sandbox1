@@ -126,11 +126,10 @@
           </div>
         </div>
         <!-- The abacus shares its row (lying down) or column (upright) with
-             the voicing view: the active chord's notes in the order the
-             current voicing stacks them, low to high — as beads, or as a
-             compact grand staff (tap to switch). Chord mode only; hidden
-             for scales, where the abacus has the space to itself. No
-             caption: the voicing's name is on the Voicing button already.
+             the voicing view: the notes on a compact staff — the chord as
+             voiced (then, lying down, as arpeggiated), or lying down the
+             scale root to octave. No caption: the voicing's name is on the
+             Voicing button already.
              See renderVoicingView in app.js. -->
         <div class="abacus-row" id="abacus-row">
           <svg id="abacus" viewBox="0 0 760 80" width="760" height="80"></svg>
@@ -260,6 +259,12 @@
             <input type="checkbox" id="move-beads-toggle">
             <span class="drone-led" aria-hidden="true"></span>
             <span>Move beads</span>
+          </label>
+          <!-- A played string visibly swings (off by default). -->
+          <label class="led-toggle">
+            <input type="checkbox" id="vibrate-strings-toggle">
+            <span class="drone-led" aria-hidden="true"></span>
+            <span>Vibrate strings</span>
           </label>
           <!-- What a swipe across the strings plays on each string: the
                scale/chord note nearest to where it crosses, or exactly the
@@ -403,6 +408,9 @@
           <span class="drone-led" aria-hidden="true"></span>
           <span>Show modes</span>
         </label>
+        <!-- Matches names and other names (SCALE_ALIASES) across the whole
+             list, whatever Notes/Show modes are set to — see libQuery. -->
+        <input type="search" id="lib-search" class="lib-search" placeholder="Search" autocomplete="off" spellcheck="false" aria-label="Search the list">
       </div>
       <div id="ref-table-wrap"></div>
     </div>
@@ -432,88 +440,9 @@
     </tbody>
   </table>
 
-  <div class="label chord-header" id="legend-header"><span id="legend-chevron">&#9654;</span>&nbsp;Full explainer</div>
-  <div id="legend-full-wrap" style="display:none;">
-    <table class="legend-table">
-      <thead>
-        <tr><th>Degree</th><th>Feeling</th><th>Function</th><th>Application</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><span class="legend-swatch" data-degree="0"></span>R (root)</td>
-          <td>Home, grounded, complete</td>
-          <td>The reference point everything else is measured against; no pull of its own</td>
-          <td>Every scale and chord, in every genre — the tonic</td>
-        </tr>
-        <tr>
-          <td><span class="legend-swatch" data-degree="1"></span>♭2 / ♭9</td>
-          <td>Spicy, tense, exotic, passionate</td>
-          <td>A half-step above home; the closest, most urgent interval; demands resolution down into the root</td>
-          <td>Flamenco, Phrygian modes, Middle Eastern and Balkan music, klezmer (<em>freygish</em>); altered-dominant ♭9 chords in jazz; a genre-defining sound in metal, often stacked over a tritone for maximum darkness</td>
-        </tr>
-        <tr>
-          <td><span class="legend-swatch" data-degree="2"></span>2 / 9</td>
-          <td>Peaceful, open, hopeful, gentle</td>
-          <td>A whole step out; passes through or hangs suspended; doesn't demand resolution</td>
-          <td>Sus2 / add9 in pop and folk melodies; dominant 9th and add9 voicings are everywhere in blues, funk, and jazz comping — a 9 chord is practically funk's signature color</td>
-        </tr>
-        <tr>
-          <td><span class="legend-swatch" data-degree="3"></span>♭3</td>
-          <td>Sad, wistful, nostalgic, bittersweet</td>
-          <td>Defines the chord as minor</td>
-          <td>Ubiquitous — defines "minor" in every genre, from classical and jazz to rock, pop, and metal. Also the classic blues "blue note," bent or slid into against a major backing</td>
-        </tr>
-        <tr>
-          <td><span class="legend-swatch" data-degree="4"></span>3</td>
-          <td>Happy, bright, joyful, confident</td>
-          <td>Defines the chord as major</td>
-          <td>Equally ubiquitous — defines "major" in every genre; the bright half of nearly every style's harmonic vocabulary</td>
-        </tr>
-        <tr>
-          <td><span class="legend-swatch" data-degree="5"></span>4 / 11</td>
-          <td>Uplifting, yearning, open</td>
-          <td>Leans toward the 3rd or the 5th; a suspension that wants to move</td>
-          <td>Sus4 chords in rock and pop power ballads; a mainstay of Celtic and modal folk melodies as a passing/drone tone</td>
-        </tr>
-        <tr>
-          <td><span class="legend-swatch" data-degree="6"></span>♭5 / ♯11</td>
-          <td>Dissonant, dangerous, unstable</td>
-          <td>Exact midpoint of the octave (the tritone) — inherently unstable; how much that instability dominates depends on what it's mixed into, not whether it's present</td>
-          <td>Dim7 chords, tritone substitutions, and altered dominants in jazz; a signature interval of metal and horror/thriller scoring, where the tension is the main flavor. In Lydian's maj7♯11, the same edge is folded into an otherwise sweet, floating major chord in jazz and film scoring — still there, like chili stirred into something mostly sweet, just blended rather than dominant</td>
-        </tr>
-        <tr>
-          <td><span class="legend-swatch" data-degree="7"></span>5</td>
-          <td>Stable, solid, essential yet neutral</td>
-          <td>Reinforces the root without adding major/minor color</td>
-          <td>The backbone of the power chord — arguably the single most-used interval in rock, punk, and metal riffing, plus drones across countless traditions worldwide</td>
-        </tr>
-        <tr>
-          <td><span class="legend-swatch" data-degree="8"></span>♭6 / ♯5</td>
-          <td>Enchanting, secretive, mysterious</td>
-          <td>As ♯5: floats between major and minor (augmented ambiguity). As ♭6: leans down into the 5th</td>
-          <td>Augmented chords in jazz and Great American Songbook harmony; harmonic minor, Phrygian dominant, and double harmonic scales (flamenco, klezmer, Egyptian and Arabic maqam music); the same ambiguous, floating quality drives whole-tone harmony in Impressionist classical music</td>
-        </tr>
-        <tr>
-          <td><span class="legend-swatch" data-degree="9"></span>6 / 13</td>
-          <td>Playful, affectionate, tender</td>
-          <td>Adds warmth and sweetness without changing major/minor quality</td>
-          <td>6/9 chords and Dorian mode in jazz and bossa nova comping; a warm staple in gospel and neo-soul voicings too</td>
-        </tr>
-        <tr>
-          <td><span class="legend-swatch" data-degree="10"></span>♭7</td>
-          <td>Bluesy, soulful, gritty</td>
-          <td>Defines dominant-7th / Mixolydian character; the classic V7 pull</td>
-          <td>Dominant 7th chords, blues, and Mixolydian broadly; the twang of country and southern rock (Mixolydian licks); reggae's core minor/dominant-7 chord vocabulary; a funk and R&B staple in dominant 9/13 voicings</td>
-        </tr>
-        <tr>
-          <td><span class="legend-swatch" data-degree="11"></span>7</td>
-          <td>Spiritual, yearning, otherworldly</td>
-          <td>The leading tone — the strongest pull of all, a half-step below home</td>
-          <td>Major7 chords in bebop, gospel, and "floating" jazz ballads; also the note doing the work in the classical cadence (leading tone resolving to tonic) across virtually all Western tonal music</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  <!-- The longer per-degree write-up (feeling / function / where you hear
+       it) that used to follow here was removed 2026-10-07; it's kept in
+       docs/archive/degree-explainer.md. -->
 </div>
 
 <dialog id="settings-popup" class="mobile-popup">
@@ -585,6 +514,15 @@
     </label>
   </div>
 
+  </div>
+
+  <!-- How the staff beside the abacus writes a scale's key signature —
+       see keySigStyle in app.js. -->
+  <div class="synth-section-title"><span aria-hidden="true">🎼</span>Staff</div>
+  <div class="label">Key signature for scales</div>
+  <div class="hand-toggle" id="key-sig-toggle">
+    <button type="button" class="hand-btn" data-keysig="parent" title="D Dorian with no sharps or flats: the key of the scale it's a mode of">Parent scale (jazz)</button>
+    <button type="button" class="hand-btn" data-keysig="classical" title="D Dorian as D minor's one flat plus a B natural">Tonic's key (classical)</button>
   </div>
 
   <div class="synth-section-title"><span aria-hidden="true">🔊</span>Audio</div>
